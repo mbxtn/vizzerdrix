@@ -575,7 +575,7 @@ export class CardZone {
         this.contextMenuJustShown = false;
     }
     
-    shuffleCards() {
+    shuffleCards(suppressMessage = false) {
         // Shuffle using Fisher-Yates algorithm
         for (let i = this.cards.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -595,7 +595,10 @@ export class CardZone {
             this.onStateChange('shuffle', null, this.zoneType, null);
         }
         
-        this.showMessage?.(`${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} shuffled!`);
+        // Only show message if not suppressed
+        if (!suppressMessage) {
+            this.showMessage?.(`${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} shuffled!`);
+        }
     }
     
     viewAllCards() {
@@ -620,6 +623,26 @@ export class CardZone {
         
         header.appendChild(title);
         header.appendChild(closeBtn);
+
+        // Action buttons section (only show if shuffle is enabled)
+        let actionButtons = null;
+        if (this.showShuffle) {
+            actionButtons = document.createElement('div');
+            actionButtons.className = 'px-4 py-3 border-b border-gray-600';
+            
+            const shuffleAndCloseBtn = document.createElement('button');
+            shuffleAndCloseBtn.className = 'w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium';
+            shuffleAndCloseBtn.textContent = 'Shuffle and Close';
+            shuffleAndCloseBtn.addEventListener('click', () => {
+                this.closeSidePanel();
+                // Wait for panel to close before shuffling to avoid showing the new order
+                setTimeout(() => {
+                    this.shuffleCards(true); // Pass true to suppress the message
+                }, 350); // Slightly longer than the panel close animation (300ms)
+            });
+            
+            actionButtons.appendChild(shuffleAndCloseBtn);
+        }
         
         // Instruction text
         const instruction = document.createElement('p');
@@ -701,6 +724,9 @@ export class CardZone {
         
         // Assemble the panel
         panel.appendChild(header);
+        if (actionButtons) {
+            panel.appendChild(actionButtons);
+        }
         panel.appendChild(instruction);
         panel.appendChild(cardContainer);
         
