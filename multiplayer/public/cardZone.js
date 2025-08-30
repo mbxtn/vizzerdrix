@@ -46,6 +46,9 @@ export class CardZone {
         // Drag tracking for top card
         this.draggedCardId = null;
         
+        // Interaction state
+        this.interactionEnabled = true; // Default to enabled
+        
         this.initializeEventHandlers();
     }
     
@@ -65,6 +68,9 @@ export class CardZone {
     setupPeekHandlers() {
         // Peek functionality is now handled by long-pressing the top card
         this.element.addEventListener('mousedown', (e) => {
+            // Check if interactions are enabled
+            if (!this.interactionEnabled) return;
+            
             // Only handle mousedown if it's not on the top card
             if (e.target.closest('.card')) {
                 return; // Let the card handle its own events
@@ -91,6 +97,9 @@ export class CardZone {
         });
         
         this.element.addEventListener('mouseup', (e) => {
+            // Check if interactions are enabled
+            if (!this.interactionEnabled) return;
+            
             clearTimeout(this.popTimer);
             
             // Only handle mouseup if it's not on the top card
@@ -141,7 +150,7 @@ export class CardZone {
         // For library cards, always show card back (cardFactory will use default back)
         const shouldShowBack = this.zoneType === 'library' || this.poppedCardObj.faceShown === 'back';
         this.poppedCardEl = createCardElement(this.poppedCardObj, this.zoneType === 'library' ? 'library' : 'popped', {
-            isMagnifyEnabled: false,
+            isMagnifyEnabled: this.isMagnifyEnabled, // Use zone's magnify setting for peek
             isInteractable: false,
             onCardClick: null,
             onCardDblClick: null,
@@ -230,6 +239,9 @@ export class CardZone {
     
     setupDropHandlers() {
         this.element.addEventListener('dragover', (e) => {
+            // Don't allow drops if interactions are disabled
+            if (!this.interactionEnabled) return;
+            
             e.preventDefault();
             this.element.classList.add('zone-active');
         });
@@ -239,6 +251,9 @@ export class CardZone {
         });
         
         this.element.addEventListener('drop', (e) => {
+            // Don't allow drops if interactions are disabled
+            if (!this.interactionEnabled) return;
+            
             e.preventDefault();
             this.element.classList.remove('zone-active');
             this.handleDrop(e);
@@ -350,6 +365,22 @@ export class CardZone {
         }
     }
     
+    setInteractionEnabled(enabled) {
+        this.interactionEnabled = enabled;
+        
+        // Update the visual state of the zone
+        if (enabled) {
+            this.element.classList.remove('interaction-disabled');
+            this.element.style.opacity = '';
+        } else {
+            this.element.classList.add('interaction-disabled');
+            this.element.style.opacity = '0.6';
+        }
+        
+        // Update the top card display to reflect the interaction state
+        this.updateTopCardDisplay();
+    }
+    
     updateCount() {
         if (this.countElement) {
             // Library always shows count, graveyard, exile, and command only show when not empty
@@ -384,23 +415,31 @@ export class CardZone {
                 shouldShowBack = !this.showTopCard;
             }
             
-            // Create the top card element with full interactivity
+            // Create the top card element with appropriate interactivity
             this.topCardElement = createCardElement(topCard, this.zoneType, {
                 isMagnifyEnabled: this.isMagnifyEnabled,
-                isInteractable: true, // Make it fully interactive
-                onCardClick: (e, card, cardEl, location) => {
+                isInteractable: this.interactionEnabled, // Only interactive if zone interactions are enabled
+                onCardClick: this.interactionEnabled ? (e, card, cardEl, location) => {
                     // Only handle clicks if not in peek mode
                     if (!this.isPopping && !this.rightClickInProgress && !this.contextMenuJustShown) {
                         this.drawCard();
                     }
+                } : (e) => {
+                    // Prevent clicks when disabled but allow magnify hover to work
+                    e.preventDefault();
+                    e.stopPropagation();
                 },
-                onCardDblClick: (e, card, location) => {
+                onCardDblClick: this.interactionEnabled ? (e, card, location) => {
                     // Double-click to draw card
                     if (!this.isPopping && !this.rightClickInProgress) {
                         this.drawCard();
                     }
+                } : (e) => {
+                    // Prevent double-clicks when disabled
+                    e.preventDefault();
+                    e.stopPropagation();
                 },
-                onCardDragStart: (e, card, location) => {
+                onCardDragStart: this.interactionEnabled ? (e, card, location) => {
                     // Handle drag start for the top card
                     e.dataTransfer.setData('text/plain', card.id);
                     e.dataTransfer.setData('sourceZone', this.zoneType);
@@ -409,6 +448,10 @@ export class CardZone {
                     
                     // Mark that this card is being dragged so we can remove it on successful drop
                     this.draggedCardId = card.id;
+                } : (e) => {
+                    // Prevent drag when disabled
+                    e.preventDefault();
+                    e.stopPropagation();
                 },
                 showBack: shouldShowBack
             });
@@ -419,6 +462,9 @@ export class CardZone {
             this.topCardElement.style.position = 'absolute';
             this.topCardElement.style.top = '0';
             this.topCardElement.style.left = '0';
+            
+            // Set draggable attribute based on interaction state
+            this.topCardElement.draggable = this.interactionEnabled;
             
             // Add to the zone element
             this.element.style.position = 'relative'; // Ensure zone can contain absolute positioned elements
@@ -514,8 +560,16 @@ export class CardZone {
         this.contextMenu.style.left = `${e.clientX}px`;
         this.contextMenu.style.top = `${e.clientY}px`;
         
-        // Shuffle option (only if enabled)
-        if (this.showShuffle) {
+        // Add header if viewing another player's zone
+        if (!this.interactionEnabled) {
+            const header = document.createElement('div');
+            header.className = 'px-4 py-2 border-b border-gray-600 text-gray-300 text-sm font-semibold';
+            header.textContent = `Viewing ${this.zoneType} (View Only)`;
+            this.contextMenu.appendChild(header);
+        }
+        
+        // Shuffle option (only if enabled and interactions are allowed)
+        if (this.showShuffle && this.interactionEnabled) {
             const shuffleOption = document.createElement('button');
             shuffleOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
             shuffleOption.textContent = `Shuffle ${this.zoneType}`;
@@ -530,18 +584,33 @@ export class CardZone {
         if (this.cards.length > 1) {
             const viewAllOption = document.createElement('button');
             viewAllOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
-            // Different text for library vs other zones
-            const viewText = `View all cards (${this.cards.length})`;
+            // Different text based on interaction state and zone type
+            const viewText = this.interactionEnabled 
+                ? `View all cards (${this.cards.length})`
+                : `View all ${this.zoneType} cards (${this.cards.length})`;
             viewAllOption.textContent = viewText;
             viewAllOption.addEventListener('click', () => {
                 this.viewAllCards();
                 this.hideContextMenu();
             });
             this.contextMenu.appendChild(viewAllOption);
+        } else if (this.cards.length === 1) {
+            // View single card option
+            const viewSingleOption = document.createElement('button');
+            viewSingleOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+            const viewText = this.interactionEnabled 
+                ? 'View this card'
+                : `View ${this.zoneType} card`;
+            viewSingleOption.textContent = viewText;
+            viewSingleOption.addEventListener('click', () => {
+                this.viewAllCards();
+                this.hideContextMenu();
+            });
+            this.contextMenu.appendChild(viewSingleOption);
         }
         
-        // Add zone-specific options
-        if (this.zoneType === 'library') {
+        // Add zone-specific options (only if interactions are enabled)
+        if (this.zoneType === 'library' && this.interactionEnabled) {
             const drawMultipleOption = document.createElement('button');
             drawMultipleOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
             drawMultipleOption.textContent = 'Draw multiple cards...';
@@ -637,7 +706,10 @@ export class CardZone {
         
         const title = document.createElement('h3');
         title.className = 'text-white text-lg font-semibold';
-        title.textContent = `${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} (${this.cards.length})`;
+        const titleText = this.interactionEnabled 
+            ? `${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} (${this.cards.length})`
+            : `${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} (${this.cards.length}) - View Only`;
+        title.textContent = titleText;
         
         const closeBtn = document.createElement('button');
         closeBtn.className = 'text-gray-400 hover:text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded hover:bg-gray-700';
@@ -647,9 +719,9 @@ export class CardZone {
         header.appendChild(title);
         header.appendChild(closeBtn);
 
-        // Action buttons section (only show if shuffle is enabled)
+        // Action buttons section (only show if shuffle is enabled and interactions are allowed)
         let actionButtons = null;
-        if (this.showShuffle) {
+        if (this.showShuffle && this.interactionEnabled) {
             actionButtons = document.createElement('div');
             actionButtons.className = 'px-4 py-3 border-b border-gray-600';
             
@@ -670,7 +742,9 @@ export class CardZone {
         // Instruction text
         const instruction = document.createElement('p');
         instruction.className = 'text-gray-300 text-sm px-4 py-2 bg-gray-700 border-b border-gray-600';
-        instruction.textContent = 'Drag cards from here to move them to other zones';
+        instruction.textContent = this.interactionEnabled 
+            ? 'Drag cards from here to move them to other zones'
+            : 'View only - you are viewing another player\'s zone';
         
         // Scrollable card container
         const cardContainer = document.createElement('div');
@@ -686,11 +760,11 @@ export class CardZone {
             // Create actual card element using cardFactory
             const cardEl = createCardElement(card, this.zoneType === 'library' ? 'library' : 'panel', {
                 isMagnifyEnabled: this.isMagnifyEnabled, // Use the zone's magnify setting
-                isInteractable: true,
+                isInteractable: this.interactionEnabled, // Respect interaction state
                 onCardClick: null,
                 onCardDblClick: null,
-                onCardDragStart: (e, cardData, location) => {
-                    // Custom drag start handler for panel cards
+                onCardDragStart: this.interactionEnabled ? (e, cardData, location) => {
+                    // Custom drag start handler for panel cards (only if interactions enabled)
                     dragStartedInPanel = true;
                     e.dataTransfer.setData('text/plain', cardData.id);
                     e.dataTransfer.setData('sourceZone', this.zoneType);
@@ -701,30 +775,36 @@ export class CardZone {
                     setTimeout(() => {
                         if (cardWrapper) cardWrapper.style.opacity = '0.5';
                     }, 0);
+                } : (e) => {
+                    // Prevent drag when disabled
+                    e.preventDefault();
+                    e.stopPropagation();
                 },
                 showBack: card.faceShown === 'back'
             });
             
             // Style the card for the side panel
-            cardEl.style.cursor = 'grab';
+            cardEl.style.cursor = this.interactionEnabled ? 'grab' : 'not-allowed';
             cardEl.style.width = '120px'; // Slightly larger for better visibility in panel
             cardEl.style.height = 'auto';
             cardEl.style.flexShrink = '0';
-            cardEl.draggable = true;
+            cardEl.draggable = this.interactionEnabled;
             
-            // Add proper drag cursor handling
-            cardEl.addEventListener('mousedown', () => {
-                cardEl.style.cursor = 'grabbing';
-            });
-            
-            cardEl.addEventListener('mouseup', () => {
-                cardEl.style.cursor = 'grab';
-            });
+            // Add proper drag cursor handling (only if interactions are enabled)
+            if (this.interactionEnabled) {
+                cardEl.addEventListener('mousedown', () => {
+                    cardEl.style.cursor = 'grabbing';
+                });
+                
+                cardEl.addEventListener('mouseup', () => {
+                    cardEl.style.cursor = 'grab';
+                });
+            }
             
             // Add a wrapper for styling and interactions
             const cardWrapper = document.createElement('div');
             cardWrapper.className = 'card-item p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex justify-center';
-            cardWrapper.style.cursor = 'grab';
+            cardWrapper.style.cursor = this.interactionEnabled ? 'grab' : 'not-allowed';
             
             cardWrapper.appendChild(cardEl);
             

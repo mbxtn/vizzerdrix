@@ -625,17 +625,22 @@ function render() {
         if (!gameState || !playerId) return;
 
         // Smart merge: preserve recent client changes, use server for everything else
+        // Hand always shows current player's data
         const serverHand = gameState.players[playerId]?.hand || [];
-        const serverLibrary = gameState.players[playerId]?.library || [];
-        const serverGraveyard = gameState.players[playerId]?.graveyard || [];
-        const serverExile = gameState.players[playerId]?.exile || [];
-        const serverCommand = gameState.players[playerId]?.command || [];
-        const serverPlayZone = gameState.playZones[playerId] || [];
+        
+        // Other zones show data for the player whose play zone is currently being viewed
+        const viewedPlayerId = activePlayZonePlayerId || playerId;
+        const serverLibrary = gameState.players[viewedPlayerId]?.library || [];
+        const serverGraveyard = gameState.players[viewedPlayerId]?.graveyard || [];
+        const serverExile = gameState.players[viewedPlayerId]?.exile || [];
+        const serverCommand = gameState.players[viewedPlayerId]?.command || [];
+        const serverPlayZone = gameState.playZones[viewedPlayerId] || [];
         
         // If we have a recent client action, preserve local state for a short time
         const hasRecentClientAction = lastClientAction && (Date.now() - lastClientAction.timestamp < 1000);
         
-        if (hasRecentClientAction) {
+        if (hasRecentClientAction && viewedPlayerId === playerId) {
+            // Only preserve local state if we're viewing our own zones
             console.log('Preserving local state due to recent client action:', lastClientAction.action);
             // Keep local state for recent actions, but merge other players' changes
             // Only merge playZone from server if it has more cards (other players added cards)
@@ -648,27 +653,45 @@ function render() {
                 });
             }
         } else {
-            // No recent client action, use server state as source of truth
-            hand = serverHand;
-            library = serverLibrary;
-            graveyard = serverGraveyard;
-            exile = serverExile;
-            command = serverCommand || []; // Ensure command is always an array
-            playZone = serverPlayZone;
+            // No recent client action or viewing another player, use server state as source of truth
+            hand = serverHand; // Hand is always current player
+            
+            if (viewedPlayerId === playerId) {
+                // Viewing our own zones
+                library = serverLibrary;
+                graveyard = serverGraveyard;
+                exile = serverExile;
+                command = serverCommand || []; // Ensure command is always an array
+                playZone = serverPlayZone;
+            } else {
+                // Viewing another player's zones - use their data for zones but keep our hand
+                library = serverLibrary;
+                graveyard = serverGraveyard;
+                exile = serverExile;
+                command = serverCommand || [];
+                playZone = serverPlayZone;
+            }
         }
 
         // Update CardZone instances (these now have change detection)
+        // Only allow interactions if we're viewing our own zones
+        const allowInteractions = viewedPlayerId === playerId;
+        
         if (libraryZone) {
             libraryZone.updateCards(library);
+            libraryZone.setInteractionEnabled(allowInteractions);
         }
         if (graveyardZone) {
             graveyardZone.updateCards(graveyard);
+            graveyardZone.setInteractionEnabled(allowInteractions);
         }
         if (exileZone) {
             exileZone.updateCards(exile);
+            exileZone.setInteractionEnabled(allowInteractions);
         }
         if (commandZone) {
             commandZone.updateCards(command);
+            commandZone.setInteractionEnabled(allowInteractions);
         }
 
         // Render hand
@@ -1158,7 +1181,10 @@ function removeCardFromSource(cardId, sourceZone) {
 
 function updateCounts() {
     if (!gameState || !playerId) return;
-    const player = gameState.players[playerId];
+    
+    // Show counts for the player whose zones are currently being viewed
+    const viewedPlayerId = activePlayZonePlayerId || playerId;
+    const player = gameState.players[viewedPlayerId];
     
     // Library always shows count
     libraryCountEl.textContent = player?.library?.length || 0;

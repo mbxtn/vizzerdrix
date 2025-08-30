@@ -71,7 +71,39 @@
 }
 
 /* Make sure zones can contain absolutely positioned elements */
-#library, #graveyard-pile {
+#library, #graveyard-pile, #exile-pile, #command-pile {
     position: relative;
     overflow: visible;
+}
+
+/* Disabled interaction state for card zones */
+.interaction-disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+.interaction-disabled .card {
+    cursor: not-allowed !important;
+    /* Allow hover for magnify but prevent clicks/drags */
+    pointer-events: auto !important;
+}
+
+.interaction-disabled .card * {
+    /* Prevent clicks and drags on child elements but allow hover */
+    pointer-events: none !important;
+}
+
+/* Visual indication that zone is view-only */
+.interaction-disabled::after {
+    content: "View Only";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(239, 68, 68, 0.8);
+    color: white;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    z-index: 10;
+    pointer-events: none;
 }
