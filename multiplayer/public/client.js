@@ -31,6 +31,8 @@ const closeModalBtn = document.getElementById('close-modal-btn');
 const optionsBtn = document.getElementById('options-btn'); // Options button reference                                                                         │
 const optionsModal = document.getElementById('options-modal'); // Options modal reference                                                                   │
 const resetBtnModal = document.getElementById('reset-btn-modal'); // New reset button reference           
+const increaseSizeBtn = document.getElementById('increase-size-btn'); // Card size controls
+const decreaseSizeBtn = document.getElementById('decrease-size-btn');
 
 
 // Selection state
@@ -771,6 +773,9 @@ let hand = [];
 let graveyard = [];
 let playZone = [];
 let currentCardWidth = 80;
+const minCardWidth = 60;
+const maxCardWidth = 120;
+const cardSizeStep = 10;
 
 // Card interaction callbacks for the cardFactory
 function handleCardClick(e, card, cardEl, location) {
@@ -996,6 +1001,44 @@ function updateCascadedHandCardsInAreaCount() {
     
     cascadedHandCardsInAreaCount = count;
 }
+
+// Card size controls
+function updateCardSize() {
+    // Update CSS variable globally for all cards
+    document.documentElement.style.setProperty('--card-width', `${currentCardWidth}px`);
+    
+    // Update CSS variable for hand cards (legacy support)
+    handZoneEl.style.setProperty('--hand-card-width', `${currentCardWidth}px`);
+    
+    // Update CardZone instances
+    if (libraryZone) {
+        libraryZone.currentCardWidth = currentCardWidth;
+    }
+    if (graveyardZone) {
+        graveyardZone.currentCardWidth = currentCardWidth;
+    }
+    
+    // Re-render to apply new size
+    render();
+}
+
+function increaseCardSize() {
+    if (currentCardWidth < maxCardWidth) {
+        currentCardWidth = Math.min(currentCardWidth + cardSizeStep, maxCardWidth);
+        updateCardSize();
+    }
+}
+
+function decreaseCardSize() {
+    if (currentCardWidth > minCardWidth) {
+        currentCardWidth = Math.max(currentCardWidth - cardSizeStep, minCardWidth);
+        updateCardSize();
+    }
+}
+
+// Add event listeners for card size buttons
+increaseSizeBtn.addEventListener('click', increaseCardSize);
+decreaseSizeBtn.addEventListener('click', decreaseCardSize);
 
 // Utility function for shuffling arrays
 function shuffleArray(array) {
