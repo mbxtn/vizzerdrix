@@ -178,23 +178,32 @@ export class CardZone {
     
     handlePeekDrop(e) {
         // Simple and reliable drop detection using bounding boxes
+        // Check smaller/more specific targets first, then larger areas
         const dropTargets = [
-            { element: document.getElementById('hand-zone'), type: 'hand' },
             { element: document.getElementById('graveyard-pile'), type: 'graveyard' },
             { element: document.getElementById('graveyard-container'), type: 'graveyard' },
+            { element: document.getElementById('hand-zone'), type: 'hand' },
             { element: document.getElementById('play-zones-container'), type: 'play' }
         ];
         
         let targetZone = null;
+        let smallestAreaFound = Infinity;
         
+        // Find the smallest bounding box that contains the drop point
+        // This prioritizes more specific targets over larger ones
         for (const target of dropTargets) {
             if (!target.element) continue;
             
             const rect = target.element.getBoundingClientRect();
+            
             if (e.clientX >= rect.left && e.clientX <= rect.right &&
                 e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                targetZone = target;
-                break;
+                
+                const area = rect.width * rect.height;
+                if (area < smallestAreaFound) {
+                    smallestAreaFound = area;
+                    targetZone = target;
+                }
             }
         }
         
@@ -634,34 +643,5 @@ export class CardZone {
     
     updateMagnifyEnabled(enabled) {
         this.isMagnifyEnabled = enabled;
-    }
-    
-    getElementAtDropPoint(x, y) {
-        // Try multiple times to get element, ignoring interfering elements
-        let attempts = 0;
-        let element = null;
-        
-        while (attempts < 5) {
-            element = document.elementFromPoint(x, y);
-            
-            // If we found a valid element that's not a dragged card, use it
-            if (element && !element.classList.contains('popped-card') && 
-                !(element.classList.contains('card') && element.style.position === 'fixed')) {
-                return element;
-            }
-            
-            // Hide interfering element temporarily
-            if (element) {
-                element.style.visibility = 'hidden';
-                // Restore after a brief moment
-                setTimeout(() => {
-                    if (element.style) element.style.visibility = 'visible';
-                }, 100);
-            }
-            
-            attempts++;
-        }
-        
-        return element;
     }
 }
