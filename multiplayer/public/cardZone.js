@@ -138,9 +138,9 @@ export class CardZone {
         this.element.classList.add('touch-pop-active');
         
         // Create the visual popped card element
-        // For library cards, always show card back (like cards in sleeves)
+        // For library cards, always show card back (cardFactory will use default back)
         const shouldShowBack = this.zoneType === 'library' || this.poppedCardObj.faceShown === 'back';
-        this.poppedCardEl = createCardElement(this.poppedCardObj, 'popped', {
+        this.poppedCardEl = createCardElement(this.poppedCardObj, this.zoneType === 'library' ? 'library' : 'popped', {
             isMagnifyEnabled: false,
             isInteractable: false,
             onCardClick: null,
@@ -335,8 +335,8 @@ export class CardZone {
             // Determine if card should show back based on zone type and showTopCard setting
             let shouldShowBack = false;
             if (this.zoneType === 'library') {
-                // Library cards are face down unless showTopCard is enabled
-                shouldShowBack = !this.showTopCard;
+                // Library cards always show back (cardFactory will use default card back)
+                shouldShowBack = true;
             } else if (this.zoneType === 'graveyard') {
                 // Graveyard cards are face up unless showTopCard is disabled
                 shouldShowBack = !this.showTopCard;
@@ -613,7 +613,7 @@ export class CardZone {
             let dragStartedInPanel = false;
             
             // Create actual card element using cardFactory
-            const cardEl = createCardElement(card, 'panel', {
+            const cardEl = createCardElement(card, this.zoneType === 'library' ? 'library' : 'panel', {
                 isMagnifyEnabled: this.isMagnifyEnabled, // Use the zone's magnify setting
                 isInteractable: true,
                 onCardClick: null,
@@ -631,7 +631,7 @@ export class CardZone {
                         if (cardWrapper) cardWrapper.style.opacity = '0.5';
                     }, 0);
                 },
-                showBack: card.faceShown === 'back'
+                showBack: this.zoneType === 'library' ? true : card.faceShown === 'back'
             });
             
             // Style the card for the side panel

@@ -9,7 +9,7 @@ export function createCardElement(card, location, options) {
     // Determine which image to show
     if (showBack) {
         // Show card back - for library cards, always use default cardback.png
-        const forceDefault = location === 'popped' || location === 'panel';
+        const forceDefault = location === 'library' || location === 'popped' || location === 'panel';
         const backImageSrc = ScryfallCache.getCardBack(card.name, forceDefault);
         const img = document.createElement('img');
         img.src = backImageSrc;
