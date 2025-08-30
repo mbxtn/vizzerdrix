@@ -353,6 +353,7 @@ function initializeCardZones() {
         isMagnifyEnabled: isMagnifyEnabled,
         showMessage: showMessage,
         showShuffle: false, // Disable shuffle for graveyard
+        showTopCard: true, // Show the top card face up for graveyard
         onCardDraw: (cardObj, targetZone, options = {}) => {
             // Mark this as a client action to preserve optimistic updates  
             markClientAction(`graveyardTo${targetZone}`, cardObj.id);
@@ -1087,10 +1088,10 @@ function updateCardSize() {
     
     // Update CardZone instances
     if (libraryZone) {
-        libraryZone.currentCardWidth = currentCardWidth;
+        libraryZone.updateCardWidth(currentCardWidth);
     }
     if (graveyardZone) {
-        graveyardZone.currentCardWidth = currentCardWidth;
+        graveyardZone.updateCardWidth(currentCardWidth);
     }
     
     // Re-render to apply new size

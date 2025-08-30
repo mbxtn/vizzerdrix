@@ -51,3 +51,27 @@
     cursor: grabbing;
     transform: scale(0.95);
 }
+
+/* Top card display styles */
+.zone-top-card {
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+}
+
+.zone-top-card:hover {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1.05) !important;
+}
+
+/* Zone positioning for top card */
+.card-zone-container {
+    position: relative;
+    overflow: visible;
+}
+
+/* Make sure zones can contain absolutely positioned elements */
+#library, #graveyard-pile {
+    position: relative;
+    overflow: visible;
+}

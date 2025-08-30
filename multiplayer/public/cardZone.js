@@ -18,6 +18,10 @@ export class CardZone {
         this.enablePeek = options.enablePeek || false;
         this.peekHoldTime = options.peekHoldTime || 200;
         
+        // Top card display options
+        this.showTopCard = options.showTopCard || false;
+        this.topCardElement = null;
+        
         // Context menu options
         this.showShuffle = options.showShuffle !== false; // Default to true unless explicitly false
         
@@ -320,6 +324,50 @@ export class CardZone {
         if (this.countElement) {
             this.countElement.textContent = this.cards.length;
         }
+        
+        // Update top card display if enabled
+        if (this.showTopCard) {
+            this.updateTopCardDisplay();
+        }
+    }
+    
+    updateTopCardDisplay() {
+        // Remove existing top card element
+        if (this.topCardElement) {
+            this.topCardElement.remove();
+            this.topCardElement = null;
+        }
+        
+        // If we have cards and should show top card
+        if (this.cards.length > 0 && this.showTopCard) {
+            const topCard = this.getTopCard();
+            
+            // Create the top card element
+            this.topCardElement = createCardElement(topCard, 'topCard', {
+                isMagnifyEnabled: this.isMagnifyEnabled,
+                isInteractable: false, // Top card display is just visual
+                onCardClick: null,
+                onCardDblClick: null,
+                onCardDragStart: null,
+                showBack: false // Always show face up for top card display
+            });
+            
+            // Style the top card element for overlay display
+            this.topCardElement.classList.add('zone-top-card');
+            this.topCardElement.style.position = 'absolute';
+            this.topCardElement.style.top = '50%';
+            this.topCardElement.style.left = '50%';
+            this.topCardElement.style.transform = 'translate(-50%, -50%)';
+            this.topCardElement.style.width = `${this.currentCardWidth * 0.8}px`; // Slightly smaller
+            this.topCardElement.style.zIndex = '10';
+            this.topCardElement.style.pointerEvents = 'none'; // Don't interfere with zone interactions
+            this.topCardElement.style.opacity = '0.9';
+            this.topCardElement.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            
+            // Add to the zone element
+            this.element.style.position = 'relative'; // Ensure zone can contain absolute positioned elements
+            this.element.appendChild(this.topCardElement);
+        }
     }
     
     getTopCard() {
@@ -339,6 +387,10 @@ export class CardZone {
         // Clean up event listeners and elements
         if (this.poppedCardEl) {
             this.poppedCardEl.remove();
+        }
+        if (this.topCardElement) {
+            this.topCardElement.remove();
+            this.topCardElement = null;
         }
         clearTimeout(this.popTimer);
         
@@ -431,6 +483,32 @@ export class CardZone {
             });
             this.contextMenu.appendChild(drawMultipleOption);
         }
+        
+        // Show Top Card toggle option (for zones that can display a top card)
+        const topCardOption = document.createElement('button');
+        topCardOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors flex items-center justify-between';
+        
+        const topCardText = document.createElement('span');
+        topCardText.textContent = 'Show Top Card';
+        
+        const topCardStatus = document.createElement('span');
+        topCardStatus.className = 'px-2 py-1 rounded-full text-xs font-semibold';
+        if (this.showTopCard) {
+            topCardStatus.textContent = 'On';
+            topCardStatus.classList.add('bg-green-600');
+        } else {
+            topCardStatus.textContent = 'Off';
+            topCardStatus.classList.add('bg-red-600');
+        }
+        
+        topCardOption.appendChild(topCardText);
+        topCardOption.appendChild(topCardStatus);
+        
+        topCardOption.addEventListener('click', () => {
+            this.toggleTopCard();
+            this.hideContextMenu();
+        });
+        this.contextMenu.appendChild(topCardOption);
         
         // Ensure context menu stays within viewport
         document.body.appendChild(this.contextMenu);
@@ -643,5 +721,29 @@ export class CardZone {
     
     updateMagnifyEnabled(enabled) {
         this.isMagnifyEnabled = enabled;
+    }
+    
+    updateCardWidth(newWidth) {
+        this.currentCardWidth = newWidth;
+        // Update top card display if it exists
+        if (this.topCardElement) {
+            this.topCardElement.style.width = `${this.currentCardWidth * 0.8}px`;
+        }
+    }
+    
+    setShowTopCard(enabled) {
+        this.showTopCard = enabled;
+        if (enabled) {
+            this.updateTopCardDisplay();
+        } else if (this.topCardElement) {
+            this.topCardElement.remove();
+            this.topCardElement = null;
+        }
+    }
+    
+    toggleTopCard() {
+        this.setShowTopCard(!this.showTopCard);
+        const action = this.showTopCard ? 'enabled' : 'disabled';
+        this.showMessage?.(`Top card display ${action} for ${this.zoneType}.`);
     }
 }
