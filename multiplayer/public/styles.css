@@ -90,6 +90,7 @@ body {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    min-height: calc(var(--card-width, 80px) * 1.34 + 24px); /* Card height + padding */
 }
 
 .magnified-card-display {
