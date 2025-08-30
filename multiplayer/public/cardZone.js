@@ -247,10 +247,26 @@ export class CardZone {
             const groupData = JSON.parse(groupDataString);
             // Handle group drop as a batch operation
             this.onStateChange?.('moveCardGroup', groupData.cardIds, groupData.sourceZone, this.zoneType);
+            
+            // Update visual displays after group drop
+            setTimeout(() => {
+                this.updateTopCardDisplay();
+                if (this.currentModal) {
+                    this.updateSidePanel();
+                }
+            }, 50);
         } else {
             const cardId = e.dataTransfer.getData('text/plain');
             const sourceZone = e.dataTransfer.getData('sourceZone');
             this.onStateChange?.('moveCard', cardId, sourceZone, this.zoneType);
+            
+            // Update visual displays after single card drop
+            setTimeout(() => {
+                this.updateTopCardDisplay();
+                if (this.currentModal) {
+                    this.updateSidePanel();
+                }
+            }, 50);
         }
     }
     
