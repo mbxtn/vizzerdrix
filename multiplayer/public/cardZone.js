@@ -86,7 +86,10 @@ export class CardZone {
             this.rightClickInProgress = false;
             
             if (this.cards.length === 0) {
-                this.showMessage?.("Library is empty!");
+                // Only show empty message for library, not for graveyard
+                if (this.zoneType === 'library') {
+                    this.showMessage?.("Library is empty!");
+                }
                 return;
             }
             
@@ -167,42 +170,53 @@ export class CardZone {
             this.poppedCardEl = null;
         }
         
-        // Handle drop logic for peeked card
-        this.handlePeekDrop(e);
+        // Small delay to ensure DOM updates before drop detection
+        setTimeout(() => {
+            this.handlePeekDrop(e);
+        }, 0);
     }
     
     handlePeekDrop(e) {
-        // Determine drop target
-        const handZoneEl = document.getElementById('hand-zone');
-        const graveyardPileEl = document.getElementById('graveyard-pile');
-        const playZonesContainer = document.getElementById('play-zones-container');
-        const dropZones = [handZoneEl, graveyardPileEl, playZonesContainer];
+        // Simple and reliable drop detection using bounding boxes
+        const dropTargets = [
+            { element: document.getElementById('hand-zone'), type: 'hand' },
+            { element: document.getElementById('graveyard-pile'), type: 'graveyard' },
+            { element: document.getElementById('graveyard-container'), type: 'graveyard' },
+            { element: document.getElementById('play-zones-container'), type: 'play' }
+        ];
         
-        for (const zone of dropZones) {
-            const rect = zone.getBoundingClientRect();
+        let targetZone = null;
+        
+        for (const target of dropTargets) {
+            if (!target.element) continue;
+            
+            const rect = target.element.getBoundingClientRect();
             if (e.clientX >= rect.left && e.clientX <= rect.right &&
                 e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                
-                // Card is dropped into a valid zone
-                const cardObj = this.removeTopCard();
-                this.poppedCardObj = null;
-                
-                if (zone.id === 'hand-zone') {
-                    this.onCardDraw?.(cardObj, 'hand');
-                } else if (zone.id === 'graveyard-pile') {
-                    this.onCardDraw?.(cardObj, 'graveyard');
-                } else if (zone.id === 'play-zones-container') {
-                    const activePlayZone = zone.querySelector('.play-zone:not([style*="display: none"])');
-                    if (activePlayZone) {
-                        const zoneRect = activePlayZone.getBoundingClientRect();
-                        const x = e.clientX - zoneRect.left - (this.currentCardWidth / 2);
-                        const y = e.clientY - zoneRect.top - ((this.currentCardWidth * 120/90) / 2);
-                        cardObj.x = x;
-                        cardObj.y = y;
-                        this.onCardDraw?.(cardObj, 'play', { x, y });
-                    }
-                }
+                targetZone = target;
                 break;
+            }
+        }
+        
+        if (targetZone) {
+            // Card is dropped into a valid zone
+            const cardObj = this.removeTopCard();
+            this.poppedCardObj = null;
+            
+            if (targetZone.type === 'hand') {
+                this.onCardDraw?.(cardObj, 'hand');
+            } else if (targetZone.type === 'graveyard') {
+                this.onCardDraw?.(cardObj, 'graveyard');
+            } else if (targetZone.type === 'play') {
+                const activePlayZone = targetZone.element.querySelector('.play-zone:not([style*="display: none"])');
+                if (activePlayZone) {
+                    const zoneRect = activePlayZone.getBoundingClientRect();
+                    const x = e.clientX - zoneRect.left - (this.currentCardWidth / 2);
+                    const y = e.clientY - zoneRect.top - ((this.currentCardWidth * 120/90) / 2);
+                    cardObj.x = x;
+                    cardObj.y = y;
+                    this.onCardDraw?.(cardObj, 'play', { x, y });
+                }
             }
         }
     }
@@ -240,7 +254,10 @@ export class CardZone {
     
     drawCard() {
         if (this.cards.length === 0) {
-            this.showMessage?.(`${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} is empty!`);
+            // Only show empty message for library, not for graveyard
+            if (this.zoneType === 'library') {
+                this.showMessage?.(`${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} is empty!`);
+            }
             return;
         }
         const cardObj = this.removeTopCard();
@@ -617,5 +634,34 @@ export class CardZone {
     
     updateMagnifyEnabled(enabled) {
         this.isMagnifyEnabled = enabled;
+    }
+    
+    getElementAtDropPoint(x, y) {
+        // Try multiple times to get element, ignoring interfering elements
+        let attempts = 0;
+        let element = null;
+        
+        while (attempts < 5) {
+            element = document.elementFromPoint(x, y);
+            
+            // If we found a valid element that's not a dragged card, use it
+            if (element && !element.classList.contains('popped-card') && 
+                !(element.classList.contains('card') && element.style.position === 'fixed')) {
+                return element;
+            }
+            
+            // Hide interfering element temporarily
+            if (element) {
+                element.style.visibility = 'hidden';
+                // Restore after a brief moment
+                setTimeout(() => {
+                    if (element.style) element.style.visibility = 'visible';
+                }, 100);
+            }
+            
+            attempts++;
+        }
+        
+        return element;
     }
 }

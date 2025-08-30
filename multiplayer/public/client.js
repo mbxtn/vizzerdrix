@@ -22,7 +22,7 @@ const playZonesContainer = document.getElementById('play-zones-container');
 const playerTabsContainer = document.getElementById('player-tabs-container');
 const handZoneEl = document.getElementById('hand-zone');
 const libraryEl = document.getElementById('library');
-const discardPileEl = document.getElementById('graveyard-pile');
+const graveyardPileEl = document.getElementById('graveyard-pile');
 const libraryCountEl = document.getElementById('library-count');
 const discardCountEl = document.getElementById('graveyard-count');
 const messageModal = document.getElementById('message-modal');
@@ -340,7 +340,7 @@ function initializeCardZones() {
     });
     
     // Graveyard zone (with peek functionality, no shuffle)
-    graveyardZone = new CardZone(discardPileEl, 'graveyard', {
+    graveyardZone = new CardZone(graveyardPileEl, 'graveyard', {
         countElement: discardCountEl,
         enablePeek: true,
         peekHoldTime: 200,
