@@ -43,45 +43,34 @@ export class CardZone {
         this.rightClickInProgress = false;
         this.currentModal = null;
         
+        // Drag tracking for top card
+        this.draggedCardId = null;
+        
         this.initializeEventHandlers();
     }
     
     initializeEventHandlers() {
-        if (this.enablePeek) {
-            this.setupPeekHandlers();
-        } else {
-            this.setupSimpleClickHandler();
-        }
-        
+        // Since top card now handles its own interactions, we only need:
+        // 1. Drop handlers for accepting drops from other zones
+        // 2. Context menu on the zone background
         this.setupDropHandlers();
         this.setupContextMenu();
-    }
-    
-    setupSimpleClickHandler() {
-        this.element.addEventListener('mousedown', (e) => {
-            if (e.button === 2) {
-                // Right mouse button pressed
-                this.rightClickInProgress = true;
-                return;
-            }
-            this.rightClickInProgress = false;
-        });
         
-        this.element.addEventListener('click', (e) => {
-            // Prevent click action if context menu was just shown OR if right-click is in progress
-            if (this.contextMenuJustShown || this.rightClickInProgress) {
-                this.contextMenuJustShown = false;
-                this.rightClickInProgress = false;
-                return;
-            }
-            this.drawCard();
-        });
+        // Set up peek functionality if enabled
+        if (this.enablePeek) {
+            this.setupPeekHandlers();
+        }
     }
     
     setupPeekHandlers() {
+        // Peek functionality is now handled by long-pressing the top card
         this.element.addEventListener('mousedown', (e) => {
+            // Only handle mousedown if it's not on the top card
+            if (e.target.closest('.card')) {
+                return; // Let the card handle its own events
+            }
+            
             if (e.button === 2) {
-                // Right mouse button pressed
                 this.rightClickInProgress = true;
                 return;
             }
@@ -90,7 +79,6 @@ export class CardZone {
             this.rightClickInProgress = false;
             
             if (this.cards.length === 0) {
-                // Only show empty message for library, not for graveyard
                 if (this.zoneType === 'library') {
                     this.showMessage?.("Library is empty!");
                 }
@@ -105,20 +93,22 @@ export class CardZone {
         this.element.addEventListener('mouseup', (e) => {
             clearTimeout(this.popTimer);
             
-            // If this was a right-click, don't do anything
+            // Only handle mouseup if it's not on the top card
+            if (e.target.closest('.card')) {
+                return; // Let the card handle its own events
+            }
+            
             if (e.button === 2 || this.rightClickInProgress) {
                 this.rightClickInProgress = false;
                 return;
             }
             
             if (!this.isPopping) {
-                // Prevent click action if context menu was just shown
+                // Background click - no action needed since card handles clicks
                 if (this.contextMenuJustShown) {
                     this.contextMenuJustShown = false;
                     return;
                 }
-                // If not popping, it's a regular click, so draw a card
-                this.drawCard();
             }
             this.element.classList.remove('touch-pop-active');
         });
@@ -127,7 +117,7 @@ export class CardZone {
         document.addEventListener('mousemove', this.boundMouseMove);
         document.addEventListener('mouseup', this.boundMouseUp);
     }
-    
+
     handleGlobalMouseMove(e) {
         if (this.isPopping && this.poppedCardEl) {
             // Update the position of the ghost card to follow the cursor
@@ -255,9 +245,8 @@ export class CardZone {
         const groupDataString = e.dataTransfer.getData('application/json');
         if (groupDataString) {
             const groupData = JSON.parse(groupDataString);
-            groupData.cardIds.forEach(cardId => {
-                this.onStateChange?.('moveCard', cardId, groupData.sourceZone, this.zoneType);
-            });
+            // Handle group drop as a batch operation
+            this.onStateChange?.('moveCardGroup', groupData.cardIds, groupData.sourceZone, this.zoneType);
         } else {
             const cardId = e.dataTransfer.getData('text/plain');
             const sourceZone = e.dataTransfer.getData('sourceZone');
@@ -280,11 +269,13 @@ export class CardZone {
     addCard(card) {
         this.cards.push(card);
         this.updateCount();
+        this.updateTopCardDisplay(); // Update the visual display
     }
     
     removeTopCard() {
         const card = this.cards.pop();
         this.updateCount();
+        this.updateTopCardDisplay(); // Update the visual display
         return card;
     }
     
@@ -293,6 +284,7 @@ export class CardZone {
         if (index > -1) {
             const card = this.cards.splice(index, 1)[0];
             this.updateCount();
+            this.updateTopCardDisplay(); // Update the visual display
             return card;
         }
         return null;
@@ -309,6 +301,7 @@ export class CardZone {
         
         this.cards = newCards || [];
         this.updateCount();
+        this.updateTopCardDisplay();
         
         // If modal/panel is open and cards changed, refresh it
         if (this.currentModal) {
@@ -324,52 +317,86 @@ export class CardZone {
         if (this.countElement) {
             this.countElement.textContent = this.cards.length;
         }
-        
-        // Update top card display if enabled
-        if (this.showTopCard) {
-            this.updateTopCardDisplay();
-        }
     }
     
     updateTopCardDisplay() {
-        // Remove existing top card element
-        if (this.topCardElement) {
-            this.topCardElement.remove();
-            this.topCardElement = null;
+        // Don't recreate the card if we're currently dragging from this zone
+        if (this.draggedCardId) {
+            return;
         }
         
-        // If we have cards and should show top card
-        if (this.cards.length > 0 && this.showTopCard) {
+        // Always clear the zone first
+        this.element.innerHTML = '';
+        
+        // If we have cards, always show the top card inside the zone
+        if (this.cards.length > 0) {
             const topCard = this.getTopCard();
             
-            // Create the top card element
-            this.topCardElement = createCardElement(topCard, 'topCard', {
+            // Determine if card should show back based on zone type and showTopCard setting
+            let shouldShowBack = false;
+            if (this.zoneType === 'library') {
+                // Library cards are face down unless showTopCard is enabled
+                shouldShowBack = !this.showTopCard;
+            } else if (this.zoneType === 'graveyard') {
+                // Graveyard cards are face up unless showTopCard is disabled
+                shouldShowBack = !this.showTopCard;
+            }
+            
+            // Create the top card element with full interactivity
+            this.topCardElement = createCardElement(topCard, this.zoneType, {
                 isMagnifyEnabled: this.isMagnifyEnabled,
-                isInteractable: false, // Top card display is just visual
-                onCardClick: null,
-                onCardDblClick: null,
-                onCardDragStart: null,
-                showBack: false // Always show face up for top card display
+                isInteractable: true, // Make it fully interactive
+                onCardClick: (e, card, cardEl, location) => {
+                    // Only handle clicks if not in peek mode
+                    if (!this.isPopping && !this.rightClickInProgress && !this.contextMenuJustShown) {
+                        this.drawCard();
+                    }
+                },
+                onCardDblClick: (e, card, location) => {
+                    // Double-click to draw card
+                    if (!this.isPopping && !this.rightClickInProgress) {
+                        this.drawCard();
+                    }
+                },
+                onCardDragStart: (e, card, location) => {
+                    // Handle drag start for the top card
+                    e.dataTransfer.setData('text/plain', card.id);
+                    e.dataTransfer.setData('sourceZone', this.zoneType);
+                    e.dataTransfer.setData('cardName', card.displayName || card.name);
+                    e.dataTransfer.effectAllowed = 'move';
+                    
+                    // Mark that this card is being dragged so we can remove it on successful drop
+                    this.draggedCardId = card.id;
+                },
+                showBack: shouldShowBack
             });
             
-            // Style the top card element for overlay display
-            this.topCardElement.classList.add('zone-top-card');
+            // Style the card to fill the zone
+            this.topCardElement.style.width = '100%';
+            this.topCardElement.style.height = '100%';
             this.topCardElement.style.position = 'absolute';
-            this.topCardElement.style.top = '50%';
-            this.topCardElement.style.left = '50%';
-            this.topCardElement.style.transform = 'translate(-50%, -50%)';
-            this.topCardElement.style.width = `${this.currentCardWidth * 0.8}px`; // Slightly smaller
-            this.topCardElement.style.zIndex = '10';
-            this.topCardElement.style.pointerEvents = 'none'; // Don't interfere with zone interactions
-            this.topCardElement.style.opacity = '0.9';
-            this.topCardElement.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            this.topCardElement.style.top = '0';
+            this.topCardElement.style.left = '0';
             
             // Add to the zone element
             this.element.style.position = 'relative'; // Ensure zone can contain absolute positioned elements
             this.element.appendChild(this.topCardElement);
+            
+            // Add dragend handler to the top card for cleanup
+            this.topCardElement.addEventListener('dragend', (e) => {
+                // Clear the dragged card ID and allow updates again
+                this.draggedCardId = null;
+                // Force update after drag ends
+                setTimeout(() => {
+                    this.updateTopCardDisplay();
+                }, 50);
+            });
+        } else {
+            // No cards, clear any existing top card
+            this.topCardElement = null;
         }
     }
-    
+
     getTopCard() {
         return this.cards[this.cards.length - 1] || null;
     }
@@ -381,6 +408,7 @@ export class CardZone {
     clear() {
         this.cards = [];
         this.updateCount();
+        this.updateTopCardDisplay(); // Update the visual display
     }
     
     destroy() {
@@ -733,17 +761,14 @@ export class CardZone {
     
     setShowTopCard(enabled) {
         this.showTopCard = enabled;
-        if (enabled) {
-            this.updateTopCardDisplay();
-        } else if (this.topCardElement) {
-            this.topCardElement.remove();
-            this.topCardElement = null;
-        }
+        // Always update the top card display since we now always show the top card,
+        // just with different face up/down states
+        this.updateTopCardDisplay();
     }
     
     toggleTopCard() {
         this.setShowTopCard(!this.showTopCard);
-        const action = this.showTopCard ? 'enabled' : 'disabled';
-        this.showMessage?.(`Top card display ${action} for ${this.zoneType}.`);
+        const faceState = this.showTopCard ? 'face up' : 'face down';
+        this.showMessage?.(`Top card now showing ${faceState} for ${this.zoneType}.`);
     }
 }

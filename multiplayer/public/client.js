@@ -333,9 +333,11 @@ function initializeCardZones() {
             sendMove();
             debouncedRender();
         },
-        onStateChange: (action, cardId, sourceZone, targetZone) => {
+        onStateChange: (action, cardIdOrIds, sourceZone, targetZone) => {
             if (action === 'moveCard') {
-                handleCardMove(cardId, sourceZone, targetZone);
+                handleCardMove(cardIdOrIds, sourceZone, targetZone);
+            } else if (action === 'moveCardGroup') {
+                handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
             } else if (action === 'shuffle') {
                 // Library was shuffled, sync with server
                 sendMove();
@@ -377,9 +379,11 @@ function initializeCardZones() {
             sendMove();
             debouncedRender();
         },
-        onStateChange: (action, cardId, sourceZone, targetZone) => {
+        onStateChange: (action, cardIdOrIds, sourceZone, targetZone) => {
             if (action === 'moveCard') {
-                handleCardMove(cardId, sourceZone, targetZone);
+                handleCardMove(cardIdOrIds, sourceZone, targetZone);
+            } else if (action === 'moveCardGroup') {
+                handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
             } else if (action === 'shuffle') {
                 // Graveyard was shuffled, sync with server
                 sendMove();
@@ -407,6 +411,7 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     }
     
     if (!cardObj) return;
+    
     
     // Add to target zone
     if (targetZone === 'hand') {
@@ -1123,6 +1128,51 @@ function shuffleArray(array) {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
+}
+
+// ...existing code...
+function handleCardGroupMove(cardIds, sourceZone, targetZone) {
+    // Handle moving multiple cards as a batch operation
+    cardIds.forEach(cardId => {
+        // Find the card in the source zone
+        let cardObj = null;
+        if (sourceZone === 'hand') {
+            const index = hand.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = hand.splice(index, 1)[0];
+        } else if (sourceZone === 'play') {
+            const index = playZone.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = playZone.splice(index, 1)[0];
+        } else if (sourceZone === 'library') {
+            const index = library.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = library.splice(index, 1)[0];
+        } else if (sourceZone === 'graveyard') {
+            const index = graveyard.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = graveyard.splice(index, 1)[0];
+        }
+        
+        if (!cardObj) return;
+        
+        // Add to target zone
+        if (targetZone === 'hand') {
+            hand.push(cardObj);
+        } else if (targetZone === 'play') {
+            // For play zone, we need to set position if not already set
+            if (cardObj.x === undefined || cardObj.y === undefined) {
+                cardObj.x = 0;
+                cardObj.y = 0;
+            }
+            playZone.push(cardObj);
+        } else if (targetZone === 'library') {
+            library.push(cardObj);
+        } else if (targetZone === 'graveyard') {
+            graveyard.push(cardObj);
+        }
+    });
+    
+    sendMove();
+    selectedCardIds = [];
+    
+    render();
 }
 
 
