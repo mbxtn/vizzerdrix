@@ -75,7 +75,7 @@ body {
     background-color: rgba(66, 153, 225, 0.1);
 }
 
-#discard-pile.touch-pop-active, #library.touch-pop-active {
+#graveyard-pile.touch-pop-active, #library.touch-pop-active {
     border-color: #4299e1;
     box-shadow: 0 0 15px #4299e1, 0 0 10px #4299e1;
     transform: scale(1.05);

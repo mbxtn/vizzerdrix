@@ -4,7 +4,7 @@ import { createCardElement } from './cardFactory.js';
 export class CardZone {
     constructor(element, zoneType, options = {}) {
         this.element = element;
-        this.zoneType = zoneType; // 'library' or 'discard'
+        this.zoneType = zoneType; // 'library' or 'graveyard'
         this.cards = [];
         this.countElement = options.countElement;
         this.onCardDraw = options.onCardDraw;
@@ -174,9 +174,9 @@ export class CardZone {
     handlePeekDrop(e) {
         // Determine drop target
         const handZoneEl = document.getElementById('hand-zone');
-        const discardPileEl = document.getElementById('discard-pile');
+        const graveyardPileEl = document.getElementById('graveyard-pile');
         const playZonesContainer = document.getElementById('play-zones-container');
-        const dropZones = [handZoneEl, discardPileEl, playZonesContainer];
+        const dropZones = [handZoneEl, graveyardPileEl, playZonesContainer];
         
         for (const zone of dropZones) {
             const rect = zone.getBoundingClientRect();
@@ -189,8 +189,8 @@ export class CardZone {
                 
                 if (zone.id === 'hand-zone') {
                     this.onCardDraw?.(cardObj, 'hand');
-                } else if (zone.id === 'discard-pile') {
-                    this.onCardDraw?.(cardObj, 'discard');
+                } else if (zone.id === 'graveyard-pile') {
+                    this.onCardDraw?.(cardObj, 'graveyard');
                 } else if (zone.id === 'play-zones-container') {
                     const activePlayZone = zone.querySelector('.play-zone:not([style*="display: none"])');
                     if (activePlayZone) {

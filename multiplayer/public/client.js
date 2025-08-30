@@ -22,9 +22,9 @@ const playZonesContainer = document.getElementById('play-zones-container');
 const playerTabsContainer = document.getElementById('player-tabs-container');
 const handZoneEl = document.getElementById('hand-zone');
 const libraryEl = document.getElementById('library');
-const discardPileEl = document.getElementById('discard-pile');
+const discardPileEl = document.getElementById('graveyard-pile');
 const libraryCountEl = document.getElementById('library-count');
-const discardCountEl = document.getElementById('discard-count');
+const discardCountEl = document.getElementById('graveyard-count');
 const messageModal = document.getElementById('message-modal');
 const messageText = document.getElementById('message-text');
 const closeModalBtn = document.getElementById('close-modal-btn');
@@ -48,7 +48,7 @@ const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cas
 
 // Card Zone instances
 let libraryZone = null;
-let discardZone = null;
+let graveyardZone = null;
 
 // Render debouncing
 let renderTimeout = null;
@@ -148,9 +148,9 @@ socket.on('state', async (state) => {
             });
         }
         
-        // Discard pile cards
-        if (player.discard && Array.isArray(player.discard)) {
-            player.discard.forEach(cardItem => {
+        // Graveyard cards
+        if (player.graveyard && Array.isArray(player.graveyard)) {
+            player.graveyard.forEach(cardItem => {
                 if (typeof cardItem === 'string') {
                     allCardNames.add(cardItem);
                 } else if (cardItem && cardItem.name) {
@@ -199,7 +199,7 @@ document.getElementById('close-options-btn').addEventListener('click', () => {
 });
 
 resetBtnModal.addEventListener('click', () => {
-    // Collect all cards from hand, playZone, and discardPile
+    // Collect all cards from hand, playZone, and graveyard
     let allCards = [];
 
     // Add cards from hand (these are already card objects)
@@ -219,9 +219,9 @@ resetBtnModal.addEventListener('click', () => {
     });
     playZone.length = 0; // Clear playZone
 
-    // Add cards from discardPile (these are already card objects)
-    allCards.push(...discardPile);
-    discardPile.length = 0; // Clear discardPile
+    // Add cards from graveyard (these are already card objects)
+    allCards.push(...graveyard);
+    graveyard.length = 0; // Clear graveyard
 
     // Shuffle all collected cards
     shuffleArray(allCards);
@@ -261,8 +261,8 @@ function applyMagnifyEffectToAllCards() {
     if (libraryZone) {
         libraryZone.updateMagnifyEnabled(isMagnifyEnabled);
     }
-    if (discardZone) {
-        discardZone.updateMagnifyEnabled(isMagnifyEnabled);
+    if (graveyardZone) {
+        graveyardZone.updateMagnifyEnabled(isMagnifyEnabled);
     }
     render();
 }
@@ -286,7 +286,7 @@ function sendMove() {
     socket.emit('move', {
         hand,
         library,
-        discard: discardPile,
+        graveyard: graveyard,
         playZone
     });
 }
@@ -317,8 +317,8 @@ function initializeCardZones() {
             
             if (targetZone === 'hand') {
                 hand.push(cardObj);
-            } else if (targetZone === 'discard') {
-                discardPile.push(cardObj);
+            } else if (targetZone === 'graveyard') {
+                graveyard.push(cardObj);
             } else if (targetZone === 'play') {
                 cardObj.x = options.x || 10;
                 cardObj.y = options.y || 10;
@@ -339,20 +339,20 @@ function initializeCardZones() {
         }
     });
     
-    // Discard zone (with peek functionality, no shuffle)
-    discardZone = new CardZone(discardPileEl, 'discard', {
+    // Graveyard zone (with peek functionality, no shuffle)
+    graveyardZone = new CardZone(discardPileEl, 'graveyard', {
         countElement: discardCountEl,
         enablePeek: true,
         peekHoldTime: 200,
         currentCardWidth: currentCardWidth,
         isMagnifyEnabled: isMagnifyEnabled,
         showMessage: showMessage,
-        showShuffle: false, // Disable shuffle for discard pile
+        showShuffle: false, // Disable shuffle for graveyard
         onCardDraw: (cardObj, targetZone, options = {}) => {
-            // Remove the card from the discard pile since it was drawn from there
-            const discardIndex = discardPile.findIndex(c => c.id === cardObj.id);
-            if (discardIndex > -1) {
-                discardPile.splice(discardIndex, 1);
+            // Remove the card from the graveyard since it was drawn from there
+            const graveyardIndex = graveyard.findIndex(c => c.id === cardObj.id);
+            if (graveyardIndex > -1) {
+                graveyard.splice(graveyardIndex, 1);
             }
             
             if (targetZone === 'hand') {
@@ -372,7 +372,7 @@ function initializeCardZones() {
             if (action === 'moveCard') {
                 handleCardMove(cardId, sourceZone, targetZone);
             } else if (action === 'shuffle') {
-                // Discard pile was shuffled, sync with server
+                // Graveyard was shuffled, sync with server
                 sendMove();
                 debouncedRender();
             }
@@ -392,9 +392,9 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     } else if (sourceZone === 'library') {
         const index = library.findIndex(c => c.id === cardId);
         if (index > -1) cardObj = library.splice(index, 1)[0];
-    } else if (sourceZone === 'discard') {
-        const index = discardPile.findIndex(c => c.id === cardId);
-        if (index > -1) cardObj = discardPile.splice(index, 1)[0];
+    } else if (sourceZone === 'graveyard') {
+        const index = graveyard.findIndex(c => c.id === cardId);
+        if (index > -1) cardObj = graveyard.splice(index, 1)[0];
     }
     
     if (!cardObj) return;
@@ -411,8 +411,8 @@ function handleCardMove(cardId, sourceZone, targetZone) {
         playZone.push(cardObj);
     } else if (targetZone === 'library') {
         library.push(cardObj);
-    } else if (targetZone === 'discard') {
-        discardPile.push(cardObj);
+    } else if (targetZone === 'graveyard') {
+        graveyard.push(cardObj);
     }
     
     sendMove();
@@ -440,15 +440,15 @@ function render() {
         // Update local state from server
         hand = gameState.players[playerId]?.hand || [];
         library = gameState.players[playerId]?.library || [];
-        discardPile = gameState.players[playerId]?.discard || [];
+        graveyard = gameState.players[playerId]?.graveyard || [];
         playZone = gameState.playZones[playerId] || [];
 
         // Update CardZone instances (these now have change detection)
         if (libraryZone) {
             libraryZone.updateCards(library);
         }
-        if (discardZone) {
-            discardZone.updateCards(discardPile);
+        if (graveyardZone) {
+            graveyardZone.updateCards(graveyard);
         }
 
         // Render hand
@@ -573,7 +573,7 @@ function addDropListeners() {
                         const x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
                         const y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2) + (index * cascadeOffset);
                         
-                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || discardPile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
                             console.error('Card not found:', cardId);
                             return;
@@ -587,7 +587,7 @@ function addDropListeners() {
                     });
                 } else if (zone.id === 'hand-zone') {
                     groupData.cardIds.forEach(cardId => {
-                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || discardPile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
                             console.error('Card not found for hand move:', cardId);
                             return;
@@ -603,7 +603,7 @@ function addDropListeners() {
                 const sourceZone = e.dataTransfer.getData('sourceZone');
                 
                 // Handle cards from any source zone
-                let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || discardPile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                 if (!cardObj) return;
                 
                 // For play zone drops, we need to handle positioning manually
@@ -629,8 +629,8 @@ function addDropListeners() {
                     targetZone = 'hand';
                 } else if (zone.id === 'library') {
                     targetZone = 'library';
-                } else if (zone.id === 'discard-pile') {
-                    targetZone = 'discard';
+                } else if (zone.id === 'graveyard-pile') {
+                    targetZone = 'graveyard';
                 }
                 
                 if (targetZone) {
@@ -768,7 +768,7 @@ function createDeck(cardNames) {
 // Zones now store card objects
 let library = [];
 let hand = [];
-let discardPile = [];
+let graveyard = [];
 let playZone = [];
 let currentCardWidth = 80;
 
@@ -863,10 +863,10 @@ function removeCardFromSource(cardId, sourceZone) {
                 updateCascadedHandCardsInAreaCount(); // Update cascade count when removing from play zone
             }
             break;
-        case 'discard':
-            cardIndex = discardPile.findIndex(c => c.id === cardId);
+        case 'graveyard':
+            cardIndex = graveyard.findIndex(c => c.id === cardId);
             if (cardIndex > -1) {
-                discardPile.splice(cardIndex, 1);
+                graveyard.splice(cardIndex, 1);
             }
             break;
         case 'library':
@@ -881,7 +881,7 @@ function removeCardFromSource(cardId, sourceZone) {
 function updateCounts() {
     if (!gameState || !playerId) return;
     libraryCountEl.textContent = gameState.players[playerId]?.library.length || 0;
-    discardCountEl.textContent = gameState.players[playerId]?.discard.length || 0;
+    discardCountEl.textContent = gameState.players[playerId]?.graveyard.length || 0;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -918,7 +918,7 @@ document.addEventListener('keydown', (e) => {
                     // Update in hand, playZone, or other zones as needed
                     if (!updateCardFace(hand)) {
                         if (!updateCardFace(playZone)) {
-                            updateCardFace(discardPile);
+                            updateCardFace(graveyard);
                         }
                     }
                     
