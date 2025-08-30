@@ -753,10 +753,9 @@ export class CardZone {
     
     updateCardWidth(newWidth) {
         this.currentCardWidth = newWidth;
-        // Update top card display if it exists
-        if (this.topCardElement) {
-            this.topCardElement.style.width = `${this.currentCardWidth * 0.8}px`;
-        }
+        // Update top card display to reflect new size
+        // Don't set specific pixel widths - let CSS variables handle sizing
+        this.updateTopCardDisplay();
     }
     
     setShowTopCard(enabled) {
