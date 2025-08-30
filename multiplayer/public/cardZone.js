@@ -802,11 +802,16 @@ export class CardZone {
                 cardWrapper.style.opacity = '1';
                 cardEl.style.cursor = 'grab';
                 
+                // Update the main card zone's top card display immediately
+                this.updateTopCardDisplay();
+                
                 // Delayed update to catch any state changes from the drag operation
                 setTimeout(() => {
                     if (this.currentModal) {
                         this.updateSidePanel();
                     }
+                    // Also update the main zone display after any async state changes
+                    this.updateTopCardDisplay();
                 }, 100);
             });
             
