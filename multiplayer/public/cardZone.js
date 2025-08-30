@@ -270,12 +270,23 @@ export class CardZone {
         this.cards.push(card);
         this.updateCount();
         this.updateTopCardDisplay(); // Update the visual display
+        
+        // Update side panel if open
+        if (this.currentModal) {
+            this.updateSidePanel();
+        }
     }
     
     removeTopCard() {
         const card = this.cards.pop();
         this.updateCount();
         this.updateTopCardDisplay(); // Update the visual display
+        
+        // Update side panel if open
+        if (this.currentModal) {
+            this.updateSidePanel();
+        }
+        
         return card;
     }
     
@@ -285,6 +296,12 @@ export class CardZone {
             const card = this.cards.splice(index, 1)[0];
             this.updateCount();
             this.updateTopCardDisplay(); // Update the visual display
+            
+            // Update side panel if open
+            if (this.currentModal) {
+                this.updateSidePanel();
+            }
+            
             return card;
         }
         return null;
@@ -305,10 +322,10 @@ export class CardZone {
         
         // If modal/panel is open and cards changed, refresh it
         if (this.currentModal) {
-            this.closeSidePanel();
-            // Small delay to prevent flickering
+            // Update immediately and also with a delay to catch any async updates
+            this.updateSidePanel();
             setTimeout(() => {
-                this.viewAllCards();
+                this.updateSidePanel();
             }, 50);
         }
     }
@@ -565,6 +582,14 @@ export class CardZone {
             [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
         }
         
+        // Update the top card display since order changed
+        this.updateTopCardDisplay();
+        
+        // Update side panel if open (cards reordered)
+        if (this.currentModal) {
+            this.updateSidePanel();
+        }
+        
         // Notify parent of the change
         if (this.onStateChange) {
             this.onStateChange('shuffle', null, this.zoneType, null);
@@ -631,7 +656,7 @@ export class CardZone {
                         if (cardWrapper) cardWrapper.style.opacity = '0.5';
                     }, 0);
                 },
-                showBack: this.zoneType === 'library' ? true : card.faceShown === 'back'
+                showBack: card.faceShown === 'back'
             });
             
             // Style the card for the side panel
@@ -666,22 +691,7 @@ export class CardZone {
                 // Reset visual feedback
                 cardWrapper.style.opacity = '1';
                 cardEl.style.cursor = 'grab';
-                
-                // Check if drag ended outside the panel
-                if (dragStartedInPanel) {
-                    const panelRect = panel.getBoundingClientRect();
-                    const isOutsidePanel = e.clientX < panelRect.left || 
-                                         e.clientY < panelRect.top || 
-                                         e.clientY > panelRect.bottom;
-                    
-                    if (isOutsidePanel) {
-                        // Close panel after a short delay to allow drop to complete
-                        setTimeout(() => {
-                            this.closeSidePanel();
-                        }, 100);
-                    }
-                }
-                dragStartedInPanel = false;
+                this.updateSidePanel();
             });
             
             cardList.appendChild(cardWrapper);
@@ -705,6 +715,105 @@ export class CardZone {
         this.currentModal = panel;
     }
     
+    updateSidePanel() {
+        if (!this.currentModal) return;
+        
+        // Find the card container and title within the current modal
+        const cardContainer = this.currentModal.querySelector('.flex-1.overflow-y-auto.p-4');
+        const title = this.currentModal.querySelector('h3');
+        
+        if (!cardContainer || !title) return;
+        
+        // Update the title with current card count
+        title.textContent = `${this.zoneType.charAt(0).toUpperCase() + this.zoneType.slice(1)} (${this.cards.length})`;
+        
+        // Clear and rebuild the card list
+        const cardList = cardContainer.querySelector('.flex.flex-col.gap-3');
+        if (!cardList) return;
+        
+        cardList.innerHTML = '';
+        
+        // If no cards remain, show an empty state message
+        if (this.cards.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'text-gray-400 text-center py-8';
+            emptyMessage.textContent = `No cards in ${this.zoneType}`;
+            cardList.appendChild(emptyMessage);
+            return;
+        }
+        
+        // Rebuild the card list with current cards
+        this.cards.forEach((card, index) => {
+            // Track if drag started from within panel
+            let dragStartedInPanel = false;
+            
+            // Create actual card element using cardFactory
+            const cardEl = createCardElement(card, this.zoneType === 'library' ? 'library' : 'panel', {
+                isMagnifyEnabled: this.isMagnifyEnabled,
+                isInteractable: true,
+                onCardClick: null,
+                onCardDblClick: null,
+                onCardDragStart: (e, cardData, location) => {
+                    // Custom drag start handler for panel cards
+                    dragStartedInPanel = true;
+                    e.dataTransfer.setData('text/plain', cardData.id);
+                    e.dataTransfer.setData('sourceZone', this.zoneType);
+                    e.dataTransfer.setData('cardName', cardData.displayName || cardData.name);
+                    e.dataTransfer.effectAllowed = 'move';
+                    
+                    // Visual feedback
+                    setTimeout(() => {
+                        if (cardWrapper) cardWrapper.style.opacity = '0.5';
+                    }, 0);
+                },
+                showBack: card.faceShown === 'back'
+            });
+            
+            // Style the card for the side panel
+            cardEl.style.cursor = 'grab';
+            cardEl.style.width = '120px';
+            cardEl.style.height = 'auto';
+            cardEl.style.flexShrink = '0';
+            cardEl.draggable = true;
+            
+            // Add proper drag cursor handling
+            cardEl.addEventListener('mousedown', () => {
+                cardEl.style.cursor = 'grabbing';
+            });
+            
+            cardEl.addEventListener('mouseup', () => {
+                cardEl.style.cursor = 'grab';
+            });
+            
+            // Add a wrapper for styling and interactions
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'card-item p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex justify-center';
+            cardWrapper.style.cursor = 'grab';
+            
+            cardWrapper.appendChild(cardEl);
+            
+            // Store card data for drag operations
+            cardEl.dataset.cardId = card.id;
+            cardEl.dataset.sourceZone = this.zoneType;
+            
+            // Add drag end handler for additional updates
+            cardEl.addEventListener('dragend', (e) => {
+                // Reset visual feedback
+                cardWrapper.style.opacity = '1';
+                cardEl.style.cursor = 'grab';
+                
+                // Delayed update to catch any state changes from the drag operation
+                setTimeout(() => {
+                    if (this.currentModal) {
+                        this.updateSidePanel();
+                    }
+                }, 100);
+            });
+            
+            cardList.appendChild(cardWrapper);
+        });
+    }
+
     closeSidePanel() {
         if (this.currentModal) {
             this.currentModal.style.transform = 'translateX(100%)';
