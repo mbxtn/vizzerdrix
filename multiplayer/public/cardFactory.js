@@ -170,17 +170,67 @@ export function createCardElement(card, location, options) {
 
     if (isInteractable) {
         cardEl.setAttribute('draggable', 'true');
+        
+        let dragStartTimeout = null;
+        let isDragging = false;
+        let doubleClickDetected = false;
+        
+        cardEl.addEventListener('mousedown', (e) => {
+            // Clear any pending drag start
+            if (dragStartTimeout) {
+                clearTimeout(dragStartTimeout);
+                dragStartTimeout = null;
+            }
+            
+            // Delay drag start to allow for double-click detection
+            dragStartTimeout = setTimeout(() => {
+                if (!doubleClickDetected) {
+                    cardEl.setAttribute('draggable', 'true');
+                }
+            }, 200); // 200ms delay to allow for double-click
+        });
+        
         cardEl.addEventListener('dragstart', (e) => {
+            if (doubleClickDetected) {
+                e.preventDefault();
+                return;
+            }
+            isDragging = true;
             if (onCardDragStart) {
                 onCardDragStart(e, card, location);
             }
         });
+        
+        cardEl.addEventListener('dragend', () => {
+            isDragging = false;
+            setTimeout(() => {
+                doubleClickDetected = false;
+            }, 100);
+        });
 
         cardEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
+            e.preventDefault();
+            
+            // Mark that double-click was detected to prevent drag
+            doubleClickDetected = true;
+            cardEl.setAttribute('draggable', 'false');
+            
+            // Clear any pending drag start
+            if (dragStartTimeout) {
+                clearTimeout(dragStartTimeout);
+                dragStartTimeout = null;
+            }
+            
             if (onCardDblClick) {
                 onCardDblClick(e, card, location);
             }
+            
+            // Re-enable dragging after a short delay
+            setTimeout(() => {
+                cardEl.setAttribute('draggable', 'true');
+                doubleClickDetected = false;
+            }, 300);
         });
     } else {
         cardEl.setAttribute('draggable', 'false');

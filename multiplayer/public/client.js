@@ -311,6 +311,9 @@ function initializeCardZones() {
         isMagnifyEnabled: isMagnifyEnabled,
         showMessage: showMessage,
         onCardDraw: (cardObj, targetZone, options = {}) => {
+            // Mark this as a client action to preserve optimistic updates
+            markClientAction(`libraryTo${targetZone}`, cardObj.id);
+            
             // Remove the card from the library since it was drawn from there
             const libraryIndex = library.findIndex(c => c.id === cardObj.id);
             if (libraryIndex > -1) {
@@ -351,6 +354,9 @@ function initializeCardZones() {
         showMessage: showMessage,
         showShuffle: false, // Disable shuffle for graveyard
         onCardDraw: (cardObj, targetZone, options = {}) => {
+            // Mark this as a client action to preserve optimistic updates  
+            markClientAction(`graveyardTo${targetZone}`, cardObj.id);
+            
             // Remove the card from the graveyard since it was drawn from there
             const graveyardIndex = graveyard.findIndex(c => c.id === cardObj.id);
             if (graveyardIndex > -1) {
@@ -423,6 +429,23 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     render();
 }
 
+// State tracking for optimistic updates
+let lastClientAction = null;
+let clientActionTimeout = null;
+
+// Mark a client action to preserve optimistic updates
+function markClientAction(action, cardId = null) {
+    lastClientAction = { action, cardId, timestamp: Date.now() };
+    
+    // Clear the action after 2 seconds to allow server authority
+    if (clientActionTimeout) {
+        clearTimeout(clientActionTimeout);
+    }
+    clientActionTimeout = setTimeout(() => {
+        lastClientAction = null;
+    }, 2000);
+}
+
 function render() {
     // Debounce render calls to prevent flickering
     if (renderTimeout) {
@@ -439,11 +462,34 @@ function render() {
     try {
         if (!gameState || !playerId) return;
 
-        // Update local state from server
-        hand = gameState.players[playerId]?.hand || [];
-        library = gameState.players[playerId]?.library || [];
-        graveyard = gameState.players[playerId]?.graveyard || [];
-        playZone = gameState.playZones[playerId] || [];
+        // Smart merge: preserve recent client changes, use server for everything else
+        const serverHand = gameState.players[playerId]?.hand || [];
+        const serverLibrary = gameState.players[playerId]?.library || [];
+        const serverGraveyard = gameState.players[playerId]?.graveyard || [];
+        const serverPlayZone = gameState.playZones[playerId] || [];
+        
+        // If we have a recent client action, preserve local state for a short time
+        const hasRecentClientAction = lastClientAction && (Date.now() - lastClientAction.timestamp < 1000);
+        
+        if (hasRecentClientAction) {
+            console.log('Preserving local state due to recent client action:', lastClientAction.action);
+            // Keep local state for recent actions, but merge other players' changes
+            // Only merge playZone from server if it has more cards (other players added cards)
+            if (serverPlayZone.length > playZone.length) {
+                // Merge server cards that aren't in our local state
+                serverPlayZone.forEach(serverCard => {
+                    if (!playZone.find(localCard => localCard.id === serverCard.id)) {
+                        playZone.push(serverCard);
+                    }
+                });
+            }
+        } else {
+            // No recent client action, use server state as source of truth
+            hand = serverHand;
+            library = serverLibrary;
+            graveyard = serverGraveyard;
+            playZone = serverPlayZone;
+        }
 
         // Update CardZone instances (these now have change detection)
         if (libraryZone) {
@@ -805,6 +851,8 @@ function handleCardClick(e, card, cardEl, location) {
 
 function handleCardDoubleClick(e, card, location) {
     e.stopPropagation();
+    console.log('Double click detected:', { cardId: card.id, cardName: card.name, location });
+    
     const cardId = card.id;
     if (location === 'play') {
         // Double-click on play zone cards to tap/untap them
@@ -816,11 +864,22 @@ function handleCardDoubleClick(e, card, location) {
         }
         return;
     } else if (location === 'hand') {
+        console.log('Processing hand card double-click for card:', cardId);
+        console.log('Current hand before removal:', hand.map(c => ({ id: c.id, name: c.name })));
+        console.log('Current playZone before addition:', playZone.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y })));
+        
         // Find the card in hand by ID
         const cardIndex = hand.findIndex(c => c.id === cardId);
+        console.log('Card found in hand at index:', cardIndex, 'Hand length:', hand.length);
+        
         if (cardIndex > -1) {
+            // Mark this as a client action to preserve optimistic updates
+            markClientAction('handToPlay', cardId);
+            
             // Remove from hand
             const cardObj = hand.splice(cardIndex, 1)[0];
+            console.log('Removed card from hand:', cardObj);
+            
             const cascadeOffset = 15;
             const initialX = 10;
             const initialY = 10;
@@ -829,10 +888,26 @@ function handleCardDoubleClick(e, card, location) {
             const col = cascadedHandCardsInAreaCount % maxCardsPerRow;
             const x = initialX + (col * cascadeOffset);
             const y = initialY + (row * cascadeOffset);
+            
             // Move the full card object to playZone, preserving its ID and properties
-            playZone.push({ ...cardObj, x, y, rotation: 0, fromHandCascade: true });
-            sendMove();
+            const playCard = { ...cardObj, x, y, rotation: 0, fromHandCascade: true };
+            playZone.push(playCard);
+            console.log('Added card to play zone:', playCard);
+            console.log('Current hand after removal:', hand.map(c => ({ id: c.id, name: c.name })));
+            console.log('Current playZone after addition:', playZone.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y })));
+            
             updateCascadedHandCardsInAreaCount();
+            
+            // Render immediately to update the UI before server response
+            console.log('Rendering UI immediately');
+            render();
+            
+            // Send update to server after the local render
+            sendMove();
+            
+            console.log('Move sent to server');
+        } else {
+            console.warn('Card not found in hand:', cardId);
         }
     }
 }
