@@ -4,7 +4,7 @@ import { createCardElement } from './cardFactory.js';
 export class CardZone {
     constructor(element, zoneType, options = {}) {
         this.element = element;
-        this.zoneType = zoneType; // 'library', 'graveyard', or 'exile'
+        this.zoneType = zoneType; // 'library', 'graveyard', 'exile', or 'command'
         this.cards = [];
         this.countElement = options.countElement;
         this.onCardDraw = options.onCardDraw;
@@ -352,7 +352,7 @@ export class CardZone {
     
     updateCount() {
         if (this.countElement) {
-            // Library always shows count, graveyard and exile only show when not empty
+            // Library always shows count, graveyard, exile, and command only show when not empty
             if (this.zoneType === 'library' || this.cards.length > 0) {
                 this.countElement.textContent = this.cards.length;
             } else {
@@ -379,8 +379,8 @@ export class CardZone {
             if (this.zoneType === 'library') {
                 // Library cards always show back (cardFactory will use default card back)
                 shouldShowBack = true;
-            } else if (this.zoneType === 'graveyard' || this.zoneType === 'exile') {
-                // Graveyard and exile cards are face up unless showTopCard is disabled
+            } else if (this.zoneType === 'graveyard' || this.zoneType === 'exile' || this.zoneType === 'command') {
+                // Graveyard, exile, and command cards are face up unless showTopCard is disabled
                 shouldShowBack = !this.showTopCard;
             }
             

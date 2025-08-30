@@ -30,7 +30,7 @@ function createDeck(cardNames) {
 }
 
 function initializePlayer(game, playerId, displayName) {
-    game.players[playerId] = { hand: [], library: createDeck([]), graveyard: [], exile: [], displayName: displayName };
+    game.players[playerId] = { hand: [], library: createDeck([]), graveyard: [], exile: [], command: [], displayName: displayName };
     game.playZones[playerId] = [];
 }
 
@@ -52,17 +52,26 @@ io.on('connection', (socket) => {
             library: createDeck(deck), // Fill library with card objects
             graveyard: [],
             exile: [],
+            command: [],
             displayName: displayName || `Player ${Object.keys(games[roomName].players).length + 1}`,
             decklist: deck
         };
         games[roomName].playZones[socket.id] = [];
         socket.join(roomName);
         room = roomName;
+        
+        // Migration: Ensure all existing players have command zones
+        Object.keys(games[roomName].players).forEach(existingPlayerId => {
+            if (!games[roomName].players[existingPlayerId].command) {
+                games[roomName].players[existingPlayerId].command = [];
+            }
+        });
+        
         io.to(room).emit('state', games[room]);
     });
 
     socket.on('move', (data) => {
-        // data: { playZone, hand, library, graveyard, exile }
+        // data: { playZone, hand, library, graveyard, exile, command }
         if (room && games[room] && games[room].players[playerId]) {
             // Preserve displayName
             const currentDisplayName = games[room].players[playerId].displayName;
@@ -71,6 +80,7 @@ io.on('connection', (socket) => {
                 library: data.library,
                 graveyard: data.graveyard,
                 exile: data.exile,
+                command: data.command || [], // Ensure command is always an array
                 displayName: currentDisplayName // Re-add the preserved displayName
             };
             games[room].playZones[playerId] = data.playZone;
