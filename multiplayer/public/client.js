@@ -1073,9 +1073,17 @@ function removeCardFromSource(cardId, sourceZone) {
 
 function updateCounts() {
     if (!gameState || !playerId) return;
-    libraryCountEl.textContent = gameState.players[playerId]?.library.length || 0;
-    discardCountEl.textContent = gameState.players[playerId]?.graveyard.length || 0;
-    exileCountEl.textContent = gameState.players[playerId]?.exile.length || 0;
+    const player = gameState.players[playerId];
+    
+    // Library always shows count
+    libraryCountEl.textContent = player?.library.length || 0;
+    
+    // Graveyard and exile only show count if not empty
+    const graveyardCount = player?.graveyard.length || 0;
+    const exileCount = player?.exile.length || 0;
+    
+    discardCountEl.textContent = graveyardCount > 0 ? graveyardCount : '';
+    exileCountEl.textContent = exileCount > 0 ? exileCount : '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

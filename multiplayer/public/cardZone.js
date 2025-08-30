@@ -352,7 +352,12 @@ export class CardZone {
     
     updateCount() {
         if (this.countElement) {
-            this.countElement.textContent = this.cards.length;
+            // Library always shows count, graveyard and exile only show when not empty
+            if (this.zoneType === 'library' || this.cards.length > 0) {
+                this.countElement.textContent = this.cards.length;
+            } else {
+                this.countElement.textContent = '';
+            }
         }
     }
     
