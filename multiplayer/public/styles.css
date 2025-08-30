@@ -1,0 +1,143 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.card {
+    width: 80px;
+    aspect-ratio: 80 / 107;
+    background-color: #4a5568;
+    border-radius: 8px;
+    border: 2px solid #a0aec0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.7rem;
+    text-align: center;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    position: relative;
+    transform: rotate(0deg);
+    overflow: hidden; /* Ensure content doesn't overflow the rounded corners */
+}
+
+#hand-zone .card {
+    width: var(--hand-card-width, 80px);
+}
+
+#play-zone .card {
+    position: absolute;
+}
+
+.card.rotated {
+    transform: rotate(90deg);
+}
+
+.card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.card.selected-card {
+    border-color: #48bb78;
+    box-shadow: 0 0 10px #48bb78;
+    cursor: move;
+}
+
+.card.popped-card {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    cursor: grabbing;
+    transition: none;
+}
+
+.selection-box {
+    position: absolute;
+    background-color: rgba(72, 187, 120, 0.2);
+    border: 1px dashed #48bb78;
+    pointer-events: none;
+    z-index: 99;
+}
+
+.zone-active {
+    outline: 2px dashed #4299e1;
+    outline-offset: -2px; /* Optional: to make outline appear inside the border-box */
+    background-color: rgba(66, 153, 225, 0.1);
+}
+
+#discard-pile.touch-pop-active, #library.touch-pop-active {
+    border-color: #4299e1;
+    box-shadow: 0 0 15px #4299e1, 0 0 10px #4299e1;
+    transform: scale(1.05);
+}
+
+#hand-zone {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.magnified-card-display {
+    width: 200px; /* Adjust as needed */
+    height: 266px; /* Adjust as needed (aspect ratio 90/120) */
+    background-color: #4a5568;
+    border-radius: 12px;
+    border: 2px solid #a0aec0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem; /* Larger font for magnified card */
+    text-align: center;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    overflow: hidden; /* Ensure content stays within bounds */
+}
+
+.magnified-card-display .card {
+    width: 100%;
+    height: 100%;
+    font-size: 1.2rem; /* Ensure font scales with card */
+    cursor: default; /* No grab cursor on magnified card */
+    transition: none; /* No transition on magnified card */
+    box-shadow: none; /* No extra shadow */
+    border: none; /* No extra border */
+    border-radius: 0; /* No extra border radius */
+}
+
+/* Magnified preview card styles */
+#magnify-preview {
+    z-index: 999999 !important; /* Extremely high z-index */
+    position: fixed !important;
+    pointer-events: none !important;
+}
+
+#magnify-preview .card {
+    width: 100% !important;
+    height: 100% !important;
+    cursor: default !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    transition: none !important;
+    font-size: 1.2rem;
+}
+
+/* Ensure card images fit perfectly within the card container */
+.card img {
+    border-radius: 6px; /* Slightly smaller than container to account for border */
+}
+
+/* Cards with loaded images get a black border to match the card art */
+.card.has-image {
+    border-color: #000000;
+}
