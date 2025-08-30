@@ -23,8 +23,10 @@ const playerTabsContainer = document.getElementById('player-tabs-container');
 const handZoneEl = document.getElementById('hand-zone');
 const libraryEl = document.getElementById('library');
 const graveyardPileEl = document.getElementById('graveyard-pile');
+const exilePileEl = document.getElementById('exile-pile');
 const libraryCountEl = document.getElementById('library-count');
 const discardCountEl = document.getElementById('graveyard-count');
+const exileCountEl = document.getElementById('exile-count');
 const messageModal = document.getElementById('message-modal');
 const messageText = document.getElementById('message-text');
 const closeModalBtn = document.getElementById('close-modal-btn');
@@ -51,6 +53,7 @@ const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cas
 // Card Zone instances
 let libraryZone = null;
 let graveyardZone = null;
+let exileZone = null;
 
 // Render debouncing
 let renderTimeout = null;
@@ -160,6 +163,17 @@ socket.on('state', async (state) => {
                 }
             });
         }
+        
+        // Exile cards
+        if (player.exile && Array.isArray(player.exile)) {
+            player.exile.forEach(cardItem => {
+                if (typeof cardItem === 'string') {
+                    allCardNames.add(cardItem);
+                } else if (cardItem && cardItem.name) {
+                    allCardNames.add(cardItem.name);
+                }
+            });
+        }
     });
     
     // Collect cards from all play zones
@@ -224,6 +238,10 @@ resetBtnModal.addEventListener('click', () => {
     // Add cards from graveyard (these are already card objects)
     allCards.push(...graveyard);
     graveyard.length = 0; // Clear graveyard
+    
+    // Add cards from exile (these are already card objects)
+    allCards.push(...exile);
+    exile.length = 0; // Clear exile
 
     // Shuffle all collected cards
     shuffleArray(allCards);
@@ -266,6 +284,9 @@ function applyMagnifyEffectToAllCards() {
     if (graveyardZone) {
         graveyardZone.updateMagnifyEnabled(isMagnifyEnabled);
     }
+    if (exileZone) {
+        exileZone.updateMagnifyEnabled(isMagnifyEnabled);
+    }
     render();
 }
 
@@ -289,6 +310,7 @@ function sendMove() {
         hand,
         library,
         graveyard: graveyard,
+        exile: exile,
         playZone
     });
 }
@@ -324,6 +346,8 @@ function initializeCardZones() {
                 hand.push(cardObj);
             } else if (targetZone === 'graveyard') {
                 graveyard.push(cardObj);
+            } else if (targetZone === 'exile') {
+                exile.push(cardObj);
             } else if (targetZone === 'play') {
                 cardObj.x = options.x || 10;
                 cardObj.y = options.y || 10;
@@ -391,6 +415,52 @@ function initializeCardZones() {
             }
         }
     });
+    
+    // Exile zone (with peek functionality, no shuffle, identical to graveyard)
+    exileZone = new CardZone(exilePileEl, 'exile', {
+        countElement: exileCountEl,
+        enablePeek: true,
+        peekHoldTime: 200,
+        currentCardWidth: currentCardWidth,
+        isMagnifyEnabled: isMagnifyEnabled,
+        showMessage: showMessage,
+        showShuffle: false, // Disable shuffle for exile
+        showTopCard: true, // Show the top card face up for exile
+        onCardDraw: (cardObj, targetZone, options = {}) => {
+            // Mark this as a client action to preserve optimistic updates  
+            markClientAction(`exileTo${targetZone}`, cardObj.id);
+            
+            // Remove the card from exile since it was drawn from there
+            const exileIndex = exile.findIndex(c => c.id === cardObj.id);
+            if (exileIndex > -1) {
+                exile.splice(exileIndex, 1);
+            }
+            
+            if (targetZone === 'hand') {
+                hand.push(cardObj);
+            } else if (targetZone === 'library') {
+                library.push(cardObj);
+            } else if (targetZone === 'play') {
+                cardObj.x = options.x || 10;
+                cardObj.y = options.y || 10;
+                cardObj.rotation = 0;
+                playZone.push(cardObj);
+            }
+            sendMove();
+            debouncedRender();
+        },
+        onStateChange: (action, cardIdOrIds, sourceZone, targetZone) => {
+            if (action === 'moveCard') {
+                handleCardMove(cardIdOrIds, sourceZone, targetZone);
+            } else if (action === 'moveCardGroup') {
+                handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
+            } else if (action === 'shuffle') {
+                // Exile was shuffled, sync with server
+                sendMove();
+                debouncedRender();
+            }
+        }
+    });
 }
 
 function handleCardMove(cardId, sourceZone, targetZone) {
@@ -408,10 +478,17 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     } else if (sourceZone === 'graveyard') {
         const index = graveyard.findIndex(c => c.id === cardId);
         if (index > -1) cardObj = graveyard.splice(index, 1)[0];
+    } else if (sourceZone === 'exile') {
+        const index = exile.findIndex(c => c.id === cardId);
+        if (index > -1) cardObj = exile.splice(index, 1)[0];
     }
     
     if (!cardObj) return;
     
+    // Reset rotation (tapped state) when moving from battlefield to any other zone
+    if (sourceZone === 'play' && targetZone !== 'play') {
+        cardObj.rotation = 0;
+    }
     
     // Add to target zone
     if (targetZone === 'hand') {
@@ -427,6 +504,8 @@ function handleCardMove(cardId, sourceZone, targetZone) {
         library.push(cardObj);
     } else if (targetZone === 'graveyard') {
         graveyard.push(cardObj);
+    } else if (targetZone === 'exile') {
+        exile.push(cardObj);
     }
     
     sendMove();
@@ -472,6 +551,7 @@ function render() {
         const serverHand = gameState.players[playerId]?.hand || [];
         const serverLibrary = gameState.players[playerId]?.library || [];
         const serverGraveyard = gameState.players[playerId]?.graveyard || [];
+        const serverExile = gameState.players[playerId]?.exile || [];
         const serverPlayZone = gameState.playZones[playerId] || [];
         
         // If we have a recent client action, preserve local state for a short time
@@ -494,6 +574,7 @@ function render() {
             hand = serverHand;
             library = serverLibrary;
             graveyard = serverGraveyard;
+            exile = serverExile;
             playZone = serverPlayZone;
         }
 
@@ -503,6 +584,9 @@ function render() {
         }
         if (graveyardZone) {
             graveyardZone.updateCards(graveyard);
+        }
+        if (exileZone) {
+            exileZone.updateCards(exile);
         }
 
         // Render hand
@@ -627,7 +711,7 @@ function addDropListeners() {
                         const x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
                         const y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2) + (index * cascadeOffset);
                         
-                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
                             console.error('Card not found:', cardId);
                             return;
@@ -641,7 +725,7 @@ function addDropListeners() {
                     });
                 } else if (zone.id === 'hand-zone') {
                     groupData.cardIds.forEach(cardId => {
-                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                        let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
                             console.error('Card not found for hand move:', cardId);
                             return;
@@ -657,7 +741,7 @@ function addDropListeners() {
                 const sourceZone = e.dataTransfer.getData('sourceZone');
                 
                 // Handle cards from any source zone
-                let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || library.find(c => c.id === cardId);
+                let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                 if (!cardObj) return;
                 
                 // For play zone drops, we need to handle positioning manually
@@ -823,6 +907,7 @@ function createDeck(cardNames) {
 let library = [];
 let hand = [];
 let graveyard = [];
+let exile = [];
 let playZone = [];
 let currentCardWidth = 80;
 const minCardWidth = 60;
@@ -953,6 +1038,12 @@ function removeCardFromSource(cardId, sourceZone) {
             cardIndex = graveyard.findIndex(c => c.id === cardId);
             if (cardIndex > -1) {
                 graveyard.splice(cardIndex, 1);
+            }
+            break;
+        case 'exile':
+            cardIndex = exile.findIndex(c => c.id === cardId);
+            if (cardIndex > -1) {
+                exile.splice(cardIndex, 1);
             }
             break;
         case 'library':
@@ -1098,6 +1189,9 @@ function updateCardSize() {
     if (graveyardZone) {
         graveyardZone.updateCardWidth(currentCardWidth);
     }
+    if (exileZone) {
+        exileZone.updateCardWidth(currentCardWidth);
+    }
     
     // Re-render to apply new size
     render();
@@ -1148,9 +1242,17 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
         } else if (sourceZone === 'graveyard') {
             const index = graveyard.findIndex(c => c.id === cardId);
             if (index > -1) cardObj = graveyard.splice(index, 1)[0];
+        } else if (sourceZone === 'exile') {
+            const index = exile.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = exile.splice(index, 1)[0];
         }
         
         if (!cardObj) return;
+        
+        // Reset rotation (tapped state) when moving from battlefield to any other zone
+        if (sourceZone === 'play' && targetZone !== 'play') {
+            cardObj.rotation = 0;
+        }
         
         // Add to target zone
         if (targetZone === 'hand') {
@@ -1166,6 +1268,8 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
             library.push(cardObj);
         } else if (targetZone === 'graveyard') {
             graveyard.push(cardObj);
+        } else if (targetZone === 'exile') {
+            exile.push(cardObj);
         }
     });
     

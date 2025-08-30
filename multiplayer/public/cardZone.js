@@ -4,7 +4,7 @@ import { createCardElement } from './cardFactory.js';
 export class CardZone {
     constructor(element, zoneType, options = {}) {
         this.element = element;
-        this.zoneType = zoneType; // 'library' or 'graveyard'
+        this.zoneType = zoneType; // 'library', 'graveyard', or 'exile'
         this.cards = [];
         this.countElement = options.countElement;
         this.onCardDraw = options.onCardDraw;
@@ -176,6 +176,8 @@ export class CardZone {
         const dropTargets = [
             { element: document.getElementById('graveyard-pile'), type: 'graveyard' },
             { element: document.getElementById('graveyard-container'), type: 'graveyard' },
+            { element: document.getElementById('exile-pile'), type: 'exile' },
+            { element: document.getElementById('exile-container'), type: 'exile' },
             { element: document.getElementById('hand-zone'), type: 'hand' },
             { element: document.getElementById('play-zones-container'), type: 'play' }
         ];
@@ -210,6 +212,8 @@ export class CardZone {
                 this.onCardDraw?.(cardObj, 'hand');
             } else if (targetZone.type === 'graveyard') {
                 this.onCardDraw?.(cardObj, 'graveyard');
+            } else if (targetZone.type === 'exile') {
+                this.onCardDraw?.(cardObj, 'exile');
             } else if (targetZone.type === 'play') {
                 const activePlayZone = targetZone.element.querySelector('.play-zone:not([style*="display: none"])');
                 if (activePlayZone) {
@@ -370,8 +374,8 @@ export class CardZone {
             if (this.zoneType === 'library') {
                 // Library cards always show back (cardFactory will use default card back)
                 shouldShowBack = true;
-            } else if (this.zoneType === 'graveyard') {
-                // Graveyard cards are face up unless showTopCard is disabled
+            } else if (this.zoneType === 'graveyard' || this.zoneType === 'exile') {
+                // Graveyard and exile cards are face up unless showTopCard is disabled
                 shouldShowBack = !this.showTopCard;
             }
             
