@@ -50,6 +50,10 @@ let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
 
+// Context menu state
+let cardContextMenu = null;
+let contextMenuJustShown = false;
+
 // Card Zone instances
 let libraryZone = null;
 let graveyardZone = null;
@@ -876,6 +880,18 @@ document.addEventListener('click', (e) => {
         selectedCards = [];
         selectedCardIds = [];
     }
+    // Hide context menu on any click (unless it was just shown)
+    if (!contextMenuJustShown) {
+        hideCardContextMenu();
+    }
+});
+
+// Context menu event handlers
+document.addEventListener('contextmenu', (e) => {
+    // Only show context menu if we have selected cards and right-clicking in a valid area
+    if (selectedCards.length > 0 && (e.target.closest('.play-zone') || e.target.closest('#hand-zone') || e.target.closest('.card'))) {
+        showCardContextMenu(e);
+    }
 });
 
 function checkIntersection(rect1, rect2) {
@@ -1224,31 +1240,148 @@ function shuffleArray(array) {
     return array;
 }
 
-// ...existing code...
-function handleCardGroupMove(cardIds, sourceZone, targetZone) {
-    // Handle moving multiple cards as a batch operation
-    cardIds.forEach(cardId => {
-        // Find the card in the source zone
+// Context menu functions for selected cards
+function showCardContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only show context menu if we have selected cards
+    if (selectedCards.length === 0) return;
+    
+    // Set flag to prevent immediate click events
+    contextMenuJustShown = true;
+    setTimeout(() => {
+        contextMenuJustShown = false;
+    }, 100);
+    
+    // Hide any existing context menu
+    hideCardContextMenu();
+    
+    // Create context menu
+    cardContextMenu = document.createElement('div');
+    cardContextMenu.className = 'card-context-menu fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1 min-w-48';
+    cardContextMenu.style.left = `${e.clientX}px`;
+    cardContextMenu.style.top = `${e.clientY}px`;
+    
+    // Header showing selected count
+    const header = document.createElement('div');
+    header.className = 'px-4 py-2 border-b border-gray-600 text-gray-300 text-sm font-semibold';
+    header.textContent = `${selectedCards.length} card${selectedCards.length > 1 ? 's' : ''} selected`;
+    cardContextMenu.appendChild(header);
+    
+    // Move to Library option
+    const libraryOption = document.createElement('button');
+    libraryOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    libraryOption.textContent = 'Send to Library';
+    libraryOption.addEventListener('click', () => {
+        moveSelectedCardsToZone('library');
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(libraryOption);
+    
+    // Move to Hand option
+    const handOption = document.createElement('button');
+    handOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    handOption.textContent = 'Send to Hand';
+    handOption.addEventListener('click', () => {
+        moveSelectedCardsToZone('hand');
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(handOption);
+    
+    // Move to Graveyard option
+    const graveyardOption = document.createElement('button');
+    graveyardOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    graveyardOption.textContent = 'Send to Graveyard';
+    graveyardOption.addEventListener('click', () => {
+        moveSelectedCardsToZone('graveyard');
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(graveyardOption);
+    
+    // Move to Exile option
+    const exileOption = document.createElement('button');
+    exileOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    exileOption.textContent = 'Send to Exile';
+    exileOption.addEventListener('click', () => {
+        moveSelectedCardsToZone('exile');
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(exileOption);
+    
+    // Ensure context menu stays within viewport
+    document.body.appendChild(cardContextMenu);
+    const rect = cardContextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+        cardContextMenu.style.left = `${e.clientX - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+        cardContextMenu.style.top = `${e.clientY - rect.height}px`;
+    }
+}
+
+function hideCardContextMenu() {
+    if (cardContextMenu) {
+        cardContextMenu.remove();
+        cardContextMenu = null;
+    }
+    contextMenuJustShown = false;
+}
+
+function moveSelectedCardsToZone(targetZone) {
+    if (selectedCards.length === 0) return;
+    
+    // Get the card IDs and their source zones
+    const cardsToMove = selectedCards.map(cardEl => {
+        const cardId = cardEl.dataset.id;
+        let sourceZone = null;
         let cardObj = null;
-        if (sourceZone === 'hand') {
-            const index = hand.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = hand.splice(index, 1)[0];
-        } else if (sourceZone === 'play') {
-            const index = playZone.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = playZone.splice(index, 1)[0];
-        } else if (sourceZone === 'library') {
-            const index = library.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = library.splice(index, 1)[0];
-        } else if (sourceZone === 'graveyard') {
-            const index = graveyard.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = graveyard.splice(index, 1)[0];
-        } else if (sourceZone === 'exile') {
-            const index = exile.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = exile.splice(index, 1)[0];
+        
+        // Determine source zone by checking which array contains the card
+        if (hand.find(c => c.id === cardId)) {
+            sourceZone = 'hand';
+            cardObj = hand.find(c => c.id === cardId);
+        } else if (playZone.find(c => c.id === cardId)) {
+            sourceZone = 'play';
+            cardObj = playZone.find(c => c.id === cardId);
+        } else if (graveyard.find(c => c.id === cardId)) {
+            sourceZone = 'graveyard';
+            cardObj = graveyard.find(c => c.id === cardId);
+        } else if (exile.find(c => c.id === cardId)) {
+            sourceZone = 'exile';
+            cardObj = exile.find(c => c.id === cardId);
+        } else if (library.find(c => c.id === cardId)) {
+            sourceZone = 'library';
+            cardObj = library.find(c => c.id === cardId);
         }
         
-        if (!cardObj) return;
-        
+        return { cardId, sourceZone, cardObj };
+    }).filter(item => item.sourceZone && item.cardObj); // Only include cards with known source zones and objects
+    
+    if (cardsToMove.length === 0) return;
+    
+    // Remove all cards from their source zones first (to avoid issues with array modification)
+    cardsToMove.forEach(({ cardId, sourceZone }) => {
+        if (sourceZone === 'hand') {
+            const index = hand.findIndex(c => c.id === cardId);
+            if (index > -1) hand.splice(index, 1);
+        } else if (sourceZone === 'play') {
+            const index = playZone.findIndex(c => c.id === cardId);
+            if (index > -1) playZone.splice(index, 1);
+        } else if (sourceZone === 'graveyard') {
+            const index = graveyard.findIndex(c => c.id === cardId);
+            if (index > -1) graveyard.splice(index, 1);
+        } else if (sourceZone === 'exile') {
+            const index = exile.findIndex(c => c.id === cardId);
+            if (index > -1) exile.splice(index, 1);
+        } else if (sourceZone === 'library') {
+            const index = library.findIndex(c => c.id === cardId);
+            if (index > -1) library.splice(index, 1);
+        }
+    });
+    
+    // Add all cards to the target zone
+    cardsToMove.forEach(({ cardObj, sourceZone }) => {
         // Reset rotation (tapped state) when moving from battlefield to any other zone
         if (sourceZone === 'play' && targetZone !== 'play') {
             cardObj.rotation = 0;
@@ -1273,10 +1406,33 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
         }
     });
     
-    sendMove();
+    // Update CardZone displays
+    if (libraryZone) {
+        libraryZone.updateCards(library);
+    }
+    if (graveyardZone) {
+        graveyardZone.updateCards(graveyard);
+    }
+    if (exileZone) {
+        exileZone.updateCards(exile);
+    }
+    
+    // Clear selection after moving
+    selectedCards.forEach(c => c.classList.remove('selected-card'));
+    selectedCards = [];
     selectedCardIds = [];
     
+    // Send the updated state to server (only once)
+    sendMove();
+    
+    // Re-render the game (only once)
     render();
+    
+    // Show confirmation message
+    const cardCount = cardsToMove.length;
+    if (cardCount > 0) {
+        showMessage(`Moved ${cardCount} card${cardCount > 1 ? 's' : ''} to ${targetZone}`);
+    }
 }
 
 
