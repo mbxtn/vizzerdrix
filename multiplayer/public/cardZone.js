@@ -522,9 +522,7 @@ export class CardZone {
             const viewAllOption = document.createElement('button');
             viewAllOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
             // Different text for library vs other zones
-            const viewText = this.zoneType === 'library' 
-                ? `View all cards (${this.cards.length}) - face down`
-                : `View all cards (${this.cards.length})`;
+            const viewText = `View all cards (${this.cards.length})`;
             viewAllOption.textContent = viewText;
             viewAllOption.addEventListener('click', () => {
                 this.viewAllCards();
