@@ -121,8 +121,10 @@ export function createCardElement(card, location, options) {
         const rect = playZoneContainer.getBoundingClientRect();
         
         // Calculate position
-        const previewWidth = 240;
-        const previewHeight = 320;
+        // Get dynamic preview size from global variable, fallback to defaults
+        const previewSize = window.magnifyPreviewSize || { width: 320, height: 430 };
+        const previewWidth = previewSize.width;
+        const previewHeight = previewSize.height;
         let left, top;
         
         if (isPanelOpen) {
@@ -154,7 +156,7 @@ export function createCardElement(card, location, options) {
         // Create preview container
         const preview = document.createElement('div');
         preview.id = 'magnify-preview';
-        preview.className = 'fixed pointer-events-none shadow-2xl rounded-lg border-4 border-blue-600 bg-gray-900 p-4';
+        preview.className = 'fixed pointer-events-none shadow-2xl rounded-lg border-4 border-blue-600 bg-gray-900';
         preview.style.width = previewWidth + 'px';
         preview.style.height = previewHeight + 'px';
         preview.style.left = left + 'px';

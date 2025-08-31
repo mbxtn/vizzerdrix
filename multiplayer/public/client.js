@@ -8,6 +8,8 @@ let playerId = null;
 let gameState = null;
 let activePlayZonePlayerId = null;
 let isMagnifyEnabled = false; // New state variable for magnify on hover
+let magnifyPreviewWidth = 320; // Default magnify preview width
+let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
 
 // UI Elements
 const magnifyToggleBtn = document.getElementById('magnify-toggle-btn');
@@ -47,6 +49,8 @@ const placeholderModal = document.getElementById('placeholder-modal'); // Placeh
 const placeholderTextInput = document.getElementById('placeholder-text-input'); // Placeholder text input
 const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn'); // Confirm placeholder button
 const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn'); // Cancel placeholder button
+const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container'); // Magnify size slider container
+const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Magnify size slider
 
 
 // Selection state
@@ -419,10 +423,14 @@ function updateMagnifyStatusUI() {
         magnifyStatusEl.textContent = 'On';
         magnifyStatusEl.classList.remove('bg-red-600');
         magnifyStatusEl.classList.add('bg-green-600');
+        // Show the magnify size slider
+        magnifySizeSliderContainer.classList.remove('hidden');
     } else {
         magnifyStatusEl.textContent = 'Off';
         magnifyStatusEl.classList.remove('bg-green-600');
         magnifyStatusEl.classList.add('bg-red-600');
+        // Hide the magnify size slider
+        magnifySizeSliderContainer.classList.add('hidden');
     }
 }
 
@@ -449,6 +457,22 @@ magnifyToggleBtn.addEventListener('click', () => {
     isMagnifyEnabled = !isMagnifyEnabled;
     updateMagnifyStatusUI();
     applyMagnifyEffectToAllCards();
+});
+
+// Magnify size slider event listeners
+magnifySizeSlider.addEventListener('input', (e) => {
+    const width = parseInt(e.target.value);
+    magnifyPreviewWidth = width;
+    // Calculate height maintaining card aspect ratio (80:107, which is standard Magic card ratio)
+    magnifyPreviewHeight = Math.round(width * (107 / 80));
+});
+
+magnifySizeSlider.addEventListener('change', (e) => {
+    // Update the global variable that cardFactory.js will use
+    window.magnifyPreviewSize = {
+        width: magnifyPreviewWidth,
+        height: magnifyPreviewHeight
+    };
 });
 
 function showMessage(message) {
@@ -1570,6 +1594,12 @@ function updateCounts() {
 document.addEventListener('DOMContentLoaded', () => {
     updateMagnifyStatusUI(); // Set initial status
     initializeCardZones(); // Initialize the card zones
+    
+    // Initialize magnify size slider and global variable
+    window.magnifyPreviewSize = {
+        width: magnifyPreviewWidth,
+        height: magnifyPreviewHeight
+    };
     
     // Check if turn control elements exist
     console.log('Turn control elements:', {

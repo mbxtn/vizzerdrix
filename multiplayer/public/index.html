@@ -110,10 +110,17 @@
                     </div>
                 </div>
                 <div id="hand-zone-container" class="flex flex-col items-center flex-grow min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center justify-between w-full mb-1">
                         <h3 class="text-sm font-semibold">Hand</h3>
-                        <button id="decrease-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">-</button>
-                        <button id="increase-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">+</button>
+                        <div class="flex items-center gap-2">
+                            <button id="decrease-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">-</button>
+                            <button id="increase-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">+</button>
+                            <!-- Magnify Size Slider (only visible when magnify is enabled) -->
+                            <div id="magnify-size-slider-container" class="hidden flex items-center gap-1 bg-gray-700 px-2 py-0.5 rounded border border-gray-600">
+                                <label for="magnify-size-slider" class="text-xs font-medium text-gray-300">Preview:</label>
+                                <input type="range" id="magnify-size-slider" min="240" max="480" value="320" step="20" class="w-16 h-1 bg-gray-600 rounded appearance-none cursor-pointer">
+                            </div>
+                        </div>
                     </div>
                     <div id="hand-zone" class="flex flex-nowrap justify-start items-center gap-3 p-3 min-h-[120px] bg-gray-700 rounded-lg transition-all duration-300 overflow-x-auto w-full">
                     </div>
