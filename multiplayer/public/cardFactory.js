@@ -1,5 +1,46 @@
 import ScryfallCache from './scryfallCache.js';
 
+// Helper function to find the correct face of a double-faced card
+function findMatchingFace(scryfallData, requestedName) {
+    // If it's not a double-faced card, return the main card data
+    if (!scryfallData.card_faces || scryfallData.card_faces.length <= 1) {
+        return { imageUri: scryfallData.image_uris?.normal, faceName: scryfallData.name };
+    }
+    
+    // For double-faced cards, try to match the requested name to a specific face
+    const requestedLower = requestedName.toLowerCase().trim();
+    
+    // First, try exact face name matches
+    for (const face of scryfallData.card_faces) {
+        if (face.name.toLowerCase() === requestedLower) {
+            return { 
+                imageUri: face.image_uris?.normal, 
+                faceName: face.name,
+                isSpecificFace: true 
+            };
+        }
+    }
+    
+    // Then try partial matches (requested name contains face name or vice versa)
+    for (const face of scryfallData.card_faces) {
+        const faceLower = face.name.toLowerCase();
+        if (requestedLower.includes(faceLower) || faceLower.includes(requestedLower)) {
+            return { 
+                imageUri: face.image_uris?.normal, 
+                faceName: face.name,
+                isSpecificFace: true 
+            };
+        }
+    }
+    
+    // If no specific face matches, default to the first face
+    return { 
+        imageUri: scryfallData.card_faces[0].image_uris?.normal, 
+        faceName: scryfallData.card_faces[0].name,
+        isSpecificFace: false 
+    };
+}
+
 export function createCardElement(card, location, options) {
     const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false } = options;
 
@@ -24,21 +65,12 @@ export function createCardElement(card, location, options) {
             // Handle placeholder cards specially - try to show Scryfall image if available
             const scryfallData = ScryfallCache.get(card.name);
             if (scryfallData) {
-                // Placeholder has Scryfall data, show the actual card image
-                let imageUri = null;
+                // Placeholder has Scryfall data, find the correct face to display
+                const faceData = findMatchingFace(scryfallData, card.name);
                 
-                // For double-faced cards, get image from the first face
-                if (scryfallData.card_faces && scryfallData.card_faces.length > 0) {
-                    imageUri = scryfallData.card_faces[0].image_uris?.normal;
-                } 
-                // For single-faced cards, get image from main object
-                else if (scryfallData.image_uris) {
-                    imageUri = scryfallData.image_uris.normal;
-                }
-                
-                if (imageUri) {
+                if (faceData.imageUri) {
                     const img = document.createElement('img');
-                    img.src = imageUri;
+                    img.src = faceData.imageUri;
                     img.alt = card.displayName || card.name;
                     img.className = 'w-full h-full object-cover';
                     cardEl.appendChild(img);
@@ -328,6 +360,14 @@ export function createCardElement(card, location, options) {
 
 // Function to flip a card between front and back
 export function flipCard(cardEl) {
+    // Check if this is a placeholder card - placeholder cards are not flippable
+    const isPlaceholder = cardEl.classList.contains('placeholder-card') || cardEl.classList.contains('placeholder-copy');
+    
+    if (isPlaceholder) {
+        console.log('Placeholder cards cannot be flipped');
+        return false;
+    }
+    
     const cardName = cardEl.dataset.name;
     const currentFace = cardEl.dataset.faceShown;
     const hasBackFace = ScryfallCache.hasBackFace(cardName);
@@ -337,6 +377,7 @@ export function flipCard(cardEl) {
         return false;
     }
     
+    // Handle regular card flipping
     const img = cardEl.querySelector('img');
     if (!img) return false;
     
