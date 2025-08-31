@@ -1766,4 +1766,122 @@ function removeCounterFromSelectedCards() {
     }
 }
 
+function moveSelectedCardsToZone(targetZone) {
+    if (selectedCards.length === 0) return;
+    
+    // Get the card IDs and their source zones
+    const cardsToMove = selectedCards.map(cardEl => {
+        const cardId = cardEl.dataset.id;
+        let sourceZone = null;
+        let cardObj = null;
+        
+        // Determine source zone by checking which array contains the card
+        if (hand.find(c => c.id === cardId)) {
+            sourceZone = 'hand';
+            cardObj = hand.find(c => c.id === cardId);
+        } else if (playZone.find(c => c.id === cardId)) {
+            sourceZone = 'play';
+            cardObj = playZone.find(c => c.id === cardId);
+        } else if (graveyard.find(c => c.id === cardId)) {
+            sourceZone = 'graveyard';
+            cardObj = graveyard.find(c => c.id === cardId);
+        } else if (exile.find(c => c.id === cardId)) {
+            sourceZone = 'exile';
+            cardObj = exile.find(c => c.id === cardId);
+        } else if (command.find(c => c.id === cardId)) {
+            sourceZone = 'command';
+            cardObj = command.find(c => c.id === cardId);
+        } else if (library.find(c => c.id === cardId)) {
+            sourceZone = 'library';
+            cardObj = library.find(c => c.id === cardId);
+        }
+        
+        return { cardId, sourceZone, cardObj };
+    }).filter(item => item.sourceZone && item.cardObj); // Only include cards with known source zones and objects
+    
+    if (cardsToMove.length === 0) return;
+    
+    // Remove all cards from their source zones first (to avoid issues with array modification)
+    cardsToMove.forEach(({ cardId, sourceZone }) => {
+        if (sourceZone === 'hand') {
+            const index = hand.findIndex(c => c.id === cardId);
+            if (index > -1) hand.splice(index, 1);
+        } else if (sourceZone === 'play') {
+            const index = playZone.findIndex(c => c.id === cardId);
+            if (index > -1) playZone.splice(index, 1);
+        } else if (sourceZone === 'graveyard') {
+            const index = graveyard.findIndex(c => c.id === cardId);
+            if (index > -1) graveyard.splice(index, 1);
+        } else if (sourceZone === 'exile') {
+            const index = exile.findIndex(c => c.id === cardId);
+            if (index > -1) exile.splice(index, 1);
+        } else if (sourceZone === 'command') {
+            const index = command.findIndex(c => c.id === cardId);
+            if (index > -1) command.splice(index, 1);
+        } else if (sourceZone === 'library') {
+            const index = library.findIndex(c => c.id === cardId);
+            if (index > -1) library.splice(index, 1);
+        }
+    });
+    
+    // Add all cards to the target zone
+    cardsToMove.forEach(({ cardObj, sourceZone }) => {
+        // Reset rotation (tapped state) when moving from battlefield to any other zone
+        if (sourceZone === 'play' && targetZone !== 'play') {
+            cardObj.rotation = 0;
+        }
+        
+        // Add to target zone
+        if (targetZone === 'hand') {
+            hand.push(cardObj);
+        } else if (targetZone === 'play') {
+            // For play zone, we need to set position if not already set
+            if (cardObj.x === undefined || cardObj.y === undefined) {
+                cardObj.x = 0;
+                cardObj.y = 0;
+            }
+            playZone.push(cardObj);
+        } else if (targetZone === 'library') {
+            library.push(cardObj);
+        } else if (targetZone === 'graveyard') {
+            graveyard.push(cardObj);
+        } else if (targetZone === 'exile') {
+            exile.push(cardObj);
+        } else if (targetZone === 'command') {
+            command.push(cardObj);
+        }
+    });
+    
+    // Update CardZone displays
+    if (libraryZone) {
+        libraryZone.updateCards(library);
+    }
+    if (graveyardZone) {
+        graveyardZone.updateCards(graveyard);
+    }
+    if (exileZone) {
+        exileZone.updateCards(exile);
+    }
+    if (commandZone) {
+        commandZone.updateCards(command);
+    }
+    
+    // Clear selection after moving
+    selectedCards.forEach(c => c.classList.remove('selected-card'));
+    selectedCards = [];
+    selectedCardIds = [];
+    
+    // Send the updated state to server (only once)
+    sendMove();
+    
+    // Re-render the game (only once)
+    render();
+    
+    // Show confirmation message
+    const cardCount = cardsToMove.length;
+    if (cardCount > 0) {
+        showMessage(`Moved ${cardCount} card${cardCount > 1 ? 's' : ''} to ${targetZone}`);
+    }
+}
+
 
