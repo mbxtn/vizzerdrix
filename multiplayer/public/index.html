@@ -18,7 +18,7 @@
         <div class="mb-4">
             <input id="display-name-input" placeholder="Enter your display name" class="p-2 rounded-md border border-gray-700 bg-gray-800 text-gray-200 mb-2" />
             <input id="room-input" placeholder="Enter room name" class="p-2 rounded-l-md border border-gray-700 bg-gray-800 text-gray-200" />
-            <textarea id="decklist-input" placeholder="Paste your decklist here&#10;&#10;For double-faced cards, use either:&#10;• Single face name (e.g., 'Stump')&#10;• Full name (e.g., 'Stump // Stomp')&#10;&#10;Example decklist:&#10;4 Lightning Bolt&#10;2 Stump // Stomp&#10;1 Sol Ring" rows="8" class="w-full p-2 mb-2 border rounded bg-gray-800 text-gray-200"></textarea>
+            <textarea id="decklist-input" placeholder="Paste your decklist here&#10;&#10;Example decklist:&#10;4 Lightning Bolt&#10;2 Sol Ring&#10;1 Black Lotus" rows="8" class="w-full p-2 mb-2 border rounded bg-gray-800 text-gray-200"></textarea>
             <button id="join-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-r-md">
                 Join Room
             </button>
@@ -30,8 +30,8 @@
         <!-- This is the content from cardgame.html's body -->
         <div class="absolute top-2 right-2 z-50">
             <button id="options-btn" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 rounded shadow-md transition-colors text-xs font-medium">⚙</button>
-            <div id="options-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
+            <div id="options-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center max-h-full overflow-y-auto my-auto">
                     <h3 class="text-xl font-semibold mb-4">Game Options</h3>
                     <ul class="space-y-2 mb-4">
                         <li>
@@ -54,9 +54,6 @@
                         <p class="font-semibold mb-2 mt-3">Card Zones:</p>
                         <p><span class="text-blue-400">Library:</span> Cards always show face-down (like sleeved cards)</p>
                         <p><span class="text-green-400">Hand/Play:</span> Cards show actual faces and can be flipped</p>
-                        <p class="font-semibold mb-2 mt-3">Double-Faced Cards:</p>
-                        <p>Use either single face (e.g., "Stump") or full name (e.g., "Stump // Stomp")</p>
-                        <p>System will auto-resolve partial names when possible</p>
                     </div>
                     <button id="close-options-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md shadow-md transition-colors">Close</button>
                 </div>
