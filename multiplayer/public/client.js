@@ -259,12 +259,6 @@ socket.on('connect', () => {
             if (Date.now() - gameInfo.timestamp < 24 * 60 * 60 * 1000) {
                 roomInput.value = gameInfo.roomName;
                 displayNameInput.value = gameInfo.displayName;
-                
-                // Auto-attempt rejoin on page reload if we have recent game info
-                console.log('Attempting auto-rejoin after page reload...');
-                setTimeout(() => {
-                    attemptRejoin(gameInfo.roomName, gameInfo.displayName);
-                }, 100); // Small delay to ensure socket is fully connected
             } else {
                 // Remove old saved info
                 localStorage.removeItem('vizzerdrix-game-info');
