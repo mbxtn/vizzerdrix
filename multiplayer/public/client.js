@@ -720,7 +720,9 @@ function render() {
                 playZone = serverPlayZone;
             } else {
                 // Viewing another player's zones - use their data for zones but keep our hand
-                library = serverLibrary;
+                // Shuffle the library to randomize the order when viewing other players
+                library = [...serverLibrary]; // Create a copy to avoid modifying server data
+                shuffleArray(library); // Randomize the order
                 graveyard = serverGraveyard;
                 exile = serverExile;
                 command = serverCommand || [];
