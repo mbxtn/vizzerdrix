@@ -565,6 +565,11 @@ socket.on('state', async (state) => {
         
         // Check how many cards are actually uncached
         const cardNamesArray = Array.from(allCardNames);
+        
+        // Initialize cache and get stats
+        const cacheStats = ScryfallCache.getCacheStats();
+        console.log('Cache stats before loading:', cacheStats);
+        
         const uncachedCards = cardNamesArray.filter(name => !ScryfallCache.get(name));
         const cachedCards = cardNamesArray.length - uncachedCards.length;
         
@@ -2137,6 +2142,11 @@ function updateCounts() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Scryfall cache from localStorage
+    console.log('Initializing Scryfall cache...');
+    const cacheStats = ScryfallCache.getCacheStats();
+    console.log('Initial cache stats:', cacheStats);
+    
     updateMagnifyStatusUI(); // Set initial status
     initializeCardZones(); // Initialize the card zones
     

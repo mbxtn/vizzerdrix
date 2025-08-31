@@ -6,8 +6,77 @@
 const ScryfallCache = {
     _cache: {},
     _cardBackCache: {},
+    _cacheVersion: '1.0', // Version for cache invalidation if needed
+
+    // Initialize cache from localStorage
+    _initCache() {
+        try {
+            const savedCache = localStorage.getItem('scryfallCache');
+            const savedBackCache = localStorage.getItem('scryfallBackCache');
+            const savedVersion = localStorage.getItem('scryfallCacheVersion');
+            
+            // Only load if version matches (allows cache invalidation)
+            if (savedVersion === this._cacheVersion) {
+                if (savedCache) {
+                    this._cache = JSON.parse(savedCache);
+                }
+                if (savedBackCache) {
+                    this._cardBackCache = JSON.parse(savedBackCache);
+                }
+                console.log(`Loaded ${Object.keys(this._cache).length} cards from cache`);
+            } else {
+                console.log('Cache version mismatch, starting fresh');
+                this._clearLocalStorage();
+            }
+        } catch (error) {
+            console.error('Error loading cache from localStorage:', error);
+            this._clearLocalStorage();
+        }
+    },
+
+    // Save cache to localStorage
+    _saveCache() {
+        // Use setTimeout to make cache saving non-blocking
+        setTimeout(() => {
+            try {
+                localStorage.setItem('scryfallCache', JSON.stringify(this._cache));
+                localStorage.setItem('scryfallBackCache', JSON.stringify(this._cardBackCache));
+                localStorage.setItem('scryfallCacheVersion', this._cacheVersion);
+            } catch (error) {
+                console.error('Error saving cache to localStorage:', error);
+                // If localStorage is full or unavailable, clear some old entries
+                this._clearOldCacheEntries();
+            }
+        }, 0);
+    },
+
+    // Clear localStorage cache
+    _clearLocalStorage() {
+        localStorage.removeItem('scryfallCache');
+        localStorage.removeItem('scryfallBackCache');
+        localStorage.removeItem('scryfallCacheVersion');
+    },
+
+    // Clear old cache entries if storage is full
+    _clearOldCacheEntries() {
+        // Keep only the most recently used cards (simple approach)
+        const cacheKeys = Object.keys(this._cache);
+        if (cacheKeys.length > 500) { // Keep only 500 most recent cards
+            const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 500);
+            keysToRemove.forEach(key => {
+                delete this._cache[key];
+                delete this._cardBackCache[key];
+            });
+            this._saveCache();
+        }
+    },
 
     async load(cardNames, progressCallback = null) {
+        // Initialize cache from localStorage if not already done
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
+        
         const uniqueNames = Array.from(new Set(cardNames)).filter(name => {
             if (typeof name !== 'string') {
                 console.warn('Invalid card name passed to ScryfallCache.load:', name);
@@ -21,6 +90,8 @@ const ScryfallCache = {
         const totalCards = uncachedNames.length;
         let loadedCards = 0;
         
+        console.log(`Cache status: ${uniqueNames.length - uncachedNames.length} cached, ${uncachedNames.length} need loading`);
+        
         // If we have a progress callback and uncached cards, report initial progress
         if (progressCallback && totalCards > 0) {
             progressCallback(0, totalCards, 'Starting...');
@@ -30,70 +101,100 @@ const ScryfallCache = {
             return; // Exit early since no work needed
         }
         
-        for (const name of uncachedNames) {
-            if (this._cache[name]) continue; // Double-check in case of race conditions
-            try {
-                let data = null;
-                let finalName = name;
+        // Load cards in small batches for better performance
+        const batchSize = 3; // Load 3 cards concurrently
+        const batches = [];
+        for (let i = 0; i < uncachedNames.length; i += batchSize) {
+            batches.push(uncachedNames.slice(i, i + batchSize));
+        }
+        
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            
+            // Load all cards in this batch concurrently
+            const batchPromises = batch.map(async (name) => {
+                if (this._cache[name]) return; // Double-check in case of race conditions
                 
-                // First try exact match
-                let resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-                
-                if (!resp.ok) {                // If exact match fails, try fuzzy search for potential double-faced cards
-                console.log(`Exact match failed for "${name}", trying fuzzy search...`);
-                const fuzzyResp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
-                if (fuzzyResp.ok) {
-                    const fuzzyData = await fuzzyResp.json();
-                    // Check if this is a double-faced card and our search term matches one face
-                    if (fuzzyData.card_faces && fuzzyData.card_faces.length > 1) {
-                        const matchesFace = fuzzyData.card_faces.some(face => 
-                            face.name.toLowerCase().includes(name.toLowerCase()) ||
-                            name.toLowerCase().includes(face.name.toLowerCase())
-                        );
-                        if (matchesFace) {
-                            data = fuzzyData;
-                            finalName = fuzzyData.name; // Use the full double-faced name
-                            console.log(`✅ Found double-faced card: "${name}" -> "${finalName}"`);
+                try {
+                    let data = null;
+                    let finalName = name;
+                    
+                    // First try exact match
+                    let resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                    
+                    if (!resp.ok) {
+                        // If exact match fails, try fuzzy search for potential double-faced cards
+                        const fuzzyResp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
+                        if (fuzzyResp.ok) {
+                            const fuzzyData = await fuzzyResp.json();
+                            // Check if this is a double-faced card and our search term matches one face
+                            if (fuzzyData.card_faces && fuzzyData.card_faces.length > 1) {
+                                const matchesFace = fuzzyData.card_faces.some(face => 
+                                    face.name.toLowerCase().includes(name.toLowerCase()) ||
+                                    name.toLowerCase().includes(face.name.toLowerCase())
+                                );
+                                if (matchesFace) {
+                                    data = fuzzyData;
+                                    finalName = fuzzyData.name; // Use the full double-faced name
+                                }
+                            }
                         }
                     }
-                } else {
-                    console.log(`❌ Fuzzy search also failed for "${name}"`);
-                }
-                }
-                
-                if (!data) {
-                    if (!resp.ok) throw new Error(`Scryfall fetch failed for ${name}`);
-                    data = await resp.json();
-                }
-                
-                // Cache under both the original name and the full name (if different)
-                this._cache[name] = data;
-                if (finalName !== name) {
-                    this._cache[finalName] = data;
-                }
-                
-                // If this is a double-faced card, also cache the back image
-                if (data.card_faces && data.card_faces.length > 1) {
-                    await this._loadCardBack(data.id, name);
+                    
+                    if (!data) {
+                        if (!resp.ok) throw new Error(`Scryfall fetch failed for ${name}`);
+                        data = await resp.json();
+                    }
+                    
+                    // Cache under both the original name and the full name (if different)
+                    this._cache[name] = data;
                     if (finalName !== name) {
-                        await this._loadCardBack(data.id, finalName);
+                        this._cache[finalName] = data;
+                    }
+                    
+                    // Load card back asynchronously if it's a double-faced card (don't block main loading)
+                    if (data.card_faces && data.card_faces.length > 1) {
+                        // Don't await - let it load in background
+                        this._loadCardBack(data.id, name).catch(err => 
+                            console.error('Background card back load failed:', err)
+                        );
+                        if (finalName !== name) {
+                            this._loadCardBack(data.id, finalName).catch(err => 
+                                console.error('Background card back load failed:', err)
+                            );
+                        }
+                    }
+                    
+                    return name;
+                } catch (err) {
+                    console.error('Scryfall error:', name, err);
+                    this._cache[name] = null;
+                    return name;
+                }
+            });
+            
+            // Wait for all cards in this batch to complete
+            const completedCards = await Promise.all(batchPromises);
+            
+            // Update progress for all completed cards in this batch
+            completedCards.forEach(name => {
+                if (name) {
+                    loadedCards++;
+                    if (progressCallback) {
+                        progressCallback(loadedCards, totalCards, name);
                     }
                 }
-            } catch (err) {
-                console.error('Scryfall error:', name, err);
-                this._cache[name] = null;
-            }
+            });
             
-            // Update progress
-            loadedCards++;
-            if (progressCallback) {
-                progressCallback(loadedCards, totalCards, name);
+            // Wait 25ms between batches (not between individual cards)
+            if (batchIndex < batches.length - 1) {
+                await new Promise(res => setTimeout(res, 25));
             }
-            
-            // Only wait between network requests for uncached cards
-            if (loadedCards < totalCards) {
-                await new Promise(res => setTimeout(res, 100));
-            }
+        }
+        
+        // Save cache once at the end (more efficient than incremental saving)
+        if (totalCards > 0) {
+            this._saveCache();
         }
         
         // If we had cached cards, report final progress including them
@@ -119,6 +220,10 @@ const ScryfallCache = {
     },
 
     get(name) {
+        // Initialize cache from localStorage if not already done
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
         return this._cache[name] || null;
     },
 
@@ -150,7 +255,31 @@ const ScryfallCache = {
     },
 
     getAll() {
+        // Initialize cache from localStorage if not already done
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
         return { ...this._cache };
+    },
+
+    // Get cache statistics
+    getCacheStats() {
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
+        return {
+            totalCards: Object.keys(this._cache).length,
+            totalBackImages: Object.keys(this._cardBackCache).length,
+            cacheVersion: this._cacheVersion
+        };
+    },
+
+    // Clear all cache (useful for debugging)
+    clearCache() {
+        this._cache = {};
+        this._cardBackCache = {};
+        this._clearLocalStorage();
+        console.log('Cache cleared');
     },
 
     // Helper method to get the full name of a double-faced card
