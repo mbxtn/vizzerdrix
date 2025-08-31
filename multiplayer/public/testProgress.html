@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 p-8">
+    <h1 class="text-2xl font-bold mb-4">ScryfallCache Progress Test</h1>
+    
+    <div class="mb-4">
+        <button id="test-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">
+            Test Progress Loading
+        </button>
+    </div>
+    
+    <!-- Loading Progress Modal -->
+    <div id="loading-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
+            <h3 class="text-xl font-semibold mb-4">Loading Card Images</h3>
+            <div class="mb-4">
+                <div class="w-full bg-gray-700 rounded-full h-3 mb-2">
+                    <div id="loading-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="loading-progress-text" class="text-sm text-gray-300">Preparing to load cards...</p>
+                <p id="loading-current-card" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+            <div class="text-xs text-gray-400">
+                <p>Loading card images from Scryfall...</p>
+                <p>This may take a moment for large decklists.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import ScryfallCache from './scryfallCache.js';
+        
+        const loadingModal = document.getElementById('loading-modal');
+        const loadingProgressBar = document.getElementById('loading-progress-bar');
+        const loadingProgressText = document.getElementById('loading-progress-text');
+        const loadingCurrentCard = document.getElementById('loading-current-card');
+        const testBtn = document.getElementById('test-btn');
+        
+        function showLoadingProgress() {
+            loadingModal.classList.remove('hidden');
+            loadingProgressBar.style.width = '0%';
+            loadingProgressText.textContent = 'Preparing to load cards...';
+            loadingCurrentCard.textContent = '';
+        }
+        
+        function updateLoadingProgress(loaded, total, currentCard) {
+            const percentage = Math.round((loaded / total) * 100);
+            loadingProgressBar.style.width = `${percentage}%`;
+            loadingProgressText.textContent = `Loading ${loaded} of ${total} cards (${percentage}%)`;
+            if (currentCard) {
+                loadingCurrentCard.textContent = `Current: ${currentCard}`;
+            }
+        }
+        
+        function hideLoadingProgress() {
+            loadingModal.classList.add('hidden');
+        }
+        
+        testBtn.addEventListener('click', async () => {
+            const testCards = [
+                'Lightning Bolt',
+                'Black Lotus', 
+                'Sol Ring',
+                'Counterspell',
+                'Swords to Plowshares',
+                'Path to Exile',
+                'Birds of Paradise',
+                'Llanowar Elves'
+            ];
+            
+            console.log('Starting test load...');
+            showLoadingProgress();
+            
+            try {
+                await ScryfallCache.load(testCards, (loaded, total, currentCard) => {
+                    console.log(`Progress: ${loaded}/${total} - ${currentCard}`);
+                    updateLoadingProgress(loaded, total, currentCard);
+                });
+                console.log('Test completed!');
+            } catch (error) {
+                console.error('Test failed:', error);
+            } finally {
+                setTimeout(() => {
+                    hideLoadingProgress();
+                }, 1000); // Keep it visible for a moment
+            }
+        });
+    </script>
+</body>
+</html>

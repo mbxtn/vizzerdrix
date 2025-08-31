@@ -80,6 +80,24 @@
             </div>
         </div>
         
+        <!-- Loading Progress Modal -->
+        <div id="loading-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
+                <h3 class="text-xl font-semibold mb-4">Loading Card Images</h3>
+                <div class="mb-4">
+                    <div class="w-full bg-gray-700 rounded-full h-3 mb-2">
+                        <div id="loading-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="loading-progress-text" class="text-sm text-gray-300">Preparing to load cards...</p>
+                    <p id="loading-current-card" class="text-xs text-gray-400 mt-1"></p>
+                </div>
+                <div class="text-xs text-gray-400">
+                    <p>Loading card images from Scryfall...</p>
+                    <p>This may take a moment for large decklists.</p>
+                </div>
+            </div>
+        </div>
+        
         <div class="flex flex-col h-full p-2">
             <div id="play-zones-container" class="flex-grow bg-gray-800 rounded-lg p-3 transition-all duration-300 overflow-auto border border-gray-700 shadow-xl relative">
                 <!-- Player-specific play zones will be injected here -->

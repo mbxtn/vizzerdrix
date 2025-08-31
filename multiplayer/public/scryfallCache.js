@@ -1,64 +1,13 @@
 // scryfallCache.js
-// Browser-compatible Scryfall card cache with persistent localStorage storage
-// Features:
-// - Automatic localStorage persistence with 24-hour expiry
-// - Double-faced card support with back face caching
-// - Cache statistics and management utilities
-// 
+// Browser-compatible Scryfall card cache for local use
 // Usage: await ScryfallCache.load(['Black Lotus', 'Lightning Bolt'])
 //        const card = ScryfallCache.get('Black Lotus')
-//        const stats = ScryfallCache.getCacheStats()
-//        ScryfallCache.clearCache() // Clear all caches
 
 const ScryfallCache = {
     _cache: {},
     _cardBackCache: {},
-    _storageKeys: {
-        cardCache: 'scryfall_card_cache',
-        cardBackCache: 'scryfall_cardback_cache',
-        cacheTimestamp: 'scryfall_cache_timestamp'
-    },
-    _cacheExpiry: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
 
-    // Initialize the cache by loading from localStorage
-    async init() {
-        this._loadFromStorage();
-    },
-
-    // Load cache from localStorage
-    _loadFromStorage() {
-        try {
-            // Check if cache has expired
-            const timestamp = localStorage.getItem(this._storageKeys.cacheTimestamp);
-            if (timestamp) {
-                const cacheAge = Date.now() - parseInt(timestamp);
-                if (cacheAge > this._cacheExpiry) {
-                    console.log('Cache expired, clearing localStorage');
-                    this._clearStorage();
-                    return;
-                }
-            }
-
-            // Load card cache
-            const savedCache = localStorage.getItem(this._storageKeys.cardCache);
-            if (savedCache) {
-                this._cache = JSON.parse(savedCache);
-                console.log(`Loaded ${Object.keys(this._cache).length} cards from localStorage`);
-            }
-
-            // Load card back cache
-            const savedBackCache = localStorage.getItem(this._storageKeys.cardBackCache);
-            if (savedBackCache) {
-                this._cardBackCache = JSON.parse(savedBackCache);
-                console.log(`Loaded ${Object.keys(this._cardBackCache).length} card backs from localStorage`);
-            }
-        } catch (err) {
-            console.error('Error loading from localStorage:', err);
-            this._clearStorage();
-        }
-    },
-
-    async load(cardNames) {
+    async load(cardNames, progressCallback = null) {
         const uniqueNames = Array.from(new Set(cardNames)).filter(name => {
             if (typeof name !== 'string') {
                 console.warn('Invalid card name passed to ScryfallCache.load:', name);
@@ -67,15 +16,21 @@ const ScryfallCache = {
             return true;
         });
         
-        // Initialize if not already done
-        if (Object.keys(this._cache).length === 0) {
-            this._loadFromStorage();
+        // Filter out cards that are already cached
+        const uncachedNames = uniqueNames.filter(name => !this._cache[name]);
+        const totalCards = uncachedNames.length;
+        let loadedCards = 0;
+        
+        // If we have a progress callback and uncached cards, report initial progress
+        if (progressCallback && totalCards > 0) {
+            progressCallback(0, totalCards, 'Starting...');
+        } else if (progressCallback && totalCards === 0) {
+            // All cards already cached
+            progressCallback(uniqueNames.length, uniqueNames.length, 'All cards already loaded');
         }
         
-        let newCardsLoaded = false;
-        
-        for (const name of uniqueNames) {
-            if (this._cache[name]) continue;
+        for (const name of uncachedNames) {
+            if (this._cache[name]) continue; // Double-check in case of race conditions
             try {
                 let data = null;
                 let finalName = name;
@@ -116,8 +71,6 @@ const ScryfallCache = {
                     this._cache[finalName] = data;
                 }
                 
-                newCardsLoaded = true;
-                
                 // If this is a double-faced card, also cache the back image
                 if (data.card_faces && data.card_faces.length > 1) {
                     await this._loadCardBack(data.id, name);
@@ -129,13 +82,15 @@ const ScryfallCache = {
                 console.error('Scryfall error:', name, err);
                 this._cache[name] = null;
             }
+            
+            // Update progress
+            loadedCards++;
+            if (progressCallback) {
+                progressCallback(loadedCards, totalCards, name);
+            }
+            
             // Wait 100ms before next request
             await new Promise(res => setTimeout(res, 100));
-        }
-        
-        // Save to localStorage if we loaded new cards
-        if (newCardsLoaded) {
-            this._saveToStorage();
         }
     },
 
@@ -147,8 +102,6 @@ const ScryfallCache = {
             const backResp = await fetch(`https://api.scryfall.com/cards/${cardId}?format=image&face=back&version=normal`);
             if (backResp.ok) {
                 this._cardBackCache[cardName] = backResp.url;
-                // Save to localStorage when we get a new card back
-                this._saveToStorage();
             }
         } catch (err) {
             console.error('Card back fetch error for', cardName, err);
@@ -246,74 +199,6 @@ const ScryfallCache = {
             }
         }
     },
-
-    // Save cache to localStorage
-    _saveToStorage() {
-        try {
-            localStorage.setItem(this._storageKeys.cardCache, JSON.stringify(this._cache));
-            localStorage.setItem(this._storageKeys.cardBackCache, JSON.stringify(this._cardBackCache));
-            localStorage.setItem(this._storageKeys.cacheTimestamp, Date.now().toString());
-        } catch (err) {
-            console.error('Error saving to localStorage:', err);
-            // If we can't save (e.g., quota exceeded), clear old data and try again
-            this._clearStorage();
-            try {
-                localStorage.setItem(this._storageKeys.cardCache, JSON.stringify(this._cache));
-                localStorage.setItem(this._storageKeys.cardBackCache, JSON.stringify(this._cardBackCache));
-                localStorage.setItem(this._storageKeys.cacheTimestamp, Date.now().toString());
-            } catch (retryErr) {
-                console.error('Failed to save to localStorage even after clearing:', retryErr);
-            }
-        }
-    },
-
-    // Clear localStorage cache
-    _clearStorage() {
-        localStorage.removeItem(this._storageKeys.cardCache);
-        localStorage.removeItem(this._storageKeys.cardBackCache);
-        localStorage.removeItem(this._storageKeys.cacheTimestamp);
-    },
-
-    // Clear all caches (memory and localStorage)
-    clearCache() {
-        this._cache = {};
-        this._cardBackCache = {};
-        this._clearStorage();
-        console.log('All caches cleared');
-    },
-
-    // Get cache statistics
-    getCacheStats() {
-        const cardCount = Object.keys(this._cache).length;
-        const backCount = Object.keys(this._cardBackCache).length;
-        const timestamp = localStorage.getItem(this._storageKeys.cacheTimestamp);
-        const cacheAge = timestamp ? Date.now() - parseInt(timestamp) : 0;
-        
-        return {
-            cardCount,
-            backCount,
-            cacheAge: Math.floor(cacheAge / (1000 * 60)), // Age in minutes
-            isExpired: cacheAge > this._cacheExpiry
-        };
-    },
-
-    // Force refresh of specific cards (bypass cache)
-    async forceRefresh(cardNames) {
-        const namesToRefresh = Array.isArray(cardNames) ? cardNames : [cardNames];
-        
-        // Remove from cache
-        namesToRefresh.forEach(name => {
-            delete this._cache[name];
-            delete this._cardBackCache[name];
-        });
-        
-        // Reload
-        await this.load(namesToRefresh);
-        console.log(`Force refreshed: ${namesToRefresh.join(', ')}`);
-    },
 };
-
-// Auto-initialize the cache when the module is loaded
-ScryfallCache.init();
 
 export default ScryfallCache;

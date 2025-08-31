@@ -94,6 +94,10 @@ const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Mag
 const lifeTotalEl = document.getElementById('life-total'); // Life total display
 const increaseLifeBtn = document.getElementById('increase-life-btn'); // Increase life button
 const decreaseLifeBtn = document.getElementById('decrease-life-btn'); // Decrease life button
+const loadingModal = document.getElementById('loading-modal'); // Loading progress modal
+const loadingProgressBar = document.getElementById('loading-progress-bar'); // Progress bar
+const loadingProgressText = document.getElementById('loading-progress-text'); // Progress text
+const loadingCurrentCard = document.getElementById('loading-current-card'); // Current card text
 
 
 // Selection state
@@ -558,8 +562,28 @@ socket.on('state', async (state) => {
     
     if (allCardNames.size > 0) {
         console.log(`Loading images for ${allCardNames.size} unique cards from all zones`);
-        await ScryfallCache.load(Array.from(allCardNames));
-        console.log('Finished loading card images');
+        
+        // Only show loading progress for loads with 3+ cards that might take some time
+        const showProgress = allCardNames.size >= 3;
+        
+        if (showProgress) {
+            showLoadingProgress();
+        }
+        
+        try {
+            await ScryfallCache.load(Array.from(allCardNames), showProgress ? (loaded, total, currentCard) => {
+                updateLoadingProgress(loaded, total, currentCard);
+            } : null);
+            console.log('Finished loading card images');
+        } catch (error) {
+            console.error('Error loading card images:', error);
+            showMessage('Some card images failed to load. The game will continue with placeholders.');
+        } finally {
+            // Hide loading progress modal
+            if (showProgress) {
+                hideLoadingProgress();
+            }
+        }
     }
     
     // Only render if state actually changed, or if this is a turn order update
@@ -769,6 +793,74 @@ magnifySizeSlider.addEventListener('change', (e) => {
 function showMessage(message) {
     messageText.textContent = message;
     messageModal.classList.remove('hidden');
+}
+
+// Loading progress functions
+let loadingModalTimeout = null;
+
+function showLoadingProgress() {
+    // Only show the modal if we have the elements and loading will take a moment
+    if (loadingModal) {
+        // Clear any existing timeout
+        if (loadingModalTimeout) {
+            clearTimeout(loadingModalTimeout);
+        }
+        
+        // Show modal after a short delay to avoid flashing for quick loads
+        loadingModalTimeout = setTimeout(() => {
+            loadingModal.classList.remove('hidden');
+            loadingProgressBar.style.width = '0%';
+            loadingProgressText.textContent = 'Preparing to load cards...';
+            loadingCurrentCard.textContent = '';
+        }, 200); // 200ms delay
+    }
+}
+
+function updateLoadingProgress(loaded, total, currentCard) {
+    // Clear the delay timeout since we're definitely loading
+    if (loadingModalTimeout) {
+        clearTimeout(loadingModalTimeout);
+        loadingModalTimeout = null;
+    }
+    
+    // Show modal immediately if not already shown
+    if (loadingModal && loadingModal.classList.contains('hidden')) {
+        loadingModal.classList.remove('hidden');
+        loadingProgressBar.style.width = '0%';
+        loadingProgressText.textContent = 'Preparing to load cards...';
+        loadingCurrentCard.textContent = '';
+    }
+    
+    if (loadingModal && !loadingModal.classList.contains('hidden')) {
+        const percentage = Math.round((loaded / total) * 100);
+        loadingProgressBar.style.width = `${percentage}%`;
+        
+        if (total === 0) {
+            loadingProgressText.textContent = 'All cards already loaded!';
+            loadingCurrentCard.textContent = '';
+        } else {
+            loadingProgressText.textContent = `Loading ${loaded} of ${total} cards (${percentage}%)`;
+            if (currentCard && currentCard !== 'Starting...' && currentCard !== 'All cards already loaded') {
+                // Truncate long card names
+                const displayName = currentCard.length > 30 ? currentCard.substring(0, 27) + '...' : currentCard;
+                loadingCurrentCard.textContent = `Current: ${displayName}`;
+            } else {
+                loadingCurrentCard.textContent = currentCard || '';
+            }
+        }
+    }
+}
+
+function hideLoadingProgress() {
+    // Clear any pending timeout
+    if (loadingModalTimeout) {
+        clearTimeout(loadingModalTimeout);
+        loadingModalTimeout = null;
+    }
+    
+    if (loadingModal) {
+        loadingModal.classList.add('hidden');
+    }
 }
 
 // Send move debouncing
