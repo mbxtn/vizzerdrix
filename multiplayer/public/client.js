@@ -1017,9 +1017,21 @@ async function render() {
                 playZone = serverPlayZone;
             } else {
                 // Viewing another player's zones - use their data for zones but keep our hand
-                // Shuffle the library to randomize the order when viewing other players
-                library = [...serverLibrary]; // Create a copy to avoid modifying server data
-                shuffleArray(library); // Randomize the order
+                // Use cached shuffled library to avoid re-shuffling on every render
+                const cacheKey = `${viewedPlayerId}-${serverLibrary.length}-${JSON.stringify(serverLibrary.slice(0, 3))}`;
+                if (!shuffledLibraryCache.has(cacheKey)) {
+                    // Create a shuffled copy only if not cached
+                    const shuffledCopy = [...serverLibrary];
+                    shuffleArray(shuffledCopy);
+                    shuffledLibraryCache.set(cacheKey, shuffledCopy);
+                    
+                    // Clear old cache entries to prevent memory leaks (keep only last 10)
+                    if (shuffledLibraryCache.size > 10) {
+                        const firstKey = shuffledLibraryCache.keys().next().value;
+                        shuffledLibraryCache.delete(firstKey);
+                    }
+                }
+                library = shuffledLibraryCache.get(cacheKey);
                 graveyard = serverGraveyard;
                 exile = serverExile;
                 command = serverCommand || [];
@@ -1586,6 +1598,9 @@ let currentCardWidth = 80;
 const minCardWidth = 60;
 const maxCardWidth = 200; // Increased from 120 to allow much larger cards
 const cardSizeStep = 10;
+
+// Cache for shuffled other players' libraries to avoid re-shuffling on every render
+let shuffledLibraryCache = new Map();
 
 // Card interaction callbacks for the cardFactory
 function handleCardClick(e, card, cardEl, location) {
