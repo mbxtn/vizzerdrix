@@ -35,6 +35,11 @@ const closeModalBtn = document.getElementById('close-modal-btn');
 const optionsBtn = document.getElementById('options-btn'); // Options button reference                                                                         │
 const optionsModal = document.getElementById('options-modal'); // Options modal reference                                                                   │
 const resetBtnModal = document.getElementById('reset-btn-modal'); // New reset button reference           
+const pickTurnOrderBtn = document.getElementById('pick-turn-order-btn'); // Turn order button reference
+const endTurnBtn = document.getElementById('end-turn-btn'); // End turn button reference
+const turnIndicator = document.getElementById('turn-indicator'); // Turn indicator reference
+const currentPlayerNameEl = document.getElementById('current-player-name'); // Current player name element
+const playerTabsEl = document.getElementById('player-tabs'); // Player tabs container
 const increaseSizeBtn = document.getElementById('increase-size-btn'); // Card size controls
 const decreaseSizeBtn = document.getElementById('decrease-size-btn');
 
@@ -112,8 +117,41 @@ socket.on('connect', () => {
 });
 
 socket.on('state', async (state) => {
+    console.log('RAW STATE RECEIVED:', new Date().toISOString(), {
+        currentTurn: state.currentTurn,
+        turnOrderSet: state.turnOrderSet,
+        turnOrder: state.turnOrder
+    });
+    
     // Check if state has actually changed
     const stateChanged = !gameState || JSON.stringify(gameState) !== JSON.stringify(state);
+    
+    // Check for turn order changes before updating gameState
+    const turnOrderChanged = !gameState || 
+        gameState.currentTurn !== state.currentTurn ||
+        gameState.turnOrderSet !== state.turnOrderSet ||
+        JSON.stringify(gameState.turnOrder) !== JSON.stringify(state.turnOrder);
+    
+    console.log('Received state update:', {
+        turnOrderSet: state.turnOrderSet,
+        turnOrder: state.turnOrder,
+        currentTurn: state.currentTurn,
+        stateChanged,
+        turnOrderChanged,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Log the full turn order state if it exists
+    if (state.turnOrderSet && state.turnOrder) {
+        console.log('Full turn order state:', {
+            players: state.turnOrder.map((pid, index) => ({
+                index,
+                playerId: pid,
+                displayName: state.players[pid]?.displayName,
+                isCurrentTurn: index === state.currentTurn
+            }))
+        });
+    }
     
     gameState = state;
     if (!activePlayZonePlayerId || !gameState.players[activePlayZonePlayerId]) {
@@ -213,10 +251,10 @@ socket.on('state', async (state) => {
         console.log('Finished loading card images');
     }
     
-    // Only render if state actually changed
-    if (stateChanged) {
-        debouncedRender();
-    }
+    // Only render if state actually changed, or if this is a turn order update
+    // TEMPORARY: Force render on any state update to debug
+    console.log('Forcing render for debugging');
+    debouncedRender();
     updateCascadedHandCardsInAreaCount(); // Call it here to update after server state
 });
 
@@ -535,6 +573,18 @@ function initializeCardZones() {
     });
 }
 
+// Turn order functionality
+pickTurnOrderBtn.addEventListener('click', () => {
+    console.log('Sending pickTurnOrder event');
+    socket.emit('pickTurnOrder');
+    showMessage("Picking random turn order...");
+    optionsModal.classList.add('hidden'); // Close options modal
+});
+
+endTurnBtn.addEventListener('click', () => {
+    socket.emit('endTurn');
+});
+
 function handleCardMove(cardId, sourceZone, targetZone) {
     // Find the card in the source zone
     let cardObj = null;
@@ -609,6 +659,8 @@ function markClientAction(action, cardId = null) {
 }
 
 function render() {
+    console.log('Render called at:', new Date().toISOString());
+    
     // Debounce render calls to prevent flickering
     if (renderTimeout) {
         clearTimeout(renderTimeout);
@@ -622,7 +674,10 @@ function render() {
     isRendering = true;
     
     try {
-        if (!gameState || !playerId) return;
+        if (!gameState || !playerId) {
+            console.log('Render aborted: missing gameState or playerId');
+            return;
+        }
 
         // Smart merge: preserve recent client changes, use server for everything else
         // Hand always shows current player's data
@@ -709,8 +764,20 @@ function render() {
 
     // Render play zones and tabs
     playZonesContainer.innerHTML = '';
-    playerTabsContainer.innerHTML = '';
-    Object.keys(gameState.players).forEach(pid => {
+    playerTabsEl.innerHTML = '';
+    
+    // Determine player order - use turn order if set, otherwise just use Object.keys order
+    let playerOrder = [];
+    if (gameState.turnOrderSet && gameState.turnOrder) {
+        playerOrder = gameState.turnOrder;
+    } else {
+        playerOrder = Object.keys(gameState.players);
+    }
+    
+    playerOrder.forEach(pid => {
+        // Only create elements for players that still exist
+        if (!gameState.players[pid]) return;
+        
         // Create play zone div
         const playerZoneEl = document.createElement('div');
         playerZoneEl.id = `play-zone-${pid}`;
@@ -741,7 +808,20 @@ function render() {
         // Create player tab
         const tabEl = document.createElement('button');
         tabEl.className = 'px-4 py-2 text-sm font-medium rounded-md transition-colors';
-        tabEl.textContent = pid === playerId ? 'Your Play Zone' : gameState.players[pid].displayName;
+        
+        // Add turn order indicator if turn order is set
+        let tabText = pid === playerId ? 'Your Play Zone' : gameState.players[pid].displayName;
+        if (gameState.turnOrderSet && gameState.turnOrder) {
+            const turnIndex = gameState.turnOrder.indexOf(pid) + 1;
+            tabText = `${turnIndex}. ${tabText}`;
+            
+            // Highlight current turn player
+            if (gameState.currentTurn !== undefined && gameState.turnOrder[gameState.currentTurn] === pid) {
+                tabEl.classList.add('ring-2', 'ring-yellow-400');
+            }
+        }
+        
+        tabEl.textContent = tabText;
         if (pid === activePlayZonePlayerId) {
             tabEl.classList.add('bg-blue-600', 'text-white');
         } else {
@@ -751,8 +831,42 @@ function render() {
             activePlayZonePlayerId = pid;
             render();
         });
-        playerTabsContainer.appendChild(tabEl);
+        playerTabsEl.appendChild(tabEl);
     });
+    
+    // Update turn control UI
+    console.log('Updating turn control UI:', {
+        turnOrderSet: gameState.turnOrderSet,
+        turnOrder: gameState.turnOrder,
+        currentTurn: gameState.currentTurn
+    });
+    
+    if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
+        const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
+        const currentPlayerName = gameState.players[currentTurnPlayerId]?.displayName || 'Unknown';
+        
+        console.log('Turn control - current player:', currentTurnPlayerId, 'my player ID:', playerId, 'is my turn:', currentTurnPlayerId === playerId);
+        
+        turnIndicator.style.display = 'block';
+        currentPlayerNameEl.textContent = currentTurnPlayerId === playerId ? 'You' : currentPlayerName;
+        
+        // Show end turn button only if it's the current player's turn
+        if (currentTurnPlayerId === playerId) {
+            console.log('Showing end turn button for my turn');
+            endTurnBtn.style.display = 'block';
+            endTurnBtn.disabled = false;
+        } else {
+            console.log('Hiding end turn button - not my turn');
+            endTurnBtn.style.display = 'none';
+            endTurnBtn.disabled = true;
+        }
+    } else {
+        console.log('No turn order set, hiding turn controls');
+        // No turn order set yet
+        turnIndicator.style.display = 'none';
+        endTurnBtn.style.display = 'none';
+        endTurnBtn.disabled = true;
+    }
 
     // Re-apply selection and re-populate selectedCards array
     selectedCards = [];
@@ -1202,6 +1316,33 @@ function updateCounts() {
 document.addEventListener('DOMContentLoaded', () => {
     updateMagnifyStatusUI(); // Set initial status
     initializeCardZones(); // Initialize the card zones
+    
+    // Check if turn control elements exist
+    console.log('Turn control elements:', {
+        endTurnBtn: !!endTurnBtn,
+        turnIndicator: !!turnIndicator,
+        currentPlayerNameEl: !!currentPlayerNameEl
+    });
+    
+    // Turn order functionality event listeners
+    pickTurnOrderBtn.addEventListener('click', () => {
+        console.log('Sending pickTurnOrder event');
+        socket.emit('pickTurnOrder');
+        showMessage("Picking random turn order...");
+        optionsModal.classList.add('hidden'); // Close options modal
+    });
+
+    endTurnBtn.addEventListener('click', () => {
+        console.log('End turn button clicked - preventing multiple clicks');
+        // Prevent multiple rapid clicks
+        endTurnBtn.disabled = true;
+        setTimeout(() => {
+            endTurnBtn.disabled = false;
+        }, 1000); // Re-enable after 1 second
+        
+        socket.emit('endTurn');
+    });
+    
     // Other initializations can go here
 });
 

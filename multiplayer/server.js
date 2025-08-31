@@ -43,7 +43,10 @@ io.on('connection', (socket) => {
         if (!games[roomName]) {
             games[roomName] = {
                 players: {},
-                playZones: {}
+                playZones: {},
+                turnOrder: [], // Array of player IDs in turn order
+                currentTurn: 0, // Index in turnOrder array
+                turnOrderSet: false // Whether turn order has been established
             };
         }
         const deck = Array.isArray(decklist) ? decklist : [];
@@ -107,6 +110,80 @@ io.on('connection', (socket) => {
         if (room && games[room]) {
             delete games[room].players[playerId];
             delete games[room].playZones[playerId];
+
+            // Check if the room is empty after player removal
+            if (Object.keys(games[room].players).length === 0) {
+                console.log(`Room ${room} is empty. Deleting game state.`);
+                delete games[room];
+            } else {
+                // Only emit state if the room still exists and has players
+                io.to(room).emit('state', games[room]);
+            }
+        }
+    });
+
+    socket.on('pickTurnOrder', () => {
+        console.log('Received pickTurnOrder event from player:', playerId, 'in room:', room);
+        if (room && games[room]) {
+            // Get all player IDs and shuffle them
+            const playerIds = Object.keys(games[room].players);
+            console.log('Players in room:', playerIds);
+            const shuffledOrder = [...playerIds];
+            
+            // Fisher-Yates shuffle
+            for (let i = shuffledOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledOrder[i], shuffledOrder[j]] = [shuffledOrder[j], shuffledOrder[i]];
+            }
+            
+            games[room].turnOrder = shuffledOrder;
+            games[room].currentTurn = 0;
+            games[room].turnOrderSet = true;
+            
+            console.log('Set turn order:', shuffledOrder, 'current turn:', games[room].currentTurn);
+            
+            io.to(room).emit('state', games[room]);
+        }
+    });
+
+    socket.on('endTurn', () => {
+        console.log('Received endTurn event from player:', playerId, 'in room:', room);
+        if (room && games[room] && games[room].turnOrderSet) {
+            // Check if it's actually this player's turn
+            const currentTurnPlayer = games[room].turnOrder[games[room].currentTurn];
+            if (currentTurnPlayer !== playerId) {
+                console.log('Player', playerId, 'tried to end turn but it\'s not their turn. Current turn:', currentTurnPlayer);
+                return; // Ignore the request
+            }
+            
+            // Move to next player's turn
+            games[room].currentTurn = (games[room].currentTurn + 1) % games[room].turnOrder.length;
+            console.log('Turn ended, new current turn:', games[room].currentTurn, 'player:', games[room].turnOrder[games[room].currentTurn]);
+            io.to(room).emit('state', games[room]);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        if (room && games[room]) {
+            delete games[room].players[playerId];
+            delete games[room].playZones[playerId];
+
+            // Update turn order if it was set and player was in it
+            if (games[room].turnOrderSet && games[room].turnOrder.includes(playerId)) {
+                const playerIndex = games[room].turnOrder.indexOf(playerId);
+                games[room].turnOrder.splice(playerIndex, 1);
+                
+                // Adjust current turn if necessary
+                if (games[room].currentTurn >= playerIndex && games[room].currentTurn > 0) {
+                    games[room].currentTurn--;
+                }
+                
+                // Reset turn order if no players left
+                if (games[room].turnOrder.length === 0) {
+                    games[room].turnOrderSet = false;
+                    games[room].currentTurn = 0;
+                }
+            }
 
             // Check if the room is empty after player removal
             if (Object.keys(games[room].players).length === 0) {

@@ -40,6 +40,7 @@
                                 <span id="magnify-status" class="px-2 py-1 rounded-full text-xs font-semibold">Off</span>
                             </button>
                         </li>
+                        <li><button id="pick-turn-order-btn" class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md transition-colors">Pick Random Turn Order</button></li>
                         <li><button class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors">Settings</button></li>
                         <li><button class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors">View Rules</button></li>
                         <li><button id="reset-btn-modal" class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors">Reset Game</button></li>
@@ -64,8 +65,18 @@
             <div id="play-zones-container" class="flex-grow bg-gray-800 rounded-lg p-3 transition-all duration-300 overflow-auto border border-gray-700 shadow-xl relative">
                 <!-- Player-specific play zones will be injected here -->
             </div>
-            <div id="player-tabs-container" class="flex-shrink-0 flex justify-center items-center gap-2 py-1 bg-gray-800 rounded-b-lg border-t-2 border-gray-700">
+            <div id="player-tabs-container" class="flex-shrink-0 flex justify-between items-center gap-2 py-1 bg-gray-800 rounded-b-lg border-t-2 border-gray-700">
                 <!-- Player tabs will be injected here -->
+                <div id="player-tabs" class="flex gap-2"></div>
+                <!-- Turn control -->
+                <div id="turn-control" class="flex items-center gap-2 text-sm">
+                    <button id="end-turn-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-bold transition-colors" style="display: none;">
+                        End Turn
+                    </button>
+                    <div id="turn-indicator" class="text-yellow-300 text-sm font-semibold bg-gray-700 px-3 py-1 rounded" style="display: none;">
+                        Current turn: <span id="current-player-name">-</span>
+                    </div>
+                </div>
             </div>
             <div class="h-2"></div>
             <div id="bottom-bar" class="flex-shrink-0 flex items-center justify-center gap-3 p-3 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
