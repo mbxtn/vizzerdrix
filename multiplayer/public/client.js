@@ -927,7 +927,12 @@ function initializeCardZones() {
             } else if (action === 'moveCardGroup') {
                 handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
             } else if (action === 'shuffle') {
-                // Library was shuffled, sync with server
+                // Library was shuffled, sync the shuffled order back to the main library array
+                if (libraryZone && libraryZone.cards) {
+                    library = [...libraryZone.cards];
+                    // Mark this as a client action to preserve the shuffle order temporarily
+                    markClientAction('shuffle', null);
+                }
                 sendMove();
                 debouncedRender();
             }
@@ -973,7 +978,12 @@ function initializeCardZones() {
             } else if (action === 'moveCardGroup') {
                 handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
             } else if (action === 'shuffle') {
-                // Graveyard was shuffled, sync with server
+                // Graveyard was shuffled, sync the shuffled order back to the main graveyard array
+                if (graveyardZone && graveyardZone.cards) {
+                    graveyard = [...graveyardZone.cards];
+                    // Mark this as a client action to preserve the shuffle order temporarily
+                    markClientAction('shuffle', null);
+                }
                 sendMove();
                 debouncedRender();
             }
@@ -1019,7 +1029,12 @@ function initializeCardZones() {
             } else if (action === 'moveCardGroup') {
                 handleCardGroupMove(cardIdOrIds, sourceZone, targetZone);
             } else if (action === 'shuffle') {
-                // Exile was shuffled, sync with server
+                // Exile was shuffled, sync the shuffled order back to the main exile array
+                if (exileZone && exileZone.cards) {
+                    exile = [...exileZone.cards];
+                    // Mark this as a client action to preserve the shuffle order temporarily
+                    markClientAction('shuffle', null);
+                }
                 sendMove();
                 debouncedRender();
             }
