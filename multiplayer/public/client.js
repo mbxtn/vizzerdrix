@@ -1500,13 +1500,9 @@ async function createPlaceholderCard(text) {
         if (scryfallData) {
             // Re-render to show the actual card image
             render();
-            showMessage(`Created placeholder card: "${text}" (with Scryfall image)`);
-        } else {
-            showMessage(`Created placeholder card: "${text}" (no image found)`);
-        }
+        } 
     } catch (error) {
         console.error('Error loading Scryfall data for placeholder:', error);
-        showMessage(`Created placeholder card: "${text}" (error loading image)`);
     }
     
     // Send update to server
@@ -1566,9 +1562,7 @@ async function createCopiesOfSelectedCards() {
         sendMove();
         
         // Re-render to show the new copies
-        render();
-        
-        showMessage(`Created ${copiesCreated} copy${copiesCreated > 1 ? 'ies' : ''} (marked as temporary)`);
+        render();        
     }
 }
 
