@@ -615,6 +615,13 @@ function handleCardMove(cardId, sourceZone, targetZone) {
         cardObj.rotation = 0;
     }
     
+    // Reset counters when moving out of the play zone
+    if (sourceZone === 'play' && targetZone !== 'play') {
+        if (cardObj.counters) {
+            delete cardObj.counters;
+        }
+    }
+    
     // Add to target zone
     if (targetZone === 'hand') {
         hand.push(cardObj);
@@ -951,6 +958,12 @@ function addDropListeners() {
                         removeCardFromSource(cardId, groupData.sourceZone);
                         // Create a copy to avoid reference issues
                         const cardCopy = { ...cardObj };
+                        
+                        // Reset counters when moving from non-play zones to play zone
+                        if (groupData.sourceZone !== 'play' && cardCopy.counters) {
+                            delete cardCopy.counters;
+                        }
+                        
                         cardCopy.x = x;
                         cardCopy.y = y;
                         playZone.push(cardCopy);
@@ -965,6 +978,12 @@ function addDropListeners() {
                         removeCardFromSource(cardId, groupData.sourceZone);
                         // Create a copy to avoid reference issues
                         const cardCopy = { ...cardObj };
+                        
+                        // Reset counters when moving out of the play zone
+                        if (groupData.sourceZone === 'play' && cardCopy.counters) {
+                            delete cardCopy.counters;
+                        }
+                        
                         hand.push(cardCopy);
                     });
                 }
@@ -983,8 +1002,21 @@ function addDropListeners() {
                     const y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
                     
                     removeCardFromSource(cardId, sourceZone);
-                    cardObj.x = x;
-                    cardObj.y = y;
+                    
+                    // Reset counters when moving out of the play zone (but not when moving within play zone)
+                    if (sourceZone === 'play') {
+                        // Cards moving within play zone keep their counters
+                        cardObj.x = x;
+                        cardObj.y = y;
+                    } else {
+                        // Cards coming from other zones start with no counters
+                        if (cardObj.counters) {
+                            delete cardObj.counters;
+                        }
+                        cardObj.x = x;
+                        cardObj.y = y;
+                    }
+                    
                     playZone.push(cardObj);
                     
                     sendMove();
@@ -1829,6 +1861,13 @@ function moveSelectedCardsToZone(targetZone) {
         // Reset rotation (tapped state) when moving from battlefield to any other zone
         if (sourceZone === 'play' && targetZone !== 'play') {
             cardObj.rotation = 0;
+        }
+        
+        // Reset counters when moving out of the play zone
+        if (sourceZone === 'play' && targetZone !== 'play') {
+            if (cardObj.counters) {
+                delete cardObj.counters;
+            }
         }
         
         // Add to target zone
