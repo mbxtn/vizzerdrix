@@ -1276,7 +1276,6 @@ function addDropListeners() {
                         // If it's a placeholder card being moved out of play zone, remove it entirely
                         if (groupData.sourceZone === 'play' && cardObj.isPlaceholder) {
                             removeCardFromSource(cardId, groupData.sourceZone);
-                            showMessage(`Removed placeholder card: "${cardObj.displayName || cardObj.name}"`);
                             return;
                         }
                         
@@ -2222,8 +2221,6 @@ function removeCounterFromSelectedCards() {
         // Re-render the game to show the counters
         render();
         
-        // Show confirmation message
-        showMessage(`Removed counters from ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}`);
     }
 }
 

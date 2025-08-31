@@ -173,13 +173,13 @@ body {
 
 /* Placeholder card styling */
 .card.placeholder-card {
-    border-color: #38a169;
+    border-color: #ed8936;
     background-color: #f7fafc;
 }
 
 .card.placeholder-card:hover {
-    border-color: #2f855a;
-    box-shadow: 0 8px 16px -1px rgba(56, 161, 105, 0.2), 0 4px 8px -1px rgba(56, 161, 105, 0.1);
+    border-color: #c05621;
+    box-shadow: 0 8px 16px -1px rgba(192, 86, 33, 0.2), 0 4px 8px -1px rgba(192, 86, 33, 0.1);
 }
 
 /* Placeholder copy styling - similar to placeholder but with blue border */
