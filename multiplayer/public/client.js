@@ -704,6 +704,83 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     render();
 }
 
+function handleCardGroupMove(cardIds, sourceZone, targetZone) {
+    if (!cardIds || cardIds.length === 0) return;
+    
+    // Get all card objects and remove them from source zone
+    const cardsToMove = [];
+    cardIds.forEach(cardId => {
+        let cardObj = null;
+        if (sourceZone === 'hand') {
+            const index = hand.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = hand.splice(index, 1)[0];
+        } else if (sourceZone === 'play') {
+            const index = playZone.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = playZone.splice(index, 1)[0];
+        } else if (sourceZone === 'library') {
+            const index = library.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = library.splice(index, 1)[0];
+        } else if (sourceZone === 'graveyard') {
+            const index = graveyard.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = graveyard.splice(index, 1)[0];
+        } else if (sourceZone === 'exile') {
+            const index = exile.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = exile.splice(index, 1)[0];
+        } else if (sourceZone === 'command') {
+            const index = command.findIndex(c => c.id === cardId);
+            if (index > -1) cardObj = command.splice(index, 1)[0];
+        }
+        
+        if (cardObj) {
+            // If it's a placeholder card being moved out of play zone, skip adding it to cardsToMove (it will be removed)
+            if (sourceZone === 'play' && targetZone !== 'play' && cardObj.isPlaceholder) {
+                return; // Skip this card, it will be removed entirely
+            }
+            
+            // Reset rotation (tapped state) when moving from battlefield to any other zone
+            if (sourceZone === 'play' && targetZone !== 'play') {
+                cardObj.rotation = 0;
+            }
+            
+            // Reset counters when moving out of the play zone
+            if (sourceZone === 'play' && targetZone !== 'play') {
+                if (cardObj.counters) {
+                    delete cardObj.counters;
+                }
+            }
+            
+            cardsToMove.push(cardObj);
+        }
+    });
+    
+    // Add all cards to target zone
+    cardsToMove.forEach(cardObj => {
+        if (targetZone === 'hand') {
+            hand.push(cardObj);
+        } else if (targetZone === 'play') {
+            // For play zone, we need to set position if not already set
+            if (cardObj.x === undefined || cardObj.y === undefined) {
+                cardObj.x = 0;
+                cardObj.y = 0;
+            }
+            playZone.push(cardObj);
+        } else if (targetZone === 'library') {
+            library.push(cardObj);
+        } else if (targetZone === 'graveyard') {
+            graveyard.push(cardObj);
+        } else if (targetZone === 'exile') {
+            exile.push(cardObj);
+        } else if (targetZone === 'command') {
+            command.push(cardObj);
+        }
+    });
+    
+    sendMove();
+    selectedCardIds = [];
+    
+    render();
+}
+
 // State tracking for optimistic updates
 let lastClientAction = null;
 let clientActionTimeout = null;
