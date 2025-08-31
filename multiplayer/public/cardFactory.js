@@ -370,19 +370,13 @@ export function flipCard(cardEl) {
     
     const cardName = cardEl.dataset.name;
     const currentFace = cardEl.dataset.faceShown;
-    const hasBackFace = ScryfallCache.hasBackFace(cardName);
-    
-    if (!hasBackFace) {
-        console.log('Card has no back face to flip to');
-        return false;
-    }
     
     // Handle regular card flipping
     const img = cardEl.querySelector('img');
     if (!img) return false;
     
     if (currentFace === 'front') {
-        // Flip to back
+        // Flip to back - all cards can show a back face
         const backImageSrc = ScryfallCache.getCardBack(cardName);
         img.src = backImageSrc;
         img.alt = `${cardName} (back)`;
@@ -407,6 +401,10 @@ export function flipCard(cardEl) {
                 img.alt = cardName;
                 cardEl.dataset.faceShown = 'front';
             }
+        } else {
+            // No Scryfall data, but still flip to front (show card name)
+            img.alt = cardName;
+            cardEl.dataset.faceShown = 'front';
         }
     }
     

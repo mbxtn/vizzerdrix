@@ -816,6 +816,11 @@ function handleCardMove(cardId, sourceZone, targetZone) {
         }
     }
     
+    // Turn cards face up when moving out of the play zone
+    if (sourceZone === 'play' && targetZone !== 'play') {
+        cardObj.faceShown = 'front';
+    }
+    
     // Add to target zone
     if (targetZone === 'hand') {
         hand.push(cardObj);
@@ -885,6 +890,11 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
                 if (cardObj.counters) {
                     delete cardObj.counters;
                 }
+            }
+            
+            // Turn cards face up when moving out of the play zone
+            if (sourceZone === 'play' && targetZone !== 'play') {
+                cardObj.faceShown = 'front';
             }
             
             cardsToMove.push(cardObj);
@@ -2296,6 +2306,11 @@ function moveSelectedCardsToZone(targetZone) {
             if (cardObj.counters) {
                 delete cardObj.counters;
             }
+        }
+        
+        // Turn cards face up when moving out of the play zone
+        if (sourceZone === 'play' && targetZone !== 'play') {
+            cardObj.faceShown = 'front';
         }
         
         if (targetZone === 'hand') {
