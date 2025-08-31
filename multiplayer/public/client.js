@@ -2334,6 +2334,16 @@ function showCardContextMenu(e) {
     });
     cardContextMenu.appendChild(addCounterOption);
     
+    // Set Counters option
+    const setCountersOption = document.createElement('button');
+    setCountersOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    setCountersOption.textContent = 'Set Counters...';
+    setCountersOption.addEventListener('click', () => {
+        setCountersForSelectedCards();
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(setCountersOption);
+    
     // Remove Counter option (only show if any selected card has counters)
     const hasCounters = selectedCards.some(cardEl => {
         const cardId = cardEl.dataset.id;
@@ -2479,6 +2489,67 @@ function removeCounterFromSelectedCards() {
         // Re-render the game to show the counters
         render();
         
+    }
+}
+
+function setCountersForSelectedCards() {
+    if (selectedCards.length === 0) return;
+    
+    // Prompt user for the number of counters
+    const currentMax = Math.max(0, ...selectedCards.map(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
+        return cardObj && cardObj.counters ? cardObj.counters : 0;
+    }));
+    
+    const input = prompt(`Set counters for ${selectedCards.length} selected card${selectedCards.length > 1 ? 's' : ''}:\n(Current max: ${currentMax})`, currentMax.toString());
+    
+    if (input === null) return; // User cancelled
+    
+    const counterValue = parseInt(input);
+    if (isNaN(counterValue) || counterValue < 0) {
+        showMessage("Please enter a valid number (0 or greater).");
+        return;
+    }
+    
+    let cardsUpdated = 0;
+    selectedCards.forEach(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
+        
+        if (cardObj) {
+            if (counterValue === 0) {
+                // Remove counters property if setting to 0
+                if (cardObj.counters) {
+                    delete cardObj.counters;
+                    cardsUpdated++;
+                }
+            } else {
+                // Set the counter value
+                cardObj.counters = counterValue;
+                cardsUpdated++;
+            }
+        }
+    });
+    
+    if (cardsUpdated > 0) {
+        // Clear selection after setting counters
+        selectedCards.forEach(c => c.classList.remove('selected-card'));
+        selectedCards = [];
+        selectedCardIds = [];
+        
+        // Send the updated state to server
+        sendMove();
+        
+        // Re-render the game to show the counters
+        render();
+        
+        // Show feedback message
+        if (counterValue === 0) {
+            showMessage(`Removed counters from ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
+        } else {
+            showMessage(`Set counters to ${counterValue} on ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
+        }
     }
 }
 
