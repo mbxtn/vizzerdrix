@@ -148,8 +148,8 @@ export function createCardElement(card, location, options) {
     cardEl.dataset.name = card.name;
     cardEl.classList.toggle('magnified-card', isMagnifyEnabled);
 
-    // Add counter display if card has counters
-    if (card.counters && card.counters > 0) {
+    // Add counter display if card has counters (including negative counters)
+    if (card.counters && card.counters !== 0) {
         const counterEl = document.createElement('div');
         counterEl.className = 'card-counter';
         counterEl.textContent = card.counters;

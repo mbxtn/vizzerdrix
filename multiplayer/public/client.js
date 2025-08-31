@@ -2348,7 +2348,7 @@ function showCardContextMenu(e) {
     const hasCounters = selectedCards.some(cardEl => {
         const cardId = cardEl.dataset.id;
         const cardObj = findCardObjectById(cardId);
-        return cardObj && cardObj.counters && cardObj.counters > 0;
+        return cardObj && cardObj.counters !== undefined && cardObj.counters !== 0;
     });
     
     if (hasCounters) {
@@ -2404,7 +2404,7 @@ function handleCounterClick(e, card, isDecrement) {
     
     if (isDecrement) {
         // Decrement counter (Shift+click)
-        if (cardObj.counters && cardObj.counters > 0) {
+        if (cardObj.counters !== undefined && cardObj.counters !== 0) {
             cardObj.counters -= 1;
             if (cardObj.counters === 0) {
                 delete cardObj.counters;
@@ -2466,7 +2466,7 @@ function removeCounterFromSelectedCards() {
         const cardId = cardEl.dataset.id;
         const cardObj = findCardObjectById(cardId);
         
-        if (cardObj && cardObj.counters && cardObj.counters > 0) {
+        if (cardObj && cardObj.counters !== undefined && cardObj.counters !== 0) {
             cardObj.counters -= 1;
             
             // Remove counters property if it reaches 0
@@ -2495,20 +2495,25 @@ function removeCounterFromSelectedCards() {
 function setCountersForSelectedCards() {
     if (selectedCards.length === 0) return;
     
-    // Prompt user for the number of counters
-    const currentMax = Math.max(0, ...selectedCards.map(cardEl => {
+    // Get the range of current counter values for context
+    const counterValues = selectedCards.map(cardEl => {
         const cardId = cardEl.dataset.id;
         const cardObj = findCardObjectById(cardId);
         return cardObj && cardObj.counters ? cardObj.counters : 0;
-    }));
+    });
     
-    const input = prompt(`Set counters for ${selectedCards.length} selected card${selectedCards.length > 1 ? 's' : ''}:\n(Current max: ${currentMax})`, currentMax.toString());
+    const currentMin = Math.min(...counterValues);
+    const currentMax = Math.max(...counterValues);
+    const defaultValue = currentMax !== currentMin ? currentMax : (currentMax || 0);
+    
+    const rangeText = currentMin === currentMax ? `Current: ${currentMax}` : `Range: ${currentMin} to ${currentMax}`;
+    const input = prompt(`Set counters for ${selectedCards.length} selected card${selectedCards.length > 1 ? 's' : ''}:\n(${rangeText})\n\nEnter number (negative values allowed, 0 removes counters):`, defaultValue.toString());
     
     if (input === null) return; // User cancelled
     
     const counterValue = parseInt(input);
-    if (isNaN(counterValue) || counterValue < 0) {
-        showMessage("Please enter a valid number (0 or greater).");
+    if (isNaN(counterValue)) {
+        showMessage("Please enter a valid number (negative values allowed, 0 removes counters).");
         return;
     }
     
@@ -2525,7 +2530,7 @@ function setCountersForSelectedCards() {
                     cardsUpdated++;
                 }
             } else {
-                // Set the counter value
+                // Set the counter value (positive or negative)
                 cardObj.counters = counterValue;
                 cardsUpdated++;
             }
@@ -2548,7 +2553,8 @@ function setCountersForSelectedCards() {
         if (counterValue === 0) {
             showMessage(`Removed counters from ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
         } else {
-            showMessage(`Set counters to ${counterValue} on ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
+            const counterType = counterValue > 0 ? `+${counterValue}` : counterValue.toString();
+            showMessage(`Set counters to ${counterType} on ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
         }
     }
 }
