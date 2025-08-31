@@ -760,6 +760,7 @@ function render() {
                 onCardClick: handleCardClick,
                 onCardDblClick: handleCardDoubleClick,
                 onCardDragStart: handleCardDragStart,
+                onCounterClick: handleCounterClick,
                 showBack: card.faceShown === 'back'
             }));
         });
@@ -797,6 +798,7 @@ function render() {
                 onCardClick: isInteractable ? handleCardClick : null,
                 onCardDblClick: isInteractable ? handleCardDoubleClick : null,
                 onCardDragStart: isInteractable ? handleCardDragStart : null,
+                onCounterClick: isInteractable ? handleCounterClick : null,
                 showBack: cardData.faceShown === 'back'
             });
             cardEl.style.position = 'absolute';
@@ -1596,6 +1598,39 @@ function showCardContextMenu(e) {
     });
     cardContextMenu.appendChild(commandOption);
     
+    // Add separator
+    const separator = document.createElement('div');
+    separator.className = 'border-t border-gray-600 my-1';
+    cardContextMenu.appendChild(separator);
+    
+    // Add Counter option
+    const addCounterOption = document.createElement('button');
+    addCounterOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    addCounterOption.textContent = 'Add Counter';
+    addCounterOption.addEventListener('click', () => {
+        addCounterToSelectedCards();
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(addCounterOption);
+    
+    // Remove Counter option (only show if any selected card has counters)
+    const hasCounters = selectedCards.some(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
+        return cardObj && cardObj.counters && cardObj.counters > 0;
+    });
+    
+    if (hasCounters) {
+        const removeCounterOption = document.createElement('button');
+        removeCounterOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+        removeCounterOption.textContent = 'Remove Counter';
+        removeCounterOption.addEventListener('click', () => {
+            removeCounterFromSelectedCards();
+            hideCardContextMenu();
+        });
+        cardContextMenu.appendChild(removeCounterOption);
+    }
+    
     // Ensure context menu stays within viewport
     document.body.appendChild(cardContextMenu);
     const rect = cardContextMenu.getBoundingClientRect();
@@ -1615,186 +1650,120 @@ function hideCardContextMenu() {
     contextMenuJustShown = false;
 }
 
-function moveSelectedCardsToZone(targetZone) {
-    if (selectedCards.length === 0) return;
+// Helper function to find card object by ID across all zones
+function findCardObjectById(cardId) {
+    // Check all zones for the card
+    const zones = [hand, playZone, graveyard, exile, command, library];
     
-    // Get the card IDs and their source zones
-    const cardsToMove = selectedCards.map(cardEl => {
-        const cardId = cardEl.dataset.id;
-        let sourceZone = null;
-        let cardObj = null;
-        
-        // Determine source zone by checking which array contains the card
-        if (hand.find(c => c.id === cardId)) {
-            sourceZone = 'hand';
-            cardObj = hand.find(c => c.id === cardId);
-        } else if (playZone.find(c => c.id === cardId)) {
-            sourceZone = 'play';
-            cardObj = playZone.find(c => c.id === cardId);
-        } else if (graveyard.find(c => c.id === cardId)) {
-            sourceZone = 'graveyard';
-            cardObj = graveyard.find(c => c.id === cardId);
-        } else if (exile.find(c => c.id === cardId)) {
-            sourceZone = 'exile';
-            cardObj = exile.find(c => c.id === cardId);
-        } else if (command.find(c => c.id === cardId)) {
-            sourceZone = 'command';
-            cardObj = command.find(c => c.id === cardId);
-        } else if (library.find(c => c.id === cardId)) {
-            sourceZone = 'library';
-            cardObj = library.find(c => c.id === cardId);
-        }
-        
-        return { cardId, sourceZone, cardObj };
-    }).filter(item => item.sourceZone && item.cardObj); // Only include cards with known source zones and objects
+    for (const zone of zones) {
+        const card = zone.find(c => c.id === cardId);
+        if (card) return card;
+    }
     
-    if (cardsToMove.length === 0) return;
+    return null;
+}
+
+// Counter click handler
+function handleCounterClick(e, card, isDecrement) {
+    e.preventDefault();
+    e.stopPropagation();
     
-    // Remove all cards from their source zones first (to avoid issues with array modification)
-    cardsToMove.forEach(({ cardId, sourceZone }) => {
-        if (sourceZone === 'hand') {
-            const index = hand.findIndex(c => c.id === cardId);
-            if (index > -1) hand.splice(index, 1);
-        } else if (sourceZone === 'play') {
-            const index = playZone.findIndex(c => c.id === cardId);
-            if (index > -1) playZone.splice(index, 1);
-        } else if (sourceZone === 'graveyard') {
-            const index = graveyard.findIndex(c => c.id === cardId);
-            if (index > -1) graveyard.splice(index, 1);
-        } else if (sourceZone === 'exile') {
-            const index = exile.findIndex(c => c.id === cardId);
-            if (index > -1) exile.splice(index, 1);
-        } else if (sourceZone === 'command') {
-            const index = command.findIndex(c => c.id === cardId);
-            if (index > -1) command.splice(index, 1);
-        } else if (sourceZone === 'library') {
-            const index = library.findIndex(c => c.id === cardId);
-            if (index > -1) library.splice(index, 1);
-        }
-    });
+    const cardObj = findCardObjectById(card.id);
+    if (!cardObj) return;
     
-    // Add all cards to the target zone
-    cardsToMove.forEach(({ cardObj, sourceZone }) => {
-        // Reset rotation (tapped state) when moving from battlefield to any other zone
-        if (sourceZone === 'play' && targetZone !== 'play') {
-            cardObj.rotation = 0;
-        }
-        
-        // Add to target zone
-        if (targetZone === 'hand') {
-            hand.push(cardObj);
-        } else if (targetZone === 'play') {
-            // For play zone, we need to set position if not already set
-            if (cardObj.x === undefined || cardObj.y === undefined) {
-                cardObj.x = 0;
-                cardObj.y = 0;
+    if (isDecrement) {
+        // Decrement counter (Shift+click)
+        if (cardObj.counters && cardObj.counters > 0) {
+            cardObj.counters -= 1;
+            if (cardObj.counters === 0) {
+                delete cardObj.counters;
             }
-            playZone.push(cardObj);
-        } else if (targetZone === 'library') {
-            library.push(cardObj);
-        } else if (targetZone === 'graveyard') {
-            graveyard.push(cardObj);
-        } else if (targetZone === 'exile') {
-            exile.push(cardObj);
-        } else if (targetZone === 'command') {
-            command.push(cardObj);
         }
-    });
-    
-    // Update CardZone displays
-    if (libraryZone) {
-        libraryZone.updateCards(library);
-    }
-    if (graveyardZone) {
-        graveyardZone.updateCards(graveyard);
-    }
-    if (exileZone) {
-        exileZone.updateCards(exile);
-    }
-    if (commandZone) {
-        commandZone.updateCards(command);
+    } else {
+        // Increment counter (normal click)
+        if (typeof cardObj.counters !== 'number') {
+            cardObj.counters = 0;
+        }
+        cardObj.counters += 1;
     }
     
-    // Clear selection after moving
-    selectedCards.forEach(c => c.classList.remove('selected-card'));
-    selectedCards = [];
-    selectedCardIds = [];
-    
-    // Send the updated state to server (only once)
+    // Send the updated state to server
     sendMove();
     
-    // Re-render the game (only once)
+    // Re-render to show the counter change
     render();
+}
+
+// Counter management functions for context menu
+function addCounterToSelectedCards() {
+    if (selectedCards.length === 0) return;
     
-    // Show confirmation message
-    const cardCount = cardsToMove.length;
-    if (cardCount > 0) {
-        showMessage(`Moved ${cardCount} card${cardCount > 1 ? 's' : ''} to ${targetZone}`);
+    let cardsUpdated = 0;
+    selectedCards.forEach(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
+        
+        if (cardObj) {
+            // Initialize counters property if it doesn't exist
+            if (typeof cardObj.counters !== 'number') {
+                cardObj.counters = 0;
+            }
+            cardObj.counters += 1;
+            cardsUpdated++;
+        }
+    });
+    
+    if (cardsUpdated > 0) {
+        // Clear selection after adding counters
+        selectedCards.forEach(c => c.classList.remove('selected-card'));
+        selectedCards = [];
+        selectedCardIds = [];
+        
+        // Send the updated state to server
+        sendMove();
+        
+        // Re-render the game to show the counters
+        render();
+        
+        // Show confirmation message
+        showMessage(`Added counters to ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}`);
     }
 }
 
-function handleCardGroupMove(cardIds, sourceZone, targetZone) {
-    if (!cardIds || cardIds.length === 0) return;
+function removeCounterFromSelectedCards() {
+    if (selectedCards.length === 0) return;
     
-    // Get all card objects and remove them from source zone
-    const cardsToMove = [];
-    cardIds.forEach(cardId => {
-        let cardObj = null;
-        if (sourceZone === 'hand') {
-            const index = hand.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = hand.splice(index, 1)[0];
-        } else if (sourceZone === 'play') {
-            const index = playZone.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = playZone.splice(index, 1)[0];
-        } else if (sourceZone === 'library') {
-            const index = library.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = library.splice(index, 1)[0];
-        } else if (sourceZone === 'graveyard') {
-            const index = graveyard.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = graveyard.splice(index, 1)[0];
-        } else if (sourceZone === 'exile') {
-            const index = exile.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = exile.splice(index, 1)[0];
-        } else if (sourceZone === 'command') {
-            const index = command.findIndex(c => c.id === cardId);
-            if (index > -1) cardObj = command.splice(index, 1)[0];
-        }
+    let cardsUpdated = 0;
+    selectedCards.forEach(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
         
-        if (cardObj) {
-            // Reset rotation (tapped state) when moving from battlefield to any other zone
-            if (sourceZone === 'play' && targetZone !== 'play') {
-                cardObj.rotation = 0;
+        if (cardObj && cardObj.counters && cardObj.counters > 0) {
+            cardObj.counters -= 1;
+            
+            // Remove counters property if it reaches 0
+            if (cardObj.counters === 0) {
+                delete cardObj.counters;
             }
-            cardsToMove.push(cardObj);
+            cardsUpdated++;
         }
     });
     
-    // Add all cards to target zone
-    cardsToMove.forEach(cardObj => {
-        if (targetZone === 'hand') {
-            hand.push(cardObj);
-        } else if (targetZone === 'play') {
-            // For play zone, we need to set position if not already set
-            if (cardObj.x === undefined || cardObj.y === undefined) {
-                cardObj.x = 0;
-                cardObj.y = 0;
-            }
-            playZone.push(cardObj);
-        } else if (targetZone === 'library') {
-            library.push(cardObj);
-        } else if (targetZone === 'graveyard') {
-            graveyard.push(cardObj);
-        } else if (targetZone === 'exile') {
-            exile.push(cardObj);
-        } else if (targetZone === 'command') {
-            command.push(cardObj);
-        }
-    });
-    
-    sendMove();
-    selectedCardIds = [];
-    
-    render();
+    if (cardsUpdated > 0) {
+        // Clear selection after removing counters
+        selectedCards.forEach(c => c.classList.remove('selected-card'));
+        selectedCards = [];
+        selectedCardIds = [];
+        
+        // Send the updated state to server
+        sendMove();
+        
+        // Re-render the game to show the counters
+        render();
+        
+        // Show confirmation message
+        showMessage(`Removed counters from ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}`);
+    }
 }
 
 

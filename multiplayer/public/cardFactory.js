@@ -53,6 +53,28 @@ export function createCardElement(card, location, options) {
     cardEl.dataset.name = card.name;
     cardEl.classList.toggle('magnified-card', isMagnifyEnabled);
 
+    // Add counter display if card has counters
+    if (card.counters && card.counters > 0) {
+        const counterEl = document.createElement('div');
+        counterEl.className = 'card-counter';
+        counterEl.textContent = card.counters;
+        counterEl.style.userSelect = 'none';
+        
+        // Make counter clickable if onCounterClick is provided
+        if (options.onCounterClick) {
+            counterEl.style.cursor = 'pointer';
+            counterEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                options.onCounterClick(e, card, e.shiftKey);
+            });
+        } else {
+            counterEl.style.pointerEvents = 'none';
+        }
+        
+        cardEl.appendChild(counterEl);
+    }
+
     // Magnify on hover logic
     cardEl.addEventListener('mouseenter', (e) => {
         if (!isMagnifyEnabled) return;
