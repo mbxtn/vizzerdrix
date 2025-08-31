@@ -89,29 +89,40 @@ joinBtn.addEventListener('click', () => {
     const roomName = roomInput.value.trim();
     const displayName = displayNameInput.value.trim();
     const decklistRaw = decklistInput.value.trim();
-    // Parse decklist into array of card names, respecting counts
+    // Parse decklist into arrays of card names, separating commanders from library cards
     const decklist = [];
+    const commanders = [];
     decklistRaw.split('\n')
         .map(line => line.trim())
         .filter(Boolean)
         .forEach(line => {
+            // Check if this is a commander card (has CMDR marker)
+            const isCommander = /\(CMDR\)/i.test(line);
+            
             // Parse count and card name, e.g. "2 Arcane Signet" or "1x Arcane Signet" or "Arcane Signet"
             const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
+            let cardName, count;
+            
             if (countMatch) {
-                const count = parseInt(countMatch[1]);
-                const cardName = countMatch[2].replace(/\s+\(.+\)$/, '').trim(); // Remove set codes like "(M21)"
-                // Add the specified number of copies
-                for (let i = 0; i < count; i++) {
-                    decklist.push(cardName);
-                }
+                count = parseInt(countMatch[1]);
+                cardName = countMatch[2];
             } else {
                 // No count specified, assume 1 copy
-                const cardName = line.replace(/\s+\(.+\)$/, '').trim(); // Remove set codes like "(M21)"
-                decklist.push(cardName);
+                count = 1;
+                cardName = line;
+            }
+            
+            // Remove set codes like "(M21)" and commander marker "(CMDR)"
+            cardName = cardName.replace(/\s+\([^)]*\)$/g, '').trim();
+            
+            // Add the specified number of copies to the appropriate zone
+            const targetArray = isCommander ? commanders : decklist;
+            for (let i = 0; i < count; i++) {
+                targetArray.push(cardName);
             }
         });
-    if (roomName && decklist.length > 0) {
-        socket.emit('join', { roomName, displayName, decklist });
+    if (roomName && (decklist.length > 0 || commanders.length > 0)) {
+        socket.emit('join', { roomName, displayName, decklist, commanders });
     }
 });
 
@@ -310,50 +321,80 @@ placeholderTextInput.addEventListener('keypress', (e) => {
 });
 
 resetBtnModal.addEventListener('click', () => {
-    // Collect all cards from hand, playZone, and graveyard
-    let allCards = [];
+    // Collect all non-commander cards from hand, playZone, graveyard, and exile
+    let allNonCommanderCards = [];
+    let commanderCards = [];
 
-    // Add cards from hand (these are already card objects)
-    allCards.push(...hand);
+    // Process cards from hand
+    hand.forEach(card => {
+        if (card.isCommander) {
+            commanderCards.push(card);
+        } else {
+            allNonCommanderCards.push(card);
+        }
+    });
     hand.length = 0; // Clear hand
 
-    // Add cards from playZone - convert back to basic card objects (excluding placeholder cards)
-    // playZone stores objects {name, x, y, rotation, fromHandCascade, id, displayName, ...}
+    // Process cards from playZone - convert back to basic card objects (excluding placeholder cards)
     let placeholderCardsRemoved = 0;
     playZone.forEach(card => {
         if (card.isPlaceholder) {
             placeholderCardsRemoved++;
-        } else {
-            // Create a clean card object for library storage
-            allCards.push({
+        } else if (card.isCommander) {
+            // Create a clean commander card object for command zone storage
+            commanderCards.push({
                 id: card.id,
                 name: card.name,
                 displayName: card.displayName || card.name,
-                // Remove position and game-specific properties
+                isCommander: true
+            });
+        } else {
+            // Create a clean card object for library storage
+            allNonCommanderCards.push({
+                id: card.id,
+                name: card.name,
+                displayName: card.displayName || card.name,
             });
         }
     });
     playZone.length = 0; // Clear playZone
 
-    // Add cards from graveyard (these are already card objects)
-    allCards.push(...graveyard);
+    // Process cards from graveyard
+    graveyard.forEach(card => {
+        if (card.isCommander) {
+            commanderCards.push(card);
+        } else {
+            allNonCommanderCards.push(card);
+        }
+    });
     graveyard.length = 0; // Clear graveyard
     
-    // Add cards from exile (these are already card objects)
-    allCards.push(...exile);
+    // Process cards from exile
+    exile.forEach(card => {
+        if (card.isCommander) {
+            commanderCards.push(card);
+        } else {
+            allNonCommanderCards.push(card);
+        }
+    });
     exile.length = 0; // Clear exile
     
-    // Add cards from command zone (these are already card objects)
-    allCards.push(...command);
+    // Process cards from command zone (these should all be commanders, but check anyway)
+    command.forEach(card => {
+        commanderCards.push(card);
+    });
     command.length = 0; // Clear command zone
 
-    // Shuffle all collected cards
-    shuffleArray(allCards);
+    // Shuffle all non-commander cards
+    shuffleArray(allNonCommanderCards);
 
-    // Move all shuffled cards into the library
-    library.push(...allCards);
+    // Move all shuffled non-commander cards into the library
+    library.push(...allNonCommanderCards);
+    
+    // Move all commander cards back to the command zone
+    command.push(...commanderCards);
 
-    // Reset cascadedHandCardsInAreaCount as all cards are now in library
+    // Reset cascadedHandCardsInAreaCount as all cards are now in library or command zone
     cascadedHandCardsInAreaCount = 0;
 
     // Send the updated state to the server
@@ -363,6 +404,9 @@ resetBtnModal.addEventListener('click', () => {
     render();
 
     let message = "Your cards have been shuffled into your library!";
+    if (commanderCards.length > 0) {
+        message += ` ${commanderCards.length} commander${commanderCards.length > 1 ? 's' : ''} returned to command zone.`;
+    }
     if (placeholderCardsRemoved > 0) {
         message += ` Removed ${placeholderCardsRemoved} placeholder card${placeholderCardsRemoved > 1 ? 's' : ''}.`;
     }

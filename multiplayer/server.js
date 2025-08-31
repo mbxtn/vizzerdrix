@@ -18,14 +18,15 @@ app.use(express.static(__dirname + '/public'));
 // Game state for each room
 const games = {};
 
-function createDeck(cardNames) {
+function createDeck(cardNames, isCommander = false) {
     // Create card objects with unique IDs
     let counter = 0;
     const timestamp = Date.now();
     return cardNames.map(name => ({
         id: `card-${timestamp}-${counter++}-${Math.floor(Math.random() * 10000)}`,
         name,
-        displayName: name
+        displayName: name,
+        ...(isCommander && { isCommander: true }) // Add isCommander flag if this is a commander card
     }));
 }
 
@@ -39,7 +40,7 @@ io.on('connection', (socket) => {
     let playerId = socket.id;
 
     socket.on('join', (data) => {
-        const { roomName, displayName, decklist } = data;
+        const { roomName, displayName, decklist, commanders } = data;
         if (!games[roomName]) {
             games[roomName] = {
                 players: {},
@@ -50,14 +51,16 @@ io.on('connection', (socket) => {
             };
         }
         const deck = Array.isArray(decklist) ? decklist : [];
+        const commanderCards = Array.isArray(commanders) ? commanders : [];
         games[roomName].players[socket.id] = {
             hand: [],
             library: createDeck(deck), // Fill library with card objects
             graveyard: [],
             exile: [],
-            command: [],
+            command: createDeck(commanderCards, true), // Fill command zone with commander cards (marked as commanders)
             displayName: displayName || `Player ${Object.keys(games[roomName].players).length + 1}`,
-            decklist: deck
+            decklist: deck,
+            commanders: commanderCards // Store original commander list for reset functionality
         };
         games[roomName].playZones[socket.id] = [];
         socket.join(roomName);
