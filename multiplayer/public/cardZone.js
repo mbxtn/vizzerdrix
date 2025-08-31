@@ -406,14 +406,7 @@ export class CardZone {
             const topCard = this.getTopCard();
             
             // Determine if card should show back based on zone type and showTopCard setting
-            let shouldShowBack = false;
-            if (this.zoneType === 'library') {
-                // Library cards always show back (cardFactory will use default card back)
-                shouldShowBack = true;
-            } else if (this.zoneType === 'graveyard' || this.zoneType === 'exile' || this.zoneType === 'command') {
-                // Graveyard, exile, and command cards are face up unless showTopCard is disabled
-                shouldShowBack = !this.showTopCard;
-            }
+            let shouldShowBack = !this.showTopCard;
             
             // Create the top card element with appropriate interactivity
             this.topCardElement = createCardElement(topCard, this.zoneType, {
@@ -1011,6 +1004,6 @@ export class CardZone {
     toggleTopCard() {
         this.setShowTopCard(!this.showTopCard);
         const faceState = this.showTopCard ? 'face up' : 'face down';
-        this.showMessage?.(`Top card now showing ${faceState} for ${this.zoneType}.`);
+        console.log(`Top card now showing ${faceState} for ${this.zoneType}.`);
     }
 }
