@@ -26,8 +26,14 @@ setInterval(() => {
     const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
     
     for (const [playerId, info] of Object.entries(disconnectedPlayers)) {
+        // Clean up old disconnected players
         if (now - info.disconnectedAt > oneHour) {
             console.log(`Cleaning up old disconnected player: ${info.displayName} (ID: ${playerId})`);
+            delete disconnectedPlayers[playerId];
+        }
+        // Also clean up disconnected players from rooms that no longer exist
+        else if (!games[info.roomName]) {
+            console.log(`Cleaning up disconnected player from deleted room: ${info.displayName} from room ${info.roomName}`);
             delete disconnectedPlayers[playerId];
         }
     }
@@ -57,6 +63,7 @@ io.on('connection', (socket) => {
     socket.on('join', (data) => {
         const { roomName, displayName, decklist, commanders } = data;
         if (!games[roomName]) {
+            console.log(`Creating new room: ${roomName}`);
             games[roomName] = {
                 players: {},
                 playZones: {},
@@ -64,6 +71,8 @@ io.on('connection', (socket) => {
                 currentTurn: 0, // Index in turnOrder array
                 turnOrderSet: false // Whether turn order has been established
             };
+        } else {
+            console.log(`Joining existing room: ${roomName} with ${Object.keys(games[roomName].players).length} players`);
         }
         const deck = Array.isArray(decklist) ? decklist : [];
         const commanderCards = Array.isArray(commanders) ? commanders : [];
@@ -113,10 +122,17 @@ io.on('connection', (socket) => {
         // First, check if there's a disconnected player with this exact name
         for (const [disconnectedId, info] of Object.entries(disconnectedPlayers)) {
             if (info.roomName === roomName && info.displayName === displayName) {
-                foundPlayerId = disconnectedId;
-                playerData = info.playerData;
-                playZoneData = info.playZoneData;
-                break;
+                // Additional validation: make sure the room in disconnectedPlayers still matches current room
+                if (games[roomName]) {
+                    foundPlayerId = disconnectedId;
+                    playerData = info.playerData;
+                    playZoneData = info.playZoneData;
+                    break;
+                } else {
+                    // Clean up stale disconnected player data for non-existent rooms
+                    console.log(`Cleaning up stale disconnected player data for room ${roomName}`);
+                    delete disconnectedPlayers[disconnectedId];
+                }
             }
         }
         
@@ -243,6 +259,21 @@ io.on('connection', (socket) => {
             // Check if the room is empty after player removal
             if (Object.keys(games[room].players).length === 0) {
                 console.log(`Room ${room} is empty. Deleting game state.`);
+                
+                // Clean up any disconnected players associated with this room
+                const disconnectedPlayerIds = [];
+                for (const [disconnectedId, info] of Object.entries(disconnectedPlayers)) {
+                    if (info.roomName === room) {
+                        disconnectedPlayerIds.push(disconnectedId);
+                    }
+                }
+                
+                // Remove disconnected players from this room
+                disconnectedPlayerIds.forEach(id => {
+                    console.log(`Cleaning up disconnected player ${disconnectedPlayers[id].displayName} from deleted room ${room}`);
+                    delete disconnectedPlayers[id];
+                });
+                
                 delete games[room];
             } else {
                 // Only emit state if the room still exists and has players

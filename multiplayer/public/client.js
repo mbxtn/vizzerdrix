@@ -238,7 +238,7 @@ socket.on('connect', () => {
     activePlayZonePlayerId = socket.id;
     console.log('Client connected. Player ID:', playerId);
     
-    // Clear any stale local state from previous sessions
+    // Clear ALL stale local state from previous sessions
     gameState = null;
     hand = [];
     library = [];
@@ -249,6 +249,24 @@ socket.on('connect', () => {
     selectedCards = [];
     selectedCardIds = [];
     isRejoinState = false;
+    
+    // Clear optimistic update state
+    lastClientAction = null;
+    if (clientActionTimeout) {
+        clearTimeout(clientActionTimeout);
+        clientActionTimeout = null;
+    }
+    
+    // Clear any cached shuffled libraries
+    if (typeof shuffledLibraryCache !== 'undefined') {
+        shuffledLibraryCache.clear();
+    }
+    
+    // Reset card zones to ensure they don't hold stale state
+    libraryZone = null;
+    graveyardZone = null;
+    exileZone = null;
+    commandZone = null;
     
     // Auto-fill form with saved game info if available (for convenience)
     const savedGameInfo = localStorage.getItem('vizzerdrix-game-info');
@@ -280,17 +298,17 @@ socket.on('joinSuccess', (data) => {
 socket.on('rejoinSuccess', (data) => {
     console.log('Successfully rejoined game:', data);
     
-    // Set rejoin flag
+    // Set rejoin flag FIRST
     isRejoinState = true;
     
-    // Clear any existing client action to ensure we use server state
+    // Clear ALL existing client state to ensure we use server state completely
     lastClientAction = null;
     if (clientActionTimeout) {
         clearTimeout(clientActionTimeout);
         clientActionTimeout = null;
     }
     
-    // Clear any existing local state to ensure fresh sync
+    // Clear all local game state arrays and values
     gameState = null;
     hand = [];
     library = [];
@@ -300,11 +318,20 @@ socket.on('rejoinSuccess', (data) => {
     playZone = [];
     selectedCards = [];
     selectedCardIds = [];
+    currentLife = 40; // Reset to default, will be overridden by server state
     
-    // Initialize card zones for the rejoined game
-    if (!libraryZone) {
-        initializeCardZones();
+    // Clear any cached shuffled libraries
+    if (typeof shuffledLibraryCache !== 'undefined') {
+        shuffledLibraryCache.clear();
     }
+    
+    // Reset card zones to force reinitialization with fresh state
+    libraryZone = null;
+    graveyardZone = null;
+    exileZone = null;
+    commandZone = null;
+    
+    console.log('Cleared all local state for rejoin');
     
     showMessage(`Welcome back to Vizzerdrix! Rejoined room: ${data.roomName}`);
 });
@@ -384,6 +411,8 @@ socket.on('state', async (state) => {
     if (isRejoinState && state.players[playerId]) {
         console.log('Rejoin detected - forcing complete state sync from server');
         const serverPlayer = state.players[playerId];
+        
+        // Completely replace local state with server state (no merging)
         hand = [...(serverPlayer.hand || [])];
         library = [...(serverPlayer.library || [])];
         graveyard = [...(serverPlayer.graveyard || [])];
@@ -393,6 +422,13 @@ socket.on('state', async (state) => {
         // Also sync the play zone for the current player
         if (state.playZones[playerId]) {
             playZone = [...state.playZones[playerId]];
+        } else {
+            playZone = [];
+        }
+        
+        // Update life total from server
+        if (serverPlayer.life !== undefined) {
+            currentLife = serverPlayer.life;
         }
         
         console.log('State sync complete. Local arrays updated:', {
@@ -401,8 +437,13 @@ socket.on('state', async (state) => {
             graveyardCount: graveyard.length,
             exileCount: exile.length,
             commandCount: command.length,
-            playZoneCount: playZone.length
+            playZoneCount: playZone.length,
+            life: currentLife
         });
+        
+        // Clear the rejoin flag after successful sync
+        isRejoinState = false;
+        console.log('Rejoin state reset after successful sync');
     }
 
     gameState = state;
@@ -1220,6 +1261,12 @@ async function render() {
         // Only allow interactions if we're viewing our own zones
         const allowInteractions = viewedPlayerId === playerId;
         
+        // Initialize card zones if they don't exist (e.g., after rejoin)
+        if (!libraryZone || !graveyardZone || !exileZone || !commandZone) {
+            console.log('Initializing card zones (missing after rejoin)');
+            initializeCardZones();
+        }
+        
         if (libraryZone) {
             libraryZone.updateCards(library);
             libraryZone.setInteractionEnabled(allowInteractions);
@@ -1392,11 +1439,6 @@ async function render() {
     addSelectionListeners();
     updateCounts();
     
-    // Reset rejoin flag after first successful render
-    if (isRejoinState) {
-        isRejoinState = false;
-        console.log('Rejoin state reset after successful render');
-    }
     } finally {
         isRendering = false;
     }
