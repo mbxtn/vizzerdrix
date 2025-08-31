@@ -21,15 +21,65 @@ export function createCardElement(card, location, options) {
     } else {
         // Show card front
         if (card.isPlaceholder) {
-            // Handle placeholder cards specially
-            cardEl.innerHTML = `
-                <div class="w-full h-full bg-gray-300 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center p-2">
-                    <div class="text-center text-gray-700 text-sm font-medium break-words">
-                        ${card.displayName || card.name}
+            // Handle placeholder cards specially - try to show Scryfall image if available
+            const scryfallData = ScryfallCache.get(card.name);
+            if (scryfallData) {
+                // Placeholder has Scryfall data, show the actual card image
+                let imageUri = null;
+                
+                // For double-faced cards, get image from the first face
+                if (scryfallData.card_faces && scryfallData.card_faces.length > 0) {
+                    imageUri = scryfallData.card_faces[0].image_uris?.normal;
+                } 
+                // For single-faced cards, get image from main object
+                else if (scryfallData.image_uris) {
+                    imageUri = scryfallData.image_uris.normal;
+                }
+                
+                if (imageUri) {
+                    const img = document.createElement('img');
+                    img.src = imageUri;
+                    img.alt = card.displayName || card.name;
+                    img.className = 'w-full h-full object-cover';
+                    cardEl.appendChild(img);
+                    cardEl.classList.add('has-image');
+                    
+                    // Add a subtle indicator that this is a placeholder/copy
+                    if (card.isCopy) {
+                        cardEl.classList.add('placeholder-copy');
+                        const indicator = document.createElement('div');
+                        indicator.className = 'absolute top-1 right-1 bg-blue-500 text-white text-xs px-1 rounded opacity-75';
+                        indicator.textContent = 'COPY';
+                        cardEl.appendChild(indicator);
+                    } else {
+                        cardEl.classList.add('placeholder-card');
+                        const indicator = document.createElement('div');
+                        indicator.className = 'absolute top-1 right-1 bg-orange-500 text-white text-xs px-1 rounded opacity-75';
+                        indicator.textContent = 'TEMP';
+                        cardEl.appendChild(indicator);
+                    }
+                } else {
+                    // Scryfall data exists but no image - show placeholder with name
+                    cardEl.innerHTML = `
+                        <div class="w-full h-full bg-gray-300 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center p-2">
+                            <div class="text-center text-gray-700 text-sm font-medium break-words">
+                                ${card.displayName || card.name}
+                            </div>
+                        </div>
+                    `;
+                    cardEl.classList.add('placeholder-card');
+                }
+            } else {
+                // No Scryfall data, show traditional placeholder
+                cardEl.innerHTML = `
+                    <div class="w-full h-full bg-gray-300 border-2 border-dashed border-gray-400 rounded-md flex items-center justify-center p-2">
+                        <div class="text-center text-gray-700 text-sm font-medium break-words">
+                            ${card.displayName || card.name}
+                        </div>
                     </div>
-                </div>
-            `;
-            cardEl.classList.add('placeholder-card');
+                `;
+                cardEl.classList.add('placeholder-card');
+            }
         } else {
             // Show card front (existing logic)
             const scryfallData = ScryfallCache.get(card.name);

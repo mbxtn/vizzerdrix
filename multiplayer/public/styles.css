@@ -182,6 +182,40 @@ body {
     box-shadow: 0 8px 16px -1px rgba(56, 161, 105, 0.2), 0 4px 8px -1px rgba(56, 161, 105, 0.1);
 }
 
+/* Placeholder copy styling - similar to placeholder but with blue border */
+.card.placeholder-copy {
+    border-color: #3182ce;
+}
+
+.card.placeholder-copy:hover {
+    border-color: #2c5282;
+    box-shadow: 0 8px 16px -1px rgba(49, 130, 206, 0.2), 0 4px 8px -1px rgba(49, 130, 206, 0.1);
+}
+
+/* Placeholder indicators */
+.card.placeholder-card .placeholder-indicator,
+.card.placeholder-copy .placeholder-indicator {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 2px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.card.placeholder-card .placeholder-indicator {
+    background-color: #ed8936;
+    color: white;
+}
+
+.card.placeholder-copy .placeholder-indicator {
+    background-color: #3182ce;
+    color: white;
+}
+
 /* Magnify size slider styles */
 #magnify-size-slider-container {
     background: #4a5568;

@@ -1466,7 +1466,7 @@ function generateCardId() {
 }
 
 // Create a temporary placeholder card
-function createPlaceholderCard(text) {
+async function createPlaceholderCard(text) {
     const placeholderCard = {
         id: generateCardId(),
         name: text,
@@ -1477,16 +1477,89 @@ function createPlaceholderCard(text) {
         rotation: 0
     };
     
-    // Add to play zone
+    // Add to play zone immediately (shows as placeholder initially)
     playZone.push(placeholderCard);
+    
+    // Re-render to show the placeholder card
+    render();
+    
+    // Try to load Scryfall data for this card in the background
+    try {
+        await ScryfallCache.load([text]);
+        const scryfallData = ScryfallCache.get(text);
+        if (scryfallData) {
+            // Re-render to show the actual card image
+            render();
+            showMessage(`Created placeholder card: "${text}" (with Scryfall image)`);
+        } else {
+            showMessage(`Created placeholder card: "${text}" (no image found)`);
+        }
+    } catch (error) {
+        console.error('Error loading Scryfall data for placeholder:', error);
+        showMessage(`Created placeholder card: "${text}" (error loading image)`);
+    }
     
     // Send update to server
     sendMove();
+}
+
+// Create copies of selected cards
+async function createCopiesOfSelectedCards() {
+    if (selectedCards.length === 0) return;
     
-    // Re-render to show the new card
-    render();
+    let copiesCreated = 0;
+    const cascadeOffset = 15;
     
-    showMessage(`Created placeholder card: "${text}"`);
+    for (let index = 0; index < selectedCards.length; index++) {
+        const cardEl = selectedCards[index];
+        const cardId = cardEl.dataset.id;
+        const originalCard = findCardObjectById(cardId);
+        
+        if (originalCard) {
+            // Create a copy with the same visual properties but marked as a copy
+            const copyCard = {
+                id: generateCardId(),
+                name: originalCard.name,
+                displayName: originalCard.displayName || originalCard.name,
+                isPlaceholder: true, // Mark as placeholder so it disappears when moved out of play
+                isCopy: true, // Mark as a copy
+                faceShown: originalCard.faceShown || 'front', // Preserve which face is shown
+                x: (originalCard.x || 50) + cascadeOffset + (index * 10), // Offset position slightly
+                y: (originalCard.y || 50) + cascadeOffset + (index * 10),
+                rotation: 0 // Copies start untapped
+            };
+            
+            // If the original card has counters, don't copy them (copies start fresh)
+            
+            // Add to play zone
+            playZone.push(copyCard);
+            copiesCreated++;
+            
+            // Try to load Scryfall data for this card in the background if not already cached
+            try {
+                if (!ScryfallCache.get(originalCard.name)) {
+                    await ScryfallCache.load([originalCard.name]);
+                }
+            } catch (error) {
+                console.error('Error loading Scryfall data for copy:', error);
+            }
+        }
+    }
+    
+    if (copiesCreated > 0) {
+        // Clear selection after creating copies
+        selectedCards.forEach(c => c.classList.remove('selected-card'));
+        selectedCards = [];
+        selectedCardIds = [];
+        
+        // Send update to server
+        sendMove();
+        
+        // Re-render to show the new copies
+        render();
+        
+        showMessage(`Created ${copiesCreated} copy${copiesCreated > 1 ? 'ies' : ''} (marked as temporary)`);
+    }
 }
 
 // Example deck creation (replace with your deck logic)
@@ -1752,6 +1825,12 @@ document.addEventListener('keydown', (e) => {
                     sendMove();
                 }
             });
+        });
+    } else if (e.code === 'KeyX' && selectedCards.length > 0) {
+        e.preventDefault();
+        // Create copies asynchronously to allow for Scryfall image loading
+        createCopiesOfSelectedCards().catch(error => {
+            console.error('Error creating copies:', error);
         });
     }
 });
@@ -2219,11 +2298,10 @@ function moveSelectedCardsToZone(targetZone) {
             }
         }
         
-        // Add to target zone
         if (targetZone === 'hand') {
             hand.push(cardObj);
         } else if (targetZone === 'play') {
-            // For play zone, we need to set position if not already set
+            // For play zone, ensure position is set
             if (cardObj.x === undefined || cardObj.y === undefined) {
                 cardObj.x = 0;
                 cardObj.y = 0;
@@ -2270,12 +2348,18 @@ function moveSelectedCardsToZone(targetZone) {
     let message = '';
     
     if (validCardCount > 0) {
-        message += `Moved ${validCardCount} card${validCardCount > 1 ? 's' : ''} to ${targetZone}`;
+        const zoneName = targetZone === 'hand' ? 'hand' : 
+                         targetZone === 'library' ? 'library' :
+                         targetZone === 'graveyard' ? 'graveyard' :
+                         targetZone === 'exile' ? 'exile' :
+                         targetZone === 'command' ? 'command zone' :
+                         targetZone === 'play' ? 'battlefield' : targetZone;
+        message = `Moved ${validCardCount} card${validCardCount > 1 ? 's' : ''} to ${zoneName}`;
     }
     
     if (placeholderCardsRemoved > 0) {
-        if (message) message += '. ';
-        message += `Removed ${placeholderCardsRemoved} placeholder card${placeholderCardsRemoved > 1 ? 's' : ''}: ${placeholderNames.join(', ')}`;
+        const placeholderMessage = `Removed ${placeholderCardsRemoved} placeholder card${placeholderCardsRemoved > 1 ? 's' : ''}`;
+        message = message ? `${message}. ${placeholderMessage}` : placeholderMessage;
     }
     
     if (message) {
