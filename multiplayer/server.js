@@ -60,16 +60,20 @@ io.on('connection', (socket) => {
             command: createDeck(commanderCards, true), // Fill command zone with commander cards (marked as commanders)
             displayName: displayName || `Player ${Object.keys(games[roomName].players).length + 1}`,
             decklist: deck,
-            commanders: commanderCards // Store original commander list for reset functionality
+            commanders: commanderCards, // Store original commander list for reset functionality
+            life: 40 // Default starting life total
         };
         games[roomName].playZones[socket.id] = [];
         socket.join(roomName);
         room = roomName;
         
-        // Migration: Ensure all existing players have command zones
+        // Migration: Ensure all existing players have command zones and life totals
         Object.keys(games[roomName].players).forEach(existingPlayerId => {
             if (!games[roomName].players[existingPlayerId].command) {
                 games[roomName].players[existingPlayerId].command = [];
+            }
+            if (games[roomName].players[existingPlayerId].life === undefined) {
+                games[roomName].players[existingPlayerId].life = 40; // Default life total
             }
         });
         
@@ -77,7 +81,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('move', (data) => {
-        // data: { playZone, hand, library, graveyard, exile, command }
+        // data: { playZone, hand, library, graveyard, exile, command, life }
         if (room && games[room] && games[room].players[playerId]) {
             // Preserve displayName
             const currentDisplayName = games[room].players[playerId].displayName;
@@ -87,7 +91,8 @@ io.on('connection', (socket) => {
                 graveyard: data.graveyard,
                 exile: data.exile,
                 command: data.command || [], // Ensure command is always an array
-                displayName: currentDisplayName // Re-add the preserved displayName
+                displayName: currentDisplayName, // Re-add the preserved displayName
+                life: data.life !== undefined ? data.life : 40 // Update life total, default to 20 if not provided
             };
             games[room].playZones[playerId] = data.playZone;
             io.to(room).emit('state', games[room]);

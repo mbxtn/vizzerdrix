@@ -2,6 +2,45 @@ import ScryfallCache from './scryfallCache.js';
 import { createCardElement } from './cardFactory.js';
 import { CardZone } from './cardZone.js';
 
+// Cache for heart SVG content
+let heartSVGContent = null;
+
+// Load heart SVG content
+async function loadHeartSVG() {
+    if (heartSVGContent) return heartSVGContent;
+    
+    try {
+        const response = await fetch('heart.svg');
+        const text = await response.text();
+        heartSVGContent = text;
+        return heartSVGContent;
+    } catch (error) {
+        console.error('Failed to load heart.svg:', error);
+        // Fallback inline SVG if heart.svg fails to load
+        heartSVGContent = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
+            <path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Zm0-108q96-86 158-147.5t98-107q36-45.5 50-81t14-70.5q0-60-40-100t-100-40q-47 0-87 26.5T518-680h-76q-15-41-55-67.5T300-774q-60 0-100 40t-40 100q0 35 14 70.5t50 81q36 45.5 98 107T480-228Zm0-273Z"/>
+        </svg>`;
+        return heartSVGContent;
+    }
+}
+
+// Helper function to create heart icon with specific styling
+function createHeartIcon(size = '14px', color = '#ef4444') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(heartSVGContent, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    
+    if (svg) {
+        svg.setAttribute('height', size);
+        svg.setAttribute('width', size);
+        svg.setAttribute('fill', color);
+        return svg.outerHTML;
+    }
+    
+    // Fallback
+    return `<img src="heart.svg" alt="♥" style="width: ${size}; height: ${size}; filter: hue-rotate(0deg) saturate(2) brightness(0.8);">`;
+}
+
 const socket = io();
 let room = null;
 let playerId = null;
@@ -51,6 +90,9 @@ const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn')
 const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn'); // Cancel placeholder button
 const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container'); // Magnify size slider container
 const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Magnify size slider
+const lifeTotalEl = document.getElementById('life-total'); // Life total display
+const increaseLifeBtn = document.getElementById('increase-life-btn'); // Increase life button
+const decreaseLifeBtn = document.getElementById('decrease-life-btn'); // Decrease life button
 
 
 // Selection state
@@ -85,7 +127,9 @@ function debouncedRender() {
     if (renderTimeout) {
         clearTimeout(renderTimeout);
     }
-    renderTimeout = setTimeout(render, 16); // ~60fps max
+    renderTimeout = setTimeout(async () => {
+        await render();
+    }, 16); // ~60fps max
 }
 
 // Socket.IO event handlers
@@ -491,7 +535,8 @@ function sendMove() {
         graveyard: graveyard,
         exile: exile,
         command: command,
-        playZone
+        playZone,
+        life: currentLife
     });
 }
 
@@ -866,7 +911,7 @@ function markClientAction(action, cardId = null) {
     }, 2000);
 }
 
-function render() {
+async function render() {
     console.log('Render called at:', new Date().toISOString());
     
     // Debounce render calls to prevent flickering
@@ -880,6 +925,9 @@ function render() {
     }
     
     isRendering = true;
+    
+    // Load heart SVG if not already loaded
+    await loadHeartSVG();
     
     try {
         if (!gameState || !playerId) {
@@ -918,6 +966,12 @@ function render() {
         } else {
             // No recent client action or viewing another player, use server state as source of truth
             hand = serverHand; // Hand is always current player
+            
+            // Update life total from server for current player
+            if (gameState.players[playerId]?.life !== undefined) {
+                currentLife = gameState.players[playerId].life;
+                lifeTotalEl.textContent = currentLife;
+            }
             
             if (viewedPlayerId === playerId) {
                 // Viewing our own zones
@@ -1026,15 +1080,22 @@ function render() {
         const isCurrentPlayer = pid === playerId;
         const displayName = isCurrentPlayer ? `${playerName} (you)` : playerName;
         const handCount = gameState.players[pid].hand?.length || 0;
+        const lifeTotal = gameState.players[pid].life || 20;
         
-        // Create the tab content with name, icon, and hand count
+        // Create the tab content with name, life (heart icon), and hand count
         tabEl.innerHTML = `
             <span>${displayName}</span>
-            <div class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
-                    <path d="m608-368 46-166-142-98-46 166 142 98ZM160-207l-33-16q-31-13-42-44.5t3-62.5l72-156v279Zm160 87q-33 0-56.5-24T240-201v-239l107 294q3 7 5 13.5t7 12.5h-39Zm206-5q-31 11-62-3t-42-45L245-662q-11-31 3-61.5t45-41.5l301-110q31-11 61.5 3t41.5 45l178 489q11 31-3 61.5T827-235L526-125Zm-28-75 302-110-179-490-301 110 178 490Zm62-300Z"/>
-                </svg>
-                <span class="text-xs">${handCount}</span>
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1">
+                    <img src="heart.svg" alt="♥" class="w-3.5 h-3.5" style="filter: hue-rotate(0deg) saturate(2) brightness(0.8);">
+                    <span class="text-xs font-bold">${lifeTotal}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="14px" viewBox="0 -960 960 960" width="14px" fill="currentColor">
+                        <path d="m608-368 46-166-142-98-46 166 142 98ZM160-207l-33-16q-31-13-42-44.5t3-62.5l72-156v279Zm160 87q-33 0-56.5-24T240-201v-239l107 294q3 7 5 13.5t7 12.5h-39Zm206-5q-31 11-62-3t-42-45L245-662q-11-31 3-61.5t45-41.5l301-110q31-11 61.5 3t41.5 45l178 489q11 31-3 61.5T827-235L526-125Zm-28-75 302-110-179-490-301 110 178 490Zm62-300Z"/>
+                    </svg>
+                    <span class="text-xs">${handCount}</span>
+                </div>
             </div>
         `;
         
@@ -1419,6 +1480,7 @@ let graveyard = [];
 let exile = [];
 let command = [];
 let playZone = [];
+let currentLife = 40; // Track current life total
 let currentCardWidth = 80;
 const minCardWidth = 60;
 const maxCardWidth = 200; // Increased from 120 to allow much larger cards
@@ -1780,6 +1842,19 @@ function decreaseCardSize() {
 // Add event listeners for card size buttons
 increaseSizeBtn.addEventListener('click', increaseCardSize);
 decreaseSizeBtn.addEventListener('click', decreaseCardSize);
+
+// Life tracker event listeners
+increaseLifeBtn.addEventListener('click', () => {
+    currentLife++;
+    lifeTotalEl.textContent = currentLife;
+    sendMove();
+});
+
+decreaseLifeBtn.addEventListener('click', () => {
+    currentLife--;
+    lifeTotalEl.textContent = currentLife;
+    sendMove();
+});
 
 // Utility function for shuffling arrays
 function shuffleArray(array) {
