@@ -2005,12 +2005,22 @@ function showCardContextMenu(e) {
     // Move to Library option
     const libraryOption = document.createElement('button');
     libraryOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
-    libraryOption.textContent = 'Send to Library';
+    libraryOption.textContent = 'Send to Library (Top)';
     libraryOption.addEventListener('click', () => {
         moveSelectedCardsToZone('library');
         hideCardContextMenu();
     });
     cardContextMenu.appendChild(libraryOption);
+    
+    // Move to Bottom of Library option
+    const libraryBottomOption = document.createElement('button');
+    libraryBottomOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    libraryBottomOption.textContent = 'Send to Library (Bottom)';
+    libraryBottomOption.addEventListener('click', () => {
+        moveSelectedCardsToZone('library-bottom');
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(libraryBottomOption);
     
     // Move to Hand option
     const handOption = document.createElement('button');
@@ -2318,6 +2328,8 @@ function moveSelectedCardsToZone(targetZone) {
             playZone.push(cardObj);
         } else if (targetZone === 'library') {
             library.push(cardObj);
+        } else if (targetZone === 'library-bottom') {
+            library.unshift(cardObj); // Add to the beginning of array (bottom of library)
         } else if (targetZone === 'graveyard') {
             graveyard.push(cardObj);
         } else if (targetZone === 'exile') {
@@ -2358,7 +2370,8 @@ function moveSelectedCardsToZone(targetZone) {
     
     if (validCardCount > 0) {
         const zoneName = targetZone === 'hand' ? 'hand' : 
-                         targetZone === 'library' ? 'library' :
+                         targetZone === 'library' ? 'top of library' :
+                         targetZone === 'library-bottom' ? 'bottom of library' :
                          targetZone === 'graveyard' ? 'graveyard' :
                          targetZone === 'exile' ? 'exile' :
                          targetZone === 'command' ? 'command zone' :
