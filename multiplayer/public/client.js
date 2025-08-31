@@ -807,21 +807,30 @@ function render() {
 
         // Create player tab
         const tabEl = document.createElement('button');
-        tabEl.className = 'px-4 py-2 text-sm font-medium rounded-md transition-colors';
+        tabEl.className = 'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2';
         
-        // Add turn order indicator if turn order is set
-        let tabText = pid === playerId ? 'Your Play Zone' : gameState.players[pid].displayName;
-        if (gameState.turnOrderSet && gameState.turnOrder) {
-            const turnIndex = gameState.turnOrder.indexOf(pid) + 1;
-            tabText = `${turnIndex}. ${tabText}`;
-            
-            // Highlight current turn player
-            if (gameState.currentTurn !== undefined && gameState.turnOrder[gameState.currentTurn] === pid) {
-                tabEl.classList.add('ring-2', 'ring-yellow-400');
-            }
+        // Use display name for all players (including yourself)
+        const playerName = gameState.players[pid].displayName;
+        const isCurrentPlayer = pid === playerId;
+        const displayName = isCurrentPlayer ? `${playerName} (you)` : playerName;
+        const handCount = gameState.players[pid].hand?.length || 0;
+        
+        // Create the tab content with name, icon, and hand count
+        tabEl.innerHTML = `
+            <span>${displayName}</span>
+            <div class="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
+                    <path d="m608-368 46-166-142-98-46 166 142 98ZM160-207l-33-16q-31-13-42-44.5t3-62.5l72-156v279Zm160 87q-33 0-56.5-24T240-201v-239l107 294q3 7 5 13.5t7 12.5h-39Zm206-5q-31 11-62-3t-42-45L245-662q-11-31 3-61.5t45-41.5l301-110q31-11 61.5 3t41.5 45l178 489q11 31-3 61.5T827-235L526-125Zm-28-75 302-110-179-490-301 110 178 490Zm62-300Z"/>
+                </svg>
+                <span class="text-xs">${handCount}</span>
+            </div>
+        `;
+        
+        // Highlight current turn player if turn order is set
+        if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined && gameState.turnOrder[gameState.currentTurn] === pid) {
+            tabEl.classList.add('ring-2', 'ring-yellow-400');
         }
         
-        tabEl.textContent = tabText;
         if (pid === activePlayZonePlayerId) {
             tabEl.classList.add('bg-blue-600', 'text-white');
         } else {
