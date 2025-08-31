@@ -1421,7 +1421,7 @@ let command = [];
 let playZone = [];
 let currentCardWidth = 80;
 const minCardWidth = 60;
-const maxCardWidth = 120;
+const maxCardWidth = 200; // Increased from 120 to allow much larger cards
 const cardSizeStep = 10;
 
 // Card interaction callbacks for the cardFactory
