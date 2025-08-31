@@ -42,6 +42,11 @@ const currentPlayerNameEl = document.getElementById('current-player-name'); // C
 const playerTabsEl = document.getElementById('player-tabs'); // Player tabs container
 const increaseSizeBtn = document.getElementById('increase-size-btn'); // Card size controls
 const decreaseSizeBtn = document.getElementById('decrease-size-btn');
+const createPlaceholderBtn = document.getElementById('create-placeholder-btn'); // Placeholder card button
+const placeholderModal = document.getElementById('placeholder-modal'); // Placeholder modal
+const placeholderTextInput = document.getElementById('placeholder-text-input'); // Placeholder text input
+const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn'); // Confirm placeholder button
+const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn'); // Cancel placeholder button
 
 
 // Selection state
@@ -270,6 +275,40 @@ document.getElementById('close-options-btn').addEventListener('click', () => {
     optionsModal.classList.add('hidden');
 });
 
+// Placeholder card event listeners
+createPlaceholderBtn.addEventListener('click', () => {
+    optionsModal.classList.add('hidden');
+    placeholderModal.classList.remove('hidden');
+    placeholderTextInput.focus();
+});
+
+confirmPlaceholderBtn.addEventListener('click', () => {
+    const text = placeholderTextInput.value.trim();
+    if (text) {
+        createPlaceholderCard(text);
+        placeholderModal.classList.add('hidden');
+        placeholderTextInput.value = '';
+    }
+});
+
+cancelPlaceholderBtn.addEventListener('click', () => {
+    placeholderModal.classList.add('hidden');
+    placeholderTextInput.value = '';
+});
+
+// Allow Enter key to confirm placeholder creation
+placeholderTextInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = placeholderTextInput.value.trim();
+        if (text) {
+            createPlaceholderCard(text);
+            placeholderModal.classList.add('hidden');
+            placeholderTextInput.value = '';
+        }
+    }
+});
+
 resetBtnModal.addEventListener('click', () => {
     // Collect all cards from hand, playZone, and graveyard
     let allCards = [];
@@ -278,16 +317,21 @@ resetBtnModal.addEventListener('click', () => {
     allCards.push(...hand);
     hand.length = 0; // Clear hand
 
-    // Add cards from playZone - convert back to basic card objects
+    // Add cards from playZone - convert back to basic card objects (excluding placeholder cards)
     // playZone stores objects {name, x, y, rotation, fromHandCascade, id, displayName, ...}
+    let placeholderCardsRemoved = 0;
     playZone.forEach(card => {
-        // Create a clean card object for library storage
-        allCards.push({
-            id: card.id,
-            name: card.name,
-            displayName: card.displayName || card.name,
-            // Remove position and game-specific properties
-        });
+        if (card.isPlaceholder) {
+            placeholderCardsRemoved++;
+        } else {
+            // Create a clean card object for library storage
+            allCards.push({
+                id: card.id,
+                name: card.name,
+                displayName: card.displayName || card.name,
+                // Remove position and game-specific properties
+            });
+        }
     });
     playZone.length = 0; // Clear playZone
 
@@ -318,7 +362,11 @@ resetBtnModal.addEventListener('click', () => {
     // Re-render the UI
     render();
 
-    showMessage("Your cards have been shuffled into your library!");
+    let message = "Your cards have been shuffled into your library!";
+    if (placeholderCardsRemoved > 0) {
+        message += ` Removed ${placeholderCardsRemoved} placeholder card${placeholderCardsRemoved > 1 ? 's' : ''}.`;
+    }
+    showMessage(message);
     optionsModal.classList.add('hidden'); // Close options modal after reset
 });
 
@@ -609,6 +657,14 @@ function handleCardMove(cardId, sourceZone, targetZone) {
     }
     
     if (!cardObj) return;
+    
+    // If it's a placeholder card being moved out of play zone, remove it entirely
+    if (sourceZone === 'play' && targetZone !== 'play' && cardObj.isPlaceholder) {
+        sendMove();
+        selectedCardIds = [];
+        render();
+        return;
+    }
     
     // Reset rotation (tapped state) when moving from battlefield to any other zone
     if (sourceZone === 'play' && targetZone !== 'play') {
@@ -975,6 +1031,14 @@ function addDropListeners() {
                             console.error('Card not found for hand move:', cardId);
                             return;
                         }
+                        
+                        // If it's a placeholder card being moved out of play zone, remove it entirely
+                        if (groupData.sourceZone === 'play' && cardObj.isPlaceholder) {
+                            removeCardFromSource(cardId, groupData.sourceZone);
+                            showMessage(`Removed placeholder card: "${cardObj.displayName || cardObj.name}"`);
+                            return;
+                        }
+                        
                         removeCardFromSource(cardId, groupData.sourceZone);
                         // Create a copy to avoid reference issues
                         const cardCopy = { ...cardObj };
@@ -1168,6 +1232,30 @@ function generateCardId() {
     }
     // Fallback: timestamp + random
     return 'card-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+}
+
+// Create a temporary placeholder card
+function createPlaceholderCard(text) {
+    const placeholderCard = {
+        id: generateCardId(),
+        name: text,
+        displayName: text,
+        isPlaceholder: true, // Mark this as a placeholder card
+        x: 50, // Default position
+        y: 50,
+        rotation: 0
+    };
+    
+    // Add to play zone
+    playZone.push(placeholderCard);
+    
+    // Send update to server
+    sendMove();
+    
+    // Re-render to show the new card
+    render();
+    
+    showMessage(`Created placeholder card: "${text}"`);
 }
 
 // Example deck creation (replace with your deck logic)
@@ -1853,8 +1941,21 @@ function moveSelectedCardsToZone(targetZone) {
         }
     });
     
-    // Add all cards to the target zone
-    cardsToMove.forEach(({ cardObj, sourceZone }) => {
+    // Filter out placeholder cards that are being moved out of play zone and count them
+    let placeholderCardsRemoved = 0;
+    let placeholderNames = [];
+    
+    const validCardsToMove = cardsToMove.filter(({ cardObj, sourceZone }) => {
+        if (sourceZone === 'play' && targetZone !== 'play' && cardObj.isPlaceholder) {
+            placeholderCardsRemoved++;
+            placeholderNames.push(cardObj.displayName || cardObj.name);
+            return false; // Don't move placeholder cards, just remove them
+        }
+        return true;
+    });
+    
+    // Add all valid cards to the target zone
+    validCardsToMove.forEach(({ cardObj, sourceZone }) => {
         // Reset rotation (tapped state) when moving from battlefield to any other zone
         if (sourceZone === 'play' && targetZone !== 'play') {
             cardObj.rotation = 0;
@@ -1914,9 +2015,20 @@ function moveSelectedCardsToZone(targetZone) {
     render();
     
     // Show confirmation message
-    const cardCount = cardsToMove.length;
-    if (cardCount > 0) {
-        showMessage(`Moved ${cardCount} card${cardCount > 1 ? 's' : ''} to ${targetZone}`);
+    const validCardCount = validCardsToMove.length;
+    let message = '';
+    
+    if (validCardCount > 0) {
+        message += `Moved ${validCardCount} card${validCardCount > 1 ? 's' : ''} to ${targetZone}`;
+    }
+    
+    if (placeholderCardsRemoved > 0) {
+        if (message) message += '. ';
+        message += `Removed ${placeholderCardsRemoved} placeholder card${placeholderCardsRemoved > 1 ? 's' : ''}: ${placeholderNames.join(', ')}`;
+    }
+    
+    if (message) {
+        showMessage(message);
     }
 }
 

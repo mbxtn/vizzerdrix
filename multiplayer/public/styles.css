@@ -170,3 +170,14 @@ body {
     z-index: 10;
     user-select: none;
 }
+
+/* Placeholder card styling */
+.card.placeholder-card {
+    border-color: #38a169;
+    background-color: #f7fafc;
+}
+
+.card.placeholder-card:hover {
+    border-color: #2f855a;
+    box-shadow: 0 8px 16px -1px rgba(56, 161, 105, 0.2), 0 4px 8px -1px rgba(56, 161, 105, 0.1);
+}
