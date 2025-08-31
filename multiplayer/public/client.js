@@ -1756,9 +1756,6 @@ function addCounterToSelectedCards() {
         
         // Re-render the game to show the counters
         render();
-        
-        // Show confirmation message
-        showMessage(`Added counters to ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}`);
     }
 }
 
