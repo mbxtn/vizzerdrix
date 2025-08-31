@@ -563,16 +563,30 @@ socket.on('state', async (state) => {
     if (allCardNames.size > 0) {
         console.log(`Loading images for ${allCardNames.size} unique cards from all zones`);
         
-        // Only show loading progress for loads with 3+ cards that might take some time
-        const showProgress = allCardNames.size >= 3;
+        // Check how many cards are actually uncached
+        const cardNamesArray = Array.from(allCardNames);
+        const uncachedCards = cardNamesArray.filter(name => !ScryfallCache.get(name));
+        const cachedCards = cardNamesArray.length - uncachedCards.length;
+        
+        console.log(`Cards status: ${cachedCards} cached, ${uncachedCards.length} need loading`);
+        
+        // Only show loading progress for loads with 3+ uncached cards that will take time
+        const showProgress = uncachedCards.length >= 3;
         
         if (showProgress) {
             showLoadingProgress();
         }
         
         try {
-            await ScryfallCache.load(Array.from(allCardNames), showProgress ? (loaded, total, currentCard) => {
+            await ScryfallCache.load(cardNamesArray, showProgress ? (loaded, total, currentCard) => {
                 updateLoadingProgress(loaded, total, currentCard);
+                
+                // If all cards were cached, hide the progress quickly
+                if (currentCard && currentCard.includes('already loaded from cache')) {
+                    setTimeout(() => {
+                        hideLoadingProgress();
+                    }, 500); // Show briefly then hide
+                }
             } : null);
             console.log('Finished loading card images');
         } catch (error) {
@@ -839,11 +853,14 @@ function updateLoadingProgress(loaded, total, currentCard) {
             loadingProgressText.textContent = 'All cards already loaded!';
             loadingCurrentCard.textContent = '';
         } else {
-            loadingProgressText.textContent = `Loading ${loaded} of ${total} cards (${percentage}%)`;
-            if (currentCard && currentCard !== 'Starting...' && currentCard !== 'All cards already loaded') {
+            loadingProgressText.textContent = `Loading ${loaded} of ${total} new cards (${percentage}%)`;
+            if (currentCard && currentCard !== 'Starting...' && !currentCard.includes('from cache')) {
                 // Truncate long card names
                 const displayName = currentCard.length > 30 ? currentCard.substring(0, 27) + '...' : currentCard;
                 loadingCurrentCard.textContent = `Current: ${displayName}`;
+            } else if (currentCard && currentCard.includes('from cache')) {
+                // Show cache completion message
+                loadingCurrentCard.textContent = currentCard;
             } else {
                 loadingCurrentCard.textContent = currentCard || '';
             }

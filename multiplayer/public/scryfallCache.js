@@ -24,9 +24,10 @@ const ScryfallCache = {
         // If we have a progress callback and uncached cards, report initial progress
         if (progressCallback && totalCards > 0) {
             progressCallback(0, totalCards, 'Starting...');
-        } else if (progressCallback && totalCards === 0) {
-            // All cards already cached
-            progressCallback(uniqueNames.length, uniqueNames.length, 'All cards already loaded');
+        } else if (progressCallback && totalCards === 0 && uniqueNames.length > 0) {
+            // All cards already cached - show quick completion
+            progressCallback(uniqueNames.length, uniqueNames.length, `All ${uniqueNames.length} cards already loaded from cache`);
+            return; // Exit early since no work needed
         }
         
         for (const name of uncachedNames) {
@@ -89,8 +90,16 @@ const ScryfallCache = {
                 progressCallback(loadedCards, totalCards, name);
             }
             
-            // Wait 100ms before next request
-            await new Promise(res => setTimeout(res, 100));
+            // Only wait between network requests for uncached cards
+            if (loadedCards < totalCards) {
+                await new Promise(res => setTimeout(res, 100));
+            }
+        }
+        
+        // If we had cached cards, report final progress including them
+        if (progressCallback && uniqueNames.length > totalCards) {
+            const cachedCount = uniqueNames.length - totalCards;
+            progressCallback(uniqueNames.length, uniqueNames.length, `Loaded ${totalCards} new cards, ${cachedCount} from cache`);
         }
     },
 

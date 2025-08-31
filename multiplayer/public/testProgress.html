@@ -10,9 +10,16 @@
     <h1 class="text-2xl font-bold mb-4">ScryfallCache Progress Test</h1>
     
     <div class="mb-4">
-        <button id="test-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">
-            Test Progress Loading
+        <button id="test-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded mr-2">
+            Test Progress Loading (New Cards)
         </button>
+        <button id="test-cached-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded">
+            Test Cached Cards Loading
+        </button>
+        <div class="mt-2 text-sm text-gray-400">
+            <p>First button: Tests loading of new cards (shows progress)</p>
+            <p>Second button: Tests loading same cards again (should be very fast)</p>
+        </div>
     </div>
     
     <!-- Loading Progress Modal -->
@@ -41,6 +48,18 @@
         const loadingProgressText = document.getElementById('loading-progress-text');
         const loadingCurrentCard = document.getElementById('loading-current-card');
         const testBtn = document.getElementById('test-btn');
+        const testCachedBtn = document.getElementById('test-cached-btn');
+        
+        const testCards = [
+            'Lightning Bolt',
+            'Black Lotus', 
+            'Sol Ring',
+            'Counterspell',
+            'Swords to Plowshares',
+            'Path to Exile',
+            'Birds of Paradise',
+            'Llanowar Elves'
+        ];
         
         function showLoadingProgress() {
             loadingModal.classList.remove('hidden');
@@ -63,17 +82,6 @@
         }
         
         testBtn.addEventListener('click', async () => {
-            const testCards = [
-                'Lightning Bolt',
-                'Black Lotus', 
-                'Sol Ring',
-                'Counterspell',
-                'Swords to Plowshares',
-                'Path to Exile',
-                'Birds of Paradise',
-                'Llanowar Elves'
-            ];
-            
             console.log('Starting test load...');
             showLoadingProgress();
             
@@ -89,6 +97,32 @@
                 setTimeout(() => {
                     hideLoadingProgress();
                 }, 1000); // Keep it visible for a moment
+            }
+        });
+        
+        testCachedBtn.addEventListener('click', async () => {
+            console.log('Starting cached test load...');
+            showLoadingProgress();
+            
+            try {
+                await ScryfallCache.load(testCards, (loaded, total, currentCard) => {
+                    console.log(`Cached Progress: ${loaded}/${total} - ${currentCard}`);
+                    updateLoadingProgress(loaded, total, currentCard);
+                    
+                    // Auto-hide if all cached
+                    if (currentCard && currentCard.includes('already loaded from cache')) {
+                        setTimeout(() => {
+                            hideLoadingProgress();
+                        }, 500);
+                    }
+                });
+                console.log('Cached test completed!');
+            } catch (error) {
+                console.error('Cached test failed:', error);
+            } finally {
+                setTimeout(() => {
+                    hideLoadingProgress();
+                }, 1000);
             }
         });
     </script>
