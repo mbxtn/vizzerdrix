@@ -140,12 +140,37 @@ joinBtn.addEventListener('click', () => {
     // Parse decklist into arrays of card names, separating commanders from library cards
     const decklist = [];
     const commanders = [];
-    decklistRaw.split('\n')
-        .map(line => line.trim())
-        .filter(Boolean)
-        .forEach(line => {
-            // Check if this is a commander card (has CMDR marker)
-            const isCommander = /\(CMDR\)/i.test(line);
+    
+    // Split by lines and handle empty lines to detect commander section
+    const lines = decklistRaw.split('\n').map(line => line.trim());
+    
+    // Find the last empty line to determine if there's a commander section
+    let lastEmptyLineIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i] === '') {
+            lastEmptyLineIndex = i;
+            break;
+        }
+    }
+    
+    // Determine which lines are commanders vs library cards
+    const isCommanderSection = (index) => {
+        // Cards marked with (CMDR) are always commanders
+        if (/\(CMDR\)/i.test(lines[index])) {
+            return true;
+        }
+        // If there's an empty line and this card is after it (and it's the last section), it's a commander
+        if (lastEmptyLineIndex >= 0 && index > lastEmptyLineIndex) {
+            return true;
+        }
+        return false;
+    };
+    
+    lines
+        .forEach((line, index) => {
+            if (!line) return; // Skip empty lines
+            
+            const isCommander = isCommanderSection(index);
             
             // Parse count and card name, e.g. "2 Arcane Signet" or "1x Arcane Signet" or "Arcane Signet"
             const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
