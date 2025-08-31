@@ -444,10 +444,28 @@ socket.on('state', async (state) => {
         // Clear the rejoin flag after successful sync
         isRejoinState = false;
         console.log('Rejoin state reset after successful sync');
+        console.log('Final client state after rejoin sync:', {
+            playerId: playerId,
+            gameState: {
+                players: Object.keys(gameState.players),
+                turnOrder: gameState.turnOrder,
+                turnOrderSet: gameState.turnOrderSet,
+                myPlayerInPlayers: !!gameState.players[playerId],
+                myPlayerInTurnOrder: gameState.turnOrder?.includes(playerId)
+            }
+        });
     }
 
     gameState = state;
+    console.log('activePlayZonePlayerId management:', {
+        currentActivePlayZonePlayerId: activePlayZonePlayerId,
+        playerId: playerId,
+        playerExistsInState: !!(activePlayZonePlayerId && gameState.players[activePlayZonePlayerId]),
+        isRejoin: isRejoinState
+    });
+    
     if (!activePlayZonePlayerId || !gameState.players[activePlayZonePlayerId]) {
+        console.log(`Setting activePlayZonePlayerId from ${activePlayZonePlayerId} to ${playerId}`);
         activePlayZonePlayerId = playerId;
     }
     joinUI.style.display = 'none';

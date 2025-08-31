@@ -29,6 +29,27 @@ setInterval(() => {
         // Clean up old disconnected players
         if (now - info.disconnectedAt > oneHour) {
             console.log(`Cleaning up old disconnected player: ${info.displayName} (ID: ${playerId})`);
+            
+            // Remove from turn order if they were in one
+            if (info.roomName && games[info.roomName] && games[info.roomName].turnOrder) {
+                const turnIndex = games[info.roomName].turnOrder.indexOf(playerId);
+                if (turnIndex !== -1) {
+                    games[info.roomName].turnOrder.splice(turnIndex, 1);
+                    console.log(`Removed timed-out player ${playerId} from turn order at index ${turnIndex}`);
+                    
+                    // Adjust current turn if necessary
+                    if (games[info.roomName].currentTurn >= turnIndex && games[info.roomName].currentTurn > 0) {
+                        games[info.roomName].currentTurn--;
+                    }
+                    
+                    // Reset turn order if no players left
+                    if (games[info.roomName].turnOrder.length === 0) {
+                        games[info.roomName].turnOrderSet = false;
+                        games[info.roomName].currentTurn = 0;
+                    }
+                }
+            }
+            
             delete disconnectedPlayers[playerId];
         }
         // Also clean up disconnected players from rooms that no longer exist
@@ -156,10 +177,13 @@ io.on('connection', (socket) => {
             delete disconnectedPlayers[foundPlayerId];
             
             // Update turn order if it exists
-            if (games[roomName].turnOrder) {
+            if (games[roomName].turnOrderSet && games[roomName].turnOrder) {
                 const turnIndex = games[roomName].turnOrder.indexOf(foundPlayerId);
                 if (turnIndex !== -1) {
                     games[roomName].turnOrder[turnIndex] = socket.id;
+                    console.log(`Updated turn order: ${foundPlayerId} -> ${socket.id} at index ${turnIndex}`);
+                } else {
+                    console.log(`Warning: Player ${foundPlayerId} not found in turn order`);
                 }
             }
             
@@ -172,12 +196,19 @@ io.on('connection', (socket) => {
             playerId = socket.id;
             
             console.log(`Player ${displayName} rejoined room ${roomName} (old ID: ${foundPlayerId}, new ID: ${socket.id})`);
+            console.log(`Final game state after rejoin:`, {
+                players: Object.keys(games[roomName].players),
+                turnOrder: games[roomName].turnOrder,
+                turnOrderSet: games[roomName].turnOrderSet,
+                playZones: Object.keys(games[roomName].playZones)
+            });
             
             // Send rejoin success first
             socket.emit('rejoinSuccess', { roomName, displayName });
             
             // Small delay to ensure client is ready, then send state
             setTimeout(() => {
+                console.log(`Sending state to room ${roomName} after rejoin`);
                 // Send the current state to the entire room (including the rejoined player)
                 io.to(room).emit('state', games[room]);
                 
@@ -231,6 +262,7 @@ io.on('connection', (socket) => {
                 displayName: games[room].players[playerId].displayName,
                 playerData: games[room].players[playerId],
                 playZoneData: games[room].playZones[playerId],
+                turnOrderIndex: games[room].turnOrder?.indexOf(playerId) ?? -1, // Save original turn order position
                 disconnectedAt: Date.now()
             };
 
@@ -240,19 +272,31 @@ io.on('connection', (socket) => {
             delete games[room].playZones[playerId];
 
             // Update turn order if it was set and player was in it
+            // NOTE: We keep the player in the turn order temporarily to preserve their position for rejoin
+            // The turn order will be cleaned up if they don't rejoin within the timeout period
             if (games[room].turnOrderSet && games[room].turnOrder.includes(playerId)) {
+                console.log(`Player ${playerId} disconnected but keeping their turn order position for potential rejoin`);
+                
+                // If it's currently this player's turn, advance to the next player
                 const playerIndex = games[room].turnOrder.indexOf(playerId);
-                games[room].turnOrder.splice(playerIndex, 1);
-                
-                // Adjust current turn if necessary
-                if (games[room].currentTurn >= playerIndex && games[room].currentTurn > 0) {
-                    games[room].currentTurn--;
-                }
-                
-                // Reset turn order if no players left
-                if (games[room].turnOrder.length === 0) {
-                    games[room].turnOrderSet = false;
-                    games[room].currentTurn = 0;
+                if (games[room].currentTurn === playerIndex) {
+                    console.log(`Advancing turn from disconnected player ${playerId}`);
+                    // Find the next connected player
+                    let nextTurn = (games[room].currentTurn + 1) % games[room].turnOrder.length;
+                    let attempts = 0;
+                    while (attempts < games[room].turnOrder.length && !games[room].players[games[room].turnOrder[nextTurn]]) {
+                        nextTurn = (nextTurn + 1) % games[room].turnOrder.length;
+                        attempts++;
+                    }
+                    
+                    if (attempts < games[room].turnOrder.length) {
+                        games[room].currentTurn = nextTurn;
+                        console.log(`Advanced turn to player ${games[room].turnOrder[nextTurn]} at index ${nextTurn}`);
+                    } else {
+                        console.log(`No connected players found, resetting turn order`);
+                        games[room].turnOrderSet = false;
+                        games[room].currentTurn = 0;
+                    }
                 }
             }
 
