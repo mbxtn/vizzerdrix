@@ -54,6 +54,7 @@ let magnifyPreviewHeight = 430; // Default magnify preview height (calculated ba
 const magnifyToggleBtn = document.getElementById('magnify-toggle-btn');
 const magnifyStatusEl = document.getElementById('magnify-status');
 const joinBtn = document.getElementById('join-btn');
+const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
 const displayNameInput = document.getElementById('display-name-input');
 const decklistInput = document.getElementById('decklist-input');
@@ -132,11 +133,26 @@ function debouncedRender() {
     }, 16); // ~60fps max
 }
 
+// Function to attempt rejoining a game
+function attemptRejoin(roomName, displayName) {
+    if (roomName && displayName) {
+        console.log('Attempting rejoin with:', { roomName, displayName });
+        // Set rejoin flag early
+        isRejoinState = true;
+        socket.emit('rejoin', { roomName, displayName });
+        showMessage("Attempting to rejoin Vizzerdrix game...");
+    } else {
+        console.error('Cannot rejoin: missing room name or display name');
+        showMessage("Please enter both room name and display name to rejoin.");
+    }
+}
+
 // Socket.IO event handlers
 joinBtn.addEventListener('click', () => {
     const roomName = roomInput.value.trim();
     const displayName = displayNameInput.value.trim();
     const decklistRaw = decklistInput.value.trim();
+    
     // Parse decklist into arrays of card names, separating commanders from library cards
     const decklist = [];
     const commanders = [];
@@ -166,50 +182,177 @@ joinBtn.addEventListener('click', () => {
         return false;
     };
     
-    lines
-        .forEach((line, index) => {
-            if (!line) return; // Skip empty lines
-            
-            const isCommander = isCommanderSection(index);
-            
-            // Parse count and card name, e.g. "2 Arcane Signet" or "1x Arcane Signet" or "Arcane Signet"
-            const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
-            let cardName, count;
-            
-            if (countMatch) {
-                count = parseInt(countMatch[1]);
-                cardName = countMatch[2];
-            } else {
-                // No count specified, assume 1 copy
-                count = 1;
-                cardName = line;
-            }
-            
-            // Remove set codes like "(M21)" and commander marker "(CMDR)"
-            cardName = cardName.replace(/\s+\([^)]*\)$/g, '').trim();
-            
-            // Add the specified number of copies to the appropriate zone
-            const targetArray = isCommander ? commanders : decklist;
-            for (let i = 0; i < count; i++) {
-                targetArray.push(cardName);
-            }
-        });
-    if (roomName && (decklist.length > 0 || commanders.length > 0)) {
+    lines.forEach((line, index) => {
+        if (!line) return; // Skip empty lines
+        
+        const isCommander = isCommanderSection(index);
+        
+        // Parse count and card name, e.g. "2 Arcane Signet" or "1x Arcane Signet" or "Arcane Signet"
+        const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
+        let cardName, count;
+        
+        if (countMatch) {
+            count = parseInt(countMatch[1]);
+            cardName = countMatch[2];
+        } else {
+            // No count specified, assume 1 copy
+            count = 1;
+            cardName = line;
+        }
+        
+        // Remove set codes like "(M21)" and commander marker "(CMDR)"
+        cardName = cardName.replace(/\s+\([^)]*\)$/g, '').trim();
+        
+        // Add the specified number of copies to the appropriate zone
+        const targetArray = isCommander ? commanders : decklist;
+        for (let i = 0; i < count; i++) {
+            targetArray.push(cardName);
+        }
+    });
+    
+    if (roomName && displayName && (decklist.length > 0 || commanders.length > 0)) {
+        // Save game info for potential future rejoins
+        localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
+            roomName,
+            displayName,
+            timestamp: Date.now()
+        }));
+        
+        // Emit join event for new players
         socket.emit('join', { roomName, displayName, decklist, commanders });
+        showMessage("Joining Vizzerdrix game...");
+    } else {
+        showMessage("Please enter a room name, display name, and at least one card in your decklist.");
     }
+});
+
+// Separate rejoin button handler
+rejoinBtn.addEventListener('click', () => {
+    const roomName = roomInput.value.trim();
+    const displayName = displayNameInput.value.trim();
+    attemptRejoin(roomName, displayName);
 });
 
 socket.on('connect', () => {
     playerId = socket.id;
     activePlayZonePlayerId = socket.id;
     console.log('Client connected. Player ID:', playerId);
+    
+    // Clear any stale local state from previous sessions
+    gameState = null;
+    hand = [];
+    library = [];
+    graveyard = [];
+    exile = [];
+    command = [];
+    playZone = [];
+    selectedCards = [];
+    selectedCardIds = [];
+    isRejoinState = false;
+    
+    // Auto-fill form with saved game info if available (for convenience)
+    const savedGameInfo = localStorage.getItem('vizzerdrix-game-info');
+    if (savedGameInfo) {
+        try {
+            const gameInfo = JSON.parse(savedGameInfo);
+            // Only auto-fill if the save is recent (within 24 hours)
+            if (Date.now() - gameInfo.timestamp < 24 * 60 * 60 * 1000) {
+                roomInput.value = gameInfo.roomName;
+                displayNameInput.value = gameInfo.displayName;
+                
+                // Auto-attempt rejoin on page reload if we have recent game info
+                console.log('Attempting auto-rejoin after page reload...');
+                setTimeout(() => {
+                    attemptRejoin(gameInfo.roomName, gameInfo.displayName);
+                }, 100); // Small delay to ensure socket is fully connected
+            } else {
+                // Remove old saved info
+                localStorage.removeItem('vizzerdrix-game-info');
+            }
+        } catch (error) {
+            console.error('Error parsing saved game info:', error);
+            localStorage.removeItem('vizzerdrix-game-info');
+        }
+    }
+});
+
+// Handle successful join
+socket.on('joinSuccess', (data) => {
+    console.log('Successfully joined game:', data);
+    showMessage(`Welcome to Vizzerdrix! Joined room: ${data.roomName}`);
+});
+
+// Handle successful rejoin
+socket.on('rejoinSuccess', (data) => {
+    console.log('Successfully rejoined game:', data);
+    
+    // Set rejoin flag
+    isRejoinState = true;
+    
+    // Clear any existing client action to ensure we use server state
+    lastClientAction = null;
+    if (clientActionTimeout) {
+        clearTimeout(clientActionTimeout);
+        clientActionTimeout = null;
+    }
+    
+    // Clear any existing local state to ensure fresh sync
+    gameState = null;
+    hand = [];
+    library = [];
+    graveyard = [];
+    exile = [];
+    command = [];
+    playZone = [];
+    selectedCards = [];
+    selectedCardIds = [];
+    
+    // Initialize card zones for the rejoined game
+    if (!libraryZone) {
+        initializeCardZones();
+    }
+    
+    showMessage(`Welcome back to Vizzerdrix! Rejoined room: ${data.roomName}`);
+});
+
+// Handle join/rejoin errors
+socket.on('joinError', (error) => {
+    console.error('Join error:', error);
+    showMessage(`Error joining game: ${error.message}`);
+});
+
+socket.on('rejoinError', (error) => {
+    console.error('Rejoin error:', error);
+    // Reset rejoin flag on error
+    isRejoinState = false;
+    showMessage(`Error rejoining game: ${error.message}. You may need to create a new game.`);
+});
+
+// Handle disconnection
+socket.on('disconnect', (reason) => {
+    console.log('Disconnected from server:', reason);
+    if (gameState && playerId) {
+        // Keep the saved game info for potential rejoin
+        const savedGameInfo = localStorage.getItem('vizzerdrix-game-info');
+        if (savedGameInfo) {
+            try {
+                const gameInfo = JSON.parse(savedGameInfo);
+                gameInfo.lastDisconnect = Date.now();
+                localStorage.setItem('vizzerdrix-game-info', JSON.stringify(gameInfo));
+            } catch (error) {
+                console.error('Error updating saved game info:', error);
+            }
+        }
+        showMessage("Disconnected from Vizzerdrix. You can rejoin by entering the same room name and display name.");
+    }
 });
 
 socket.on('state', async (state) => {
     console.log('RAW STATE RECEIVED:', new Date().toISOString(), {
         currentTurn: state.currentTurn,
         turnOrderSet: state.turnOrderSet,
-        turnOrder: state.turnOrder
+        turnOrder: state.turnOrder,
+        isRejoin: isRejoinState // Use the global flag
     });
     
     // Check if state has actually changed
@@ -227,6 +370,7 @@ socket.on('state', async (state) => {
         currentTurn: state.currentTurn,
         stateChanged,
         turnOrderChanged,
+        isRejoin: isRejoinState,
         timestamp: new Date().toISOString()
     });
     
@@ -241,7 +385,32 @@ socket.on('state', async (state) => {
             }))
         });
     }
-    
+
+    // If this is a rejoin, force a complete state sync from server
+    if (isRejoinState && state.players[playerId]) {
+        console.log('Rejoin detected - forcing complete state sync from server');
+        const serverPlayer = state.players[playerId];
+        hand = [...(serverPlayer.hand || [])];
+        library = [...(serverPlayer.library || [])];
+        graveyard = [...(serverPlayer.graveyard || [])];
+        exile = [...(serverPlayer.exile || [])];
+        command = [...(serverPlayer.command || [])];
+        
+        // Also sync the play zone for the current player
+        if (state.playZones[playerId]) {
+            playZone = [...state.playZones[playerId]];
+        }
+        
+        console.log('State sync complete. Local arrays updated:', {
+            handCount: hand.length,
+            libraryCount: library.length,
+            graveyardCount: graveyard.length,
+            exileCount: exile.length,
+            commandCount: command.length,
+            playZoneCount: playZone.length
+        });
+    }
+
     gameState = state;
     if (!activePlayZonePlayerId || !gameState.players[activePlayZonePlayerId]) {
         activePlayZonePlayerId = playerId;
@@ -932,6 +1101,7 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
 // State tracking for optimistic updates
 let lastClientAction = null;
 let clientActionTimeout = null;
+let isRejoinState = false; // Track if we're in a rejoin state
 
 // Mark a client action to preserve optimistic updates
 function markClientAction(action, cardId = null) {
@@ -983,10 +1153,11 @@ async function render() {
         const serverPlayZone = gameState.playZones[viewedPlayerId] || [];
         
         // If we have a recent client action, preserve local state for a short time
-        const hasRecentClientAction = lastClientAction && (Date.now() - lastClientAction.timestamp < 1000);
+        // BUT if this is a rejoin, always use server state
+        const hasRecentClientAction = lastClientAction && (Date.now() - lastClientAction.timestamp < 1000) && !isRejoinState;
         
         if (hasRecentClientAction && viewedPlayerId === playerId) {
-            // Only preserve local state if we're viewing our own zones
+            // Only preserve local state if we're viewing our own zones AND not rejoining
             console.log('Preserving local state due to recent client action:', lastClientAction.action);
             // Keep local state for recent actions, but merge other players' changes
             // Only merge playZone from server if it has more cards (other players added cards)
@@ -999,7 +1170,19 @@ async function render() {
                 });
             }
         } else {
-            // No recent client action or viewing another player, use server state as source of truth
+            // No recent client action, viewing another player, or rejoining - use server state as source of truth
+            console.log('Using server state as source of truth', { 
+                isRejoin: isRejoinState, 
+                hasRecentClientAction, 
+                viewedPlayerId, 
+                playerId,
+                serverHandCount: serverHand.length,
+                serverLibraryCount: serverLibrary.length,
+                serverGraveyardCount: serverGraveyard.length,
+                serverExileCount: serverExile.length,
+                serverCommandCount: serverCommand.length,
+                serverPlayZoneCount: serverPlayZone.length
+            });
             hand = serverHand; // Hand is always current player
             
             // Update life total from server for current player
@@ -1214,6 +1397,12 @@ async function render() {
     addDropListeners();
     addSelectionListeners();
     updateCounts();
+    
+    // Reset rejoin flag after first successful render
+    if (isRejoinState) {
+        isRejoinState = false;
+        console.log('Rejoin state reset after successful render');
+    }
     } finally {
         isRendering = false;
     }

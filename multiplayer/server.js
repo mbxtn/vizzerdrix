@@ -17,6 +17,21 @@ app.use(express.static(__dirname + '/public'));
 
 // Game state for each room
 const games = {};
+// Track disconnected players for rejoin functionality
+const disconnectedPlayers = {};
+
+// Clean up old disconnected players (older than 1 hour)
+setInterval(() => {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+    
+    for (const [playerId, info] of Object.entries(disconnectedPlayers)) {
+        if (now - info.disconnectedAt > oneHour) {
+            console.log(`Cleaning up old disconnected player: ${info.displayName} (ID: ${playerId})`);
+            delete disconnectedPlayers[playerId];
+        }
+    }
+}, 5 * 60 * 1000); // Check every 5 minutes
 
 function createDeck(cardNames, isCommander = false) {
     // Create card objects with unique IDs
@@ -78,6 +93,84 @@ io.on('connection', (socket) => {
         });
         
         io.to(room).emit('state', games[room]);
+        socket.emit('joinSuccess', { roomName, displayName });
+    });
+
+    // Handle player rejoin
+    socket.on('rejoin', (data) => {
+        const { roomName, displayName } = data;
+        
+        if (!games[roomName]) {
+            socket.emit('rejoinError', { message: 'Room not found' });
+            return;
+        }
+        
+        // Look for a disconnected player with matching display name
+        let foundPlayerId = null;
+        let playerData = null;
+        let playZoneData = null;
+        
+        // First, check if there's a disconnected player with this exact name
+        for (const [disconnectedId, info] of Object.entries(disconnectedPlayers)) {
+            if (info.roomName === roomName && info.displayName === displayName) {
+                foundPlayerId = disconnectedId;
+                playerData = info.playerData;
+                playZoneData = info.playZoneData;
+                break;
+            }
+        }
+        
+        // If no disconnected player found, check for existing players with same name but different socket ID
+        if (!foundPlayerId) {
+            const gameKeys = Object.keys(games[roomName].players);
+            for (const existingPlayerId of gameKeys) {
+                if (games[roomName].players[existingPlayerId].displayName === displayName && existingPlayerId !== socket.id) {
+                    foundPlayerId = existingPlayerId;
+                    playerData = games[roomName].players[existingPlayerId];
+                    playZoneData = games[roomName].playZones[existingPlayerId];
+                    break;
+                }
+            }
+        }
+        
+        if (foundPlayerId && playerData) {
+            // Remove old player data
+            delete games[roomName].players[foundPlayerId];
+            delete games[roomName].playZones[foundPlayerId];
+            delete disconnectedPlayers[foundPlayerId];
+            
+            // Update turn order if it exists
+            if (games[roomName].turnOrder) {
+                const turnIndex = games[roomName].turnOrder.indexOf(foundPlayerId);
+                if (turnIndex !== -1) {
+                    games[roomName].turnOrder[turnIndex] = socket.id;
+                }
+            }
+            
+            // Add player data with new socket ID
+            games[roomName].players[socket.id] = playerData;
+            games[roomName].playZones[socket.id] = playZoneData || [];
+            
+            socket.join(roomName);
+            room = roomName;
+            playerId = socket.id;
+            
+            console.log(`Player ${displayName} rejoined room ${roomName} (old ID: ${foundPlayerId}, new ID: ${socket.id})`);
+            
+            // Send rejoin success first
+            socket.emit('rejoinSuccess', { roomName, displayName });
+            
+            // Small delay to ensure client is ready, then send state
+            setTimeout(() => {
+                // Send the current state to the entire room (including the rejoined player)
+                io.to(room).emit('state', games[room]);
+                
+                // Also send state directly to the rejoined player to ensure they get it
+                socket.emit('state', games[room]);
+            }, 100); // 100ms delay
+        } else {
+            socket.emit('rejoinError', { message: 'No player found with that name in this room' });
+        }
     });
 
     socket.on('move', (data) => {
@@ -115,9 +208,37 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        if (room && games[room]) {
+        if (room && games[room] && games[room].players[playerId]) {
+            // Save player data for potential rejoin
+            disconnectedPlayers[playerId] = {
+                roomName: room,
+                displayName: games[room].players[playerId].displayName,
+                playerData: games[room].players[playerId],
+                playZoneData: games[room].playZones[playerId],
+                disconnectedAt: Date.now()
+            };
+
+            console.log(`Player ${games[room].players[playerId].displayName} disconnected from room ${room} (ID: ${playerId})`);
+
             delete games[room].players[playerId];
             delete games[room].playZones[playerId];
+
+            // Update turn order if it was set and player was in it
+            if (games[room].turnOrderSet && games[room].turnOrder.includes(playerId)) {
+                const playerIndex = games[room].turnOrder.indexOf(playerId);
+                games[room].turnOrder.splice(playerIndex, 1);
+                
+                // Adjust current turn if necessary
+                if (games[room].currentTurn >= playerIndex && games[room].currentTurn > 0) {
+                    games[room].currentTurn--;
+                }
+                
+                // Reset turn order if no players left
+                if (games[room].turnOrder.length === 0) {
+                    games[room].turnOrderSet = false;
+                    games[room].currentTurn = 0;
+                }
+            }
 
             // Check if the room is empty after player removal
             if (Object.keys(games[room].players).length === 0) {
@@ -171,38 +292,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        if (room && games[room]) {
-            delete games[room].players[playerId];
-            delete games[room].playZones[playerId];
 
-            // Update turn order if it was set and player was in it
-            if (games[room].turnOrderSet && games[room].turnOrder.includes(playerId)) {
-                const playerIndex = games[room].turnOrder.indexOf(playerId);
-                games[room].turnOrder.splice(playerIndex, 1);
-                
-                // Adjust current turn if necessary
-                if (games[room].currentTurn >= playerIndex && games[room].currentTurn > 0) {
-                    games[room].currentTurn--;
-                }
-                
-                // Reset turn order if no players left
-                if (games[room].turnOrder.length === 0) {
-                    games[room].turnOrderSet = false;
-                    games[room].currentTurn = 0;
-                }
-            }
-
-            // Check if the room is empty after player removal
-            if (Object.keys(games[room].players).length === 0) {
-                console.log(`Room ${room} is empty. Deleting game state.`);
-                delete games[room];
-            } else {
-                // Only emit state if the room still exists and has players
-                io.to(room).emit('state', games[room]);
-            }
-        }
-    });
 });
 
 const PORT = process.env.PORT || 3000;
