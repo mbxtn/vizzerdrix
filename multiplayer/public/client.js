@@ -820,17 +820,42 @@ socket.on('state', async (state) => {
 // Handle real-time selection updates
 socket.on('selectionUpdate', (data) => {
     if (data.playerSelections) {
+        const previousSelections = allPlayerSelections;
         allPlayerSelections = data.playerSelections;
         updatePlayerColors();
-        // Only re-render if the selection update is from another player
-        // If it's our own selection, we already have the correct state
-        const ourSelection = data.playerSelections[playerId];
-        const ourCurrentSelection = selectedCardIds.sort().join(',');
-        const receivedSelection = (ourSelection || []).sort().join(',');
         
-        // Only render if the received selection doesn't match our current selection
-        // This prevents losing selection state when our own selection update comes back from server
-        if (receivedSelection !== ourCurrentSelection) {
+        // Check if this is just our own selection echoing back from the server
+        const ourSelection = data.playerSelections[playerId] || [];
+        const ourCurrentSelection = selectedCardIds.sort().join(',');
+        const receivedOurSelection = ourSelection.sort().join(',');
+        
+        // Check if any OTHER player's selection has changed
+        let otherPlayerSelectionChanged = false;
+        if (previousSelections) {
+            for (const pid in data.playerSelections) {
+                if (pid !== playerId) {
+                    const oldSelection = (previousSelections[pid] || []).sort().join(',');
+                    const newSelection = (data.playerSelections[pid] || []).sort().join(',');
+                    if (oldSelection !== newSelection) {
+                        otherPlayerSelectionChanged = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // If this is the first selection update, check if any other player has selections
+            for (const pid in data.playerSelections) {
+                if (pid !== playerId && data.playerSelections[pid] && data.playerSelections[pid].length > 0) {
+                    otherPlayerSelectionChanged = true;
+                    break;
+                }
+            }
+        }
+        
+        // Re-render if:
+        // 1. Another player's selection changed, OR
+        // 2. Our own selection from server doesn't match our current state (sync issues)
+        if (otherPlayerSelectionChanged || receivedOurSelection !== ourCurrentSelection) {
             debouncedRender();
         }
     }
