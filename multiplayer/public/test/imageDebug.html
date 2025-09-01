@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image URL Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        img { max-width: 200px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Image URL Debug Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import ScryfallCache from '../scryfallCache.js';
+        
+        const output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            output.appendChild(div);
+        }
+        
+        async function testImageUrls() {
+            try {
+                log('<h2>Testing Image URLs</h2>');
+                
+                // Test a regular card
+                log('<h3>Test 1: Regular Card (Lightning Bolt)</h3>');
+                await ScryfallCache.load(['Lightning Bolt']);
+                const boltCard = ScryfallCache.get('Lightning Bolt');
+                
+                if (boltCard) {
+                    log(`✅ Card loaded: ${boltCard.name}`, 'success');
+                    log(`Layout: ${boltCard.layout}`);
+                    
+                    if (boltCard.image_uris) {
+                        log(`Has image_uris: ✅`, 'success');
+                        log(`Normal image URL: ${boltCard.image_uris.normal}`);
+                        
+                        // Test the image
+                        const img = document.createElement('img');
+                        img.src = boltCard.image_uris.normal;
+                        img.alt = boltCard.name;
+                        img.onload = () => log(`✅ Image loaded successfully`, 'success');
+                        img.onerror = () => log(`❌ Image failed to load`, 'error');
+                        output.appendChild(img);
+                    } else {
+                        log(`❌ No image_uris found`, 'error');
+                    }
+                } else {
+                    log(`❌ Card not loaded`, 'error');
+                }
+                
+                // Test adventure card
+                log('<h3>Test 2: Adventure Card (Gumdrop Poisoner)</h3>');
+                await ScryfallCache.load(['Gumdrop Poisoner']);
+                const adventureCard = ScryfallCache.get('Gumdrop Poisoner');
+                
+                if (adventureCard) {
+                    log(`✅ Adventure card loaded: ${adventureCard.name}`, 'success');
+                    log(`Layout: ${adventureCard.layout}`);
+                    log(`Is Adventure: ${ScryfallCache.isAdventureCard('Gumdrop Poisoner')}`);
+                    
+                    if (adventureCard.image_uris) {
+                        log(`Has image_uris: ✅`, 'success');
+                        log(`Normal image URL: ${adventureCard.image_uris.normal}`);
+                        
+                        // Test the image
+                        const img2 = document.createElement('img');
+                        img2.src = adventureCard.image_uris.normal;
+                        img2.alt = adventureCard.name;
+                        img2.onload = () => log(`✅ Adventure image loaded successfully`, 'success');
+                        img2.onerror = () => log(`❌ Adventure image failed to load`, 'error');
+                        output.appendChild(img2);
+                    } else if (adventureCard.card_faces && adventureCard.card_faces[0] && adventureCard.card_faces[0].image_uris) {
+                        log(`No top-level image_uris, but found in card_faces[0]`, 'info');
+                        log(`Face 0 image URL: ${adventureCard.card_faces[0].image_uris.normal}`);
+                        
+                        // Test the face image
+                        const img3 = document.createElement('img');
+                        img3.src = adventureCard.card_faces[0].image_uris.normal;
+                        img3.alt = adventureCard.name;
+                        img3.onload = () => log(`✅ Adventure face image loaded successfully`, 'success');
+                        img3.onerror = () => log(`❌ Adventure face image failed to load`, 'error');
+                        output.appendChild(img3);
+                    } else {
+                        log(`❌ No image_uris found anywhere`, 'error');
+                        
+                        // Debug: show the card structure
+                        log('<h4>Card Structure Debug:</h4>');
+                        const pre = document.createElement('pre');
+                        pre.textContent = JSON.stringify({
+                            name: adventureCard.name,
+                            layout: adventureCard.layout,
+                            hasImageUris: !!adventureCard.image_uris,
+                            hasCardFaces: !!adventureCard.card_faces,
+                            cardFacesLength: adventureCard.card_faces ? adventureCard.card_faces.length : 0,
+                            face0HasImageUris: adventureCard.card_faces && adventureCard.card_faces[0] ? !!adventureCard.card_faces[0].image_uris : false
+                        }, null, 2);
+                        output.appendChild(pre);
+                    }
+                } else {
+                    log(`❌ Adventure card not loaded`, 'error');
+                }
+                
+                // Test a double-faced card for comparison
+                log('<h3>Test 3: Double-Faced Card (Stump // Stomp)</h3>');
+                await ScryfallCache.load(['Stump // Stomp']);
+                const dfcCard = ScryfallCache.get('Stump // Stomp');
+                
+                if (dfcCard) {
+                    log(`✅ DFC loaded: ${dfcCard.name}`, 'success');
+                    log(`Layout: ${dfcCard.layout}`);
+                    log(`Has Back Face: ${ScryfallCache.hasBackFace('Stump // Stomp')}`);
+                    
+                    if (dfcCard.card_faces && dfcCard.card_faces[0] && dfcCard.card_faces[0].image_uris) {
+                        log(`Found image in card_faces[0]`, 'success');
+                        log(`Face 0 image URL: ${dfcCard.card_faces[0].image_uris.normal}`);
+                        
+                        // Test the DFC image
+                        const img4 = document.createElement('img');
+                        img4.src = dfcCard.card_faces[0].image_uris.normal;
+                        img4.alt = dfcCard.name;
+                        img4.onload = () => log(`✅ DFC face image loaded successfully`, 'success');
+                        img4.onerror = () => log(`❌ DFC face image failed to load`, 'error');
+                        output.appendChild(img4);
+                    } else {
+                        log(`❌ No image_uris found in DFC`, 'error');
+                    }
+                }
+                
+                log('<h2>🎉 Image URL test completed!</h2>', 'success');
+                
+            } catch (error) {
+                log(`❌ Test failed with error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+        
+        // Run the test
+        testImageUrls();
+    </script>
+</body>
+</html>

@@ -123,11 +123,11 @@ const ScryfallCache = {
                     let resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
                     
                     if (!resp.ok) {
-                        // If exact match fails, try fuzzy search for potential double-faced cards
+                        // If exact match fails, try fuzzy search for potential double-faced cards or adventure cards
                         const fuzzyResp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
                         if (fuzzyResp.ok) {
                             const fuzzyData = await fuzzyResp.json();
-                            // Check if this is a double-faced card and our search term matches one face
+                            // Check if this is a multi-faced card and our search term matches one face
                             if (fuzzyData.card_faces && fuzzyData.card_faces.length > 1) {
                                 const matchesFace = fuzzyData.card_faces.some(face => 
                                     face.name.toLowerCase().includes(name.toLowerCase()) ||
@@ -135,8 +135,13 @@ const ScryfallCache = {
                                 );
                                 if (matchesFace) {
                                     data = fuzzyData;
-                                    finalName = fuzzyData.name; // Use the full double-faced name
+                                    finalName = fuzzyData.name; // Use the full card name
                                 }
+                            } else if (fuzzyData.name.toLowerCase().includes(name.toLowerCase()) ||
+                                      name.toLowerCase().includes(fuzzyData.name.toLowerCase())) {
+                                // Also accept close matches for single-faced cards
+                                data = fuzzyData;
+                                finalName = fuzzyData.name;
                             }
                         }
                     }
@@ -152,8 +157,8 @@ const ScryfallCache = {
                         this._cache[finalName] = data;
                     }
                     
-                    // Load card back asynchronously if it's a double-faced card (don't block main loading)
-                    if (data.card_faces && data.card_faces.length > 1) {
+                    // Load card back asynchronously if it's a true double-faced card (not adventure)
+                    if (data.card_faces && data.card_faces.length > 1 && data.layout !== 'adventure') {
                         // Don't await - let it load in background
                         this._loadCardBack(data.id, name).catch(err => 
                             console.error('Background card back load failed:', err)
@@ -238,9 +243,9 @@ const ScryfallCache = {
             return this._cardBackCache[name];
         }
         
-        // Check if this card has multiple faces (double-faced card)
+        // Check if this card has multiple faces (double-faced card, not adventure)
         const cardData = this._cache[name];
-        if (cardData && cardData.card_faces && cardData.card_faces.length > 1) {
+        if (cardData && cardData.card_faces && cardData.card_faces.length > 1 && cardData.layout !== 'adventure') {
             // If it's a double-faced card but we don't have the back cached, try to generate the URL
             return `https://api.scryfall.com/cards/${cardData.id}?format=image&face=back&version=normal`;
         }
@@ -251,7 +256,7 @@ const ScryfallCache = {
 
     hasBackFace(name) {
         const cardData = this._cache[name];
-        return cardData && cardData.card_faces && cardData.card_faces.length > 1;
+        return cardData && cardData.card_faces && cardData.card_faces.length > 1 && cardData.layout !== 'adventure';
     },
 
     getAll() {
@@ -293,7 +298,7 @@ const ScryfallCache = {
         // If not found, look through all cached cards for partial matches
         for (const [fullName, cardData] of Object.entries(this._cache)) {
             if (cardData && cardData.card_faces && cardData.card_faces.length > 1) {
-                // Check if any face matches our search term
+                // Check if any face matches our search term (works for both DFCs and adventure cards)
                 const matchesFace = cardData.card_faces.some(face => 
                     face.name.toLowerCase() === searchName.toLowerCase() ||
                     face.name.toLowerCase().includes(searchName.toLowerCase()) ||
@@ -308,9 +313,9 @@ const ScryfallCache = {
         return searchName; // Return original if no match found
     },
 
-    // Helper to check if a card name looks like it might be a partial double-faced card name
-    mightBePartialDFC(name) {
-        // Simple heuristics - these are common single face names that are part of DFCs
+    // Helper to check if a card name looks like it might be a partial double-faced card name or adventure
+    mightBePartialCard(name) {
+        // Simple heuristics - these are common single face names that are part of DFCs or adventures
         const commonDFCPatterns = [
             /^(Stump|Stomp)$/i,
             /Clearing$/i,
@@ -318,20 +323,67 @@ const ScryfallCache = {
             // Add more patterns as needed
         ];
         
-        return commonDFCPatterns.some(pattern => pattern.test(name));
+        // Common adventure spell patterns
+        const commonAdventurePatterns = [
+            /^Tempt with/i,
+            /^Curious Pair$/i,
+            /^Treats to Share$/i,
+            /^Bake into a Pie$/i,
+            /^Spinning Wheel$/i,
+            // Add more patterns as needed
+        ];
+        
+        return commonDFCPatterns.some(pattern => pattern.test(name)) ||
+               commonAdventurePatterns.some(pattern => pattern.test(name));
     },
 
-    // Test function to verify double-faced card resolution
-    async testDFCResolution() {
-        console.log('Testing double-faced card resolution...');
-        const testCards = ['Stump', 'Stomp', 'Stump // Stomp'];
+    // Check if a card is an adventure card
+    isAdventureCard(name) {
+        const cardData = this._cache[name];
+        return cardData && cardData.layout === 'adventure';
+    },
+
+    // Get the adventure spell name from an adventure card
+    getAdventureSpellName(name) {
+        const cardData = this._cache[name];
+        if (cardData && cardData.layout === 'adventure' && cardData.card_faces && cardData.card_faces.length > 1) {
+            // Adventure spell is typically the second face
+            return cardData.card_faces[1].name;
+        }
+        return null;
+    },
+
+    // Get the creature name from an adventure card
+    getCreatureName(name) {
+        const cardData = this._cache[name];
+        if (cardData && cardData.layout === 'adventure' && cardData.card_faces && cardData.card_faces.length > 1) {
+            // Creature is typically the first face
+            return cardData.card_faces[0].name;
+        }
+        return null;
+    },
+
+    // Test function to verify double-faced card and adventure card resolution
+    async testCardResolution() {
+        console.log('Testing double-faced card and adventure card resolution...');
+        const testCards = [
+            'Stump', 'Stomp', 'Stump // Stomp', // DFC test
+            'Gumdrop Poisoner', 'Tempt with Treats', 'Gumdrop Poisoner // Tempt with Treats' // Adventure test
+        ];
         
         for (const cardName of testCards) {
             console.log(`Testing: "${cardName}"`);
             await this.load([cardName]);
             const result = this.get(cardName);
             if (result) {
-                console.log(`✅ Found: "${result.name}" (${result.card_faces ? 'DFC' : 'Single-faced'})`);
+                const cardType = result.layout === 'adventure' ? 'Adventure' : 
+                               result.card_faces ? 'DFC' : 'Single-faced';
+                console.log(`✅ Found: "${result.name}" (${cardType})`);
+                
+                if (result.layout === 'adventure') {
+                    console.log(`   Creature: ${this.getCreatureName(cardName)}`);
+                    console.log(`   Adventure: ${this.getAdventureSpellName(cardName)}`);
+                }
             } else {
                 console.log(`❌ Not found: "${cardName}"`);
             }

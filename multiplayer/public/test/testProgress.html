@@ -22,6 +22,14 @@
         </div>
     </div>
     
+    <!-- Card Display Area -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Loaded Cards</h2>
+        <div id="card-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <!-- Cards will be displayed here -->
+        </div>
+    </div>
+    
     <!-- Loading Progress Modal -->
     <div id="loading-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
         <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
@@ -41,7 +49,7 @@
     </div>
 
     <script type="module">
-        import ScryfallCache from './scryfallCache.js';
+        import ScryfallCache from '../scryfallCache.js';
         
         const loadingModal = document.getElementById('loading-modal');
         const loadingProgressBar = document.getElementById('loading-progress-bar');
@@ -49,6 +57,7 @@
         const loadingCurrentCard = document.getElementById('loading-current-card');
         const testBtn = document.getElementById('test-btn');
         const testCachedBtn = document.getElementById('test-cached-btn');
+        const cardGrid = document.getElementById('card-grid');
         
         const testCards = [
             'Lightning Bolt',
@@ -58,7 +67,9 @@
             'Swords to Plowshares',
             'Path to Exile',
             'Birds of Paradise',
-            'Llanowar Elves'
+            'Llanowar Elves',
+            'Gumdrop Poisoner', // Test adventure card
+            'Tempt with Treats'  // Test adventure spell
         ];
         
         function showLoadingProgress() {
@@ -81,6 +92,65 @@
             loadingModal.classList.add('hidden');
         }
         
+        function displayLoadedCards() {
+            cardGrid.innerHTML = ''; // Clear previous cards
+            
+            testCards.forEach(cardName => {
+                const cardData = ScryfallCache.get(cardName);
+                if (cardData) {
+                    const cardElement = createCardElement(cardName, cardData);
+                    cardGrid.appendChild(cardElement);
+                } else {
+                    console.warn(`Card not found in cache: ${cardName}`);
+                }
+            });
+        }
+        
+        function createCardElement(searchName, cardData) {
+            const div = document.createElement('div');
+            div.className = 'bg-gray-800 rounded-lg p-3 shadow-lg';
+            
+            // Get the correct image URL
+            let imageUrl = '';
+            if (cardData.image_uris && cardData.image_uris.normal) {
+                // Single-faced cards and adventure cards have top-level image_uris
+                imageUrl = cardData.image_uris.normal;
+            } else if (cardData.card_faces && cardData.card_faces[0] && cardData.card_faces[0].image_uris) {
+                // True double-faced cards have image_uris in each face
+                imageUrl = cardData.card_faces[0].image_uris.normal;
+            }
+            
+            // Card info
+            const isAdventure = ScryfallCache.isAdventureCard(searchName);
+            const hasBackFace = ScryfallCache.hasBackFace(searchName);
+            
+            div.innerHTML = `
+                <div class="mb-2">
+                    ${imageUrl ? 
+                        `<img src="${imageUrl}" alt="${cardData.name}" class="w-full rounded-md shadow-md" 
+                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                         <div class="hidden bg-gray-700 p-4 rounded-md text-center text-sm">
+                             <p>Image failed to load</p>
+                             <p class="text-xs text-gray-400 mt-1">${cardData.name}</p>
+                         </div>` : 
+                        `<div class="bg-gray-700 p-4 rounded-md text-center text-sm">
+                             <p>No image available</p>
+                             <p class="text-xs text-gray-400 mt-1">${cardData.name}</p>
+                         </div>`
+                    }
+                </div>
+                <div class="text-sm">
+                    <p class="font-semibold truncate" title="${cardData.name}">${cardData.name}</p>
+                    <p class="text-xs text-gray-400">Searched: "${searchName}"</p>
+                    <p class="text-xs text-gray-400">Layout: ${cardData.layout}</p>
+                    ${isAdventure ? '<p class="text-xs text-blue-400">Adventure Card</p>' : ''}
+                    ${hasBackFace ? '<p class="text-xs text-purple-400">Has Back Face</p>' : ''}
+                </div>
+            `;
+            
+            return div;
+        }
+        
         testBtn.addEventListener('click', async () => {
             console.log('Starting test load...');
             showLoadingProgress();
@@ -91,6 +161,7 @@
                     updateLoadingProgress(loaded, total, currentCard);
                 });
                 console.log('Test completed!');
+                displayLoadedCards(); // Show the loaded cards
             } catch (error) {
                 console.error('Test failed:', error);
             } finally {
@@ -117,6 +188,7 @@
                     }
                 });
                 console.log('Cached test completed!');
+                displayLoadedCards(); // Show the loaded cards
             } catch (error) {
                 console.error('Cached test failed:', error);
             } finally {

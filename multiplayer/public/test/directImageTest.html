@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Image Test</title>
+</head>
+<body>
+    <h1>Direct Image URL Test</h1>
+    
+    <h2>Adventure Card - Gumdrop Poisoner</h2>
+    <img src="https://cards.scryfall.io/normal/front/5/c/5cb01d4d-91c2-41c6-981e-b4135a1e1e36.jpg?1692937659" 
+         alt="Gumdrop Poisoner" 
+         style="max-width: 300px;"
+         onload="document.getElementById('status1').textContent = 'Image loaded successfully!'"
+         onerror="document.getElementById('status1').textContent = 'Image failed to load!'">
+    <p id="status1">Loading...</p>
+    
+    <h2>Regular Card - Lightning Bolt</h2>
+    <img src="https://cards.scryfall.io/normal/front/c/e/ce711943-c1a1-43a0-8b89-8d169cfb8e06.jpg?1628801721" 
+         alt="Lightning Bolt" 
+         style="max-width: 300px;"
+         onload="document.getElementById('status2').textContent = 'Image loaded successfully!'"
+         onerror="document.getElementById('status2').textContent = 'Image failed to load!'">
+    <p id="status2">Loading...</p>
+    
+    <h2>Test Cache Loading</h2>
+    <button onclick="testCache()">Test ScryfallCache</button>
+    <div id="cache-result"></div>
+    
+    <script type="module">
+        import ScryfallCache from '../scryfallCache.js';
+        
+        window.testCache = async function() {
+            const result = document.getElementById('cache-result');
+            result.innerHTML = '<p>Loading from cache...</p>';
+            
+            try {
+                await ScryfallCache.load(['Gumdrop Poisoner']);
+                const card = ScryfallCache.get('Gumdrop Poisoner');
+                
+                if (card && card.image_uris && card.image_uris.normal) {
+                    result.innerHTML = `
+                        <p>✅ Cache loaded successfully!</p>
+                        <p>Card name: ${card.name}</p>
+                        <p>Image URL: ${card.image_uris.normal}</p>
+                        <img src="${card.image_uris.normal}" alt="${card.name}" style="max-width: 300px;">
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p>❌ Cache issue</p>
+                        <p>Card loaded: ${!!card}</p>
+                        <p>Has image_uris: ${!!(card && card.image_uris)}</p>
+                        <p>Has normal: ${!!(card && card.image_uris && card.image_uris.normal)}</p>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `<p>❌ Error: ${error.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html>

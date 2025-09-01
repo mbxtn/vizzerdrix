@@ -2,12 +2,17 @@ import ScryfallCache from './scryfallCache.js';
 
 // Helper function to find the correct face of a double-faced card
 function findMatchingFace(scryfallData, requestedName) {
-    // If it's not a double-faced card, return the main card data
+    // If it's not a multi-faced card, return the main card data
     if (!scryfallData.card_faces || scryfallData.card_faces.length <= 1) {
         return { imageUri: scryfallData.image_uris?.normal, faceName: scryfallData.name };
     }
     
-    // For double-faced cards, try to match the requested name to a specific face
+    // For adventure cards, always use the top-level image (they only have one image for both parts)
+    if (scryfallData.layout === 'adventure') {
+        return { imageUri: scryfallData.image_uris?.normal, faceName: scryfallData.name };
+    }
+    
+    // For true double-faced cards, try to match the requested name to a specific face
     const requestedLower = requestedName.toLowerCase().trim();
     
     // First, try exact face name matches
@@ -118,13 +123,13 @@ export function createCardElement(card, location, options) {
             if (scryfallData) {
                 let imageUri = null;
                 
-                // For double-faced cards, get image from the first face
-                if (scryfallData.card_faces && scryfallData.card_faces.length > 0) {
-                    imageUri = scryfallData.card_faces[0].image_uris?.normal;
-                } 
-                // For single-faced cards, get image from main object
-                else if (scryfallData.image_uris) {
+                // Get the correct image URI based on card type
+                if (scryfallData.image_uris) {
+                    // Single-faced cards and adventure cards have top-level image_uris
                     imageUri = scryfallData.image_uris.normal;
+                } else if (scryfallData.card_faces && scryfallData.card_faces.length > 0 && scryfallData.card_faces[0].image_uris) {
+                    // True double-faced cards have image_uris in each face
+                    imageUri = scryfallData.card_faces[0].image_uris.normal;
                 }
                 
                 if (imageUri) {
@@ -387,13 +392,13 @@ export function flipCard(cardEl) {
         if (scryfallData) {
             let frontImageUri = null;
             
-            // For double-faced cards, get front face image
-            if (scryfallData.card_faces && scryfallData.card_faces.length > 0) {
-                frontImageUri = scryfallData.card_faces[0].image_uris?.normal;
-            } 
-            // For single-faced cards, get image from main object
-            else if (scryfallData.image_uris) {
+            // Get the correct front image URI based on card type
+            if (scryfallData.image_uris) {
+                // Single-faced cards and adventure cards have top-level image_uris
                 frontImageUri = scryfallData.image_uris.normal;
+            } else if (scryfallData.card_faces && scryfallData.card_faces.length > 0 && scryfallData.card_faces[0].image_uris) {
+                // True double-faced cards have image_uris in each face
+                frontImageUri = scryfallData.card_faces[0].image_uris.normal;
             }
             
             if (frontImageUri) {

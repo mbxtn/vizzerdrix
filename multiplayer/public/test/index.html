@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScryfallCache Test Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">ScryfallCache Test Suite</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Core Tests -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-blue-400">Core Functionality</h2>
+                <div class="space-y-3">
+                    <a href="testProgress.html" class="block bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-center transition">
+                        Progress Test
+                    </a>
+                    <p class="text-sm text-gray-400">Test card loading with progress indicators and image display</p>
+                </div>
+            </div>
+            
+            <!-- Adventure Card Tests -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-green-400">Adventure Cards</h2>
+                <div class="space-y-3">
+                    <a href="testAdventureCards.html" class="block bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-center transition">
+                        Adventure Card Test
+                    </a>
+                    <a href="debugTest.html" class="block bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-center transition">
+                        Adventure Debug
+                    </a>
+                    <p class="text-sm text-gray-400">Test adventure card loading and display functionality</p>
+                </div>
+            </div>
+            
+            <!-- Image Tests -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-purple-400">Image Testing</h2>
+                <div class="space-y-3">
+                    <a href="fixValidation.html" class="block bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-center transition">
+                        Image Fix Validation
+                    </a>
+                    <a href="imageDebug.html" class="block bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-center transition">
+                        Image URL Debug
+                    </a>
+                    <a href="directImageTest.html" class="block bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-center transition">
+                        Direct Image Test
+                    </a>
+                    <p class="text-sm text-gray-400">Validate image URL extraction and display</p>
+                </div>
+            </div>
+            
+            <!-- Simple Tests -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-yellow-400">Simple Tests</h2>
+                <div class="space-y-3">
+                    <a href="simpleTest.html" class="block bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-center transition">
+                        Simple Test
+                    </a>
+                    <p class="text-sm text-gray-400">Basic functionality verification</p>
+                </div>
+            </div>
+            
+            <!-- Legacy Tests -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-gray-400">Legacy Tests</h2>
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-400">
+                        Node.js test files (run from command line):
+                    </p>
+                    <ul class="text-xs text-gray-500 space-y-1">
+                        <li>• testScryfallCache.js</li>
+                        <li>• testScript.js</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 p-6 bg-gray-800 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">Test Summary</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <h3 class="font-semibold text-blue-400 mb-2">What These Tests Cover:</h3>
+                    <ul class="space-y-1 text-gray-300">
+                        <li>• Card loading and caching</li>
+                        <li>• Adventure card support</li>
+                        <li>• Image URL extraction</li>
+                        <li>• Progress reporting</li>
+                        <li>• Double-faced card handling</li>
+                        <li>• Cache performance</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-green-400 mb-2">Recent Fixes:</h3>
+                    <ul class="space-y-1 text-gray-300">
+                        <li>✅ Adventure card image display</li>
+                        <li>✅ Proper layout detection</li>
+                        <li>✅ Image URI priority logic</li>
+                        <li>✅ Cache invalidation</li>
+                        <li>✅ Progress callbacks</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <a href="../" class="inline-block bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded text-center transition">
+                ← Back to Main Game
+            </a>
+        </div>
+    </div>
+</body>
+</html>

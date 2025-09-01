@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Adventure Card Image Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .card { 
+            display: inline-block; 
+            margin: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            padding: 10px;
+            text-align: center;
+            width: 200px;
+        }
+        .card img { 
+            max-width: 180px; 
+            border-radius: 4px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Adventure Card Image Fix Validation</h1>
+    <p>This test validates that adventure cards now display images correctly.</p>
+    
+    <button onclick="runTest()">Run Image Test</button>
+    <div id="status"></div>
+    <div id="cards"></div>
+    
+    <script type="module">
+        import ScryfallCache from '../scryfallCache.js';
+        
+        window.runTest = async function() {
+            const status = document.getElementById('status');
+            const cards = document.getElementById('cards');
+            
+            status.innerHTML = '<p>Loading cards...</p>';
+            cards.innerHTML = '';
+            
+            const testCards = [
+                { name: 'Lightning Bolt', type: 'Regular' },
+                { name: 'Gumdrop Poisoner', type: 'Adventure' },
+                { name: 'Tempt with Treats', type: 'Adventure Spell' },
+                { name: 'Stump // Stomp', type: 'Double-faced' }
+            ];
+            
+            try {
+                // Load all cards
+                await ScryfallCache.load(testCards.map(c => c.name));
+                
+                let results = '<h2>Test Results:</h2>';
+                let allPassed = true;
+                
+                for (const testCard of testCards) {
+                    const cardData = ScryfallCache.get(testCard.name);
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'card';
+                    
+                    if (cardData) {
+                        // Use the same logic as fixed cardFactory
+                        let imageUrl = '';
+                        if (cardData.image_uris && cardData.image_uris.normal) {
+                            imageUrl = cardData.image_uris.normal;
+                        } else if (cardData.card_faces && cardData.card_faces[0] && cardData.card_faces[0].image_uris) {
+                            imageUrl = cardData.card_faces[0].image_uris.normal;
+                        }
+                        
+                        if (imageUrl) {
+                            cardDiv.innerHTML = `
+                                <h4>${testCard.name}</h4>
+                                <p class="info">${testCard.type}</p>
+                                <img src="${imageUrl}" alt="${testCard.name}" 
+                                     onload="this.nextElementSibling.className='success'" 
+                                     onerror="this.nextElementSibling.className='error'">
+                                <p class="loading">Loading...</p>
+                                <p>Layout: ${cardData.layout}</p>
+                                <p>Image source: ${cardData.image_uris ? 'Top-level' : 'Card face'}</p>
+                            `;
+                            results += `<span class="success">✅ ${testCard.name} (${testCard.type})</span><br>`;
+                        } else {
+                            cardDiv.innerHTML = `
+                                <h4>${testCard.name}</h4>
+                                <p class="error">No image URL found</p>
+                                <p>Layout: ${cardData.layout}</p>
+                                <p>Has image_uris: ${!!cardData.image_uris}</p>
+                                <p>Has card_faces: ${!!cardData.card_faces}</p>
+                            `;
+                            results += `<span class="error">❌ ${testCard.name} (${testCard.type}) - No image URL</span><br>`;
+                            allPassed = false;
+                        }
+                    } else {
+                        cardDiv.innerHTML = `
+                            <h4>${testCard.name}</h4>
+                            <p class="error">Card not loaded</p>
+                        `;
+                        results += `<span class="error">❌ ${testCard.name} (${testCard.type}) - Not loaded</span><br>`;
+                        allPassed = false;
+                    }
+                    
+                    cards.appendChild(cardDiv);
+                }
+                
+                results += `<br><strong>${allPassed ? 'All tests passed! 🎉' : 'Some tests failed. 😞'}</strong>`;
+                status.innerHTML = results;
+                
+            } catch (error) {
+                status.innerHTML = `<p class="error">Test failed: ${error.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html>

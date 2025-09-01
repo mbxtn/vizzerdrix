@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Adventure Card Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Adventure Card Debug Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import ScryfallCache from '../scryfallCache.js';
+        
+        const output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            output.appendChild(div);
+        }
+        
+        function logObject(obj, title) {
+            log(`<strong>${title}:</strong>`);
+            const pre = document.createElement('pre');
+            pre.textContent = JSON.stringify(obj, null, 2);
+            output.appendChild(pre);
+        }
+        
+        async function runDebugTest() {
+            try {
+                log('<h2>Before Loading - Testing Adventure Card Handling</h2>');
+                
+                // Test 1: Load adventure card by full name
+                log('<h3>Test 1: Loading by full name "Gumdrop Poisoner // Tempt with Treats"</h3>');
+                await ScryfallCache.load(['Gumdrop Poisoner // Tempt with Treats']);
+                
+                const fullCard = ScryfallCache.get('Gumdrop Poisoner // Tempt with Treats');
+                if (fullCard) {
+                    log('✅ Successfully loaded full adventure card', 'success');
+                    log(`Card name: ${fullCard.name}`);
+                    log(`Layout: ${fullCard.layout}`);
+                    log(`Has card_faces: ${!!fullCard.card_faces}`);
+                    log(`Number of faces: ${fullCard.card_faces ? fullCard.card_faces.length : 0}`);
+                    
+                    if (fullCard.card_faces) {
+                        fullCard.card_faces.forEach((face, i) => {
+                            log(`Face ${i + 1}: ${face.name} (${face.type_line})`);
+                        });
+                    }
+                    
+                    log(`isAdventureCard: ${ScryfallCache.isAdventureCard('Gumdrop Poisoner // Tempt with Treats')}`);
+                    log(`hasBackFace: ${ScryfallCache.hasBackFace('Gumdrop Poisoner // Tempt with Treats')}`);
+                } else {
+                    log('❌ Failed to load full adventure card', 'error');
+                }
+                
+                // Test 2: Load by creature name
+                log('<h3>Test 2: Loading by creature name "Gumdrop Poisoner"</h3>');
+                await ScryfallCache.load(['Gumdrop Poisoner']);
+                
+                const creatureCard = ScryfallCache.get('Gumdrop Poisoner');
+                if (creatureCard) {
+                    log('✅ Successfully loaded by creature name', 'success');
+                    log(`Resolved to: ${creatureCard.name}`);
+                    log(`getCreatureName: ${ScryfallCache.getCreatureName('Gumdrop Poisoner')}`);
+                    log(`getAdventureSpellName: ${ScryfallCache.getAdventureSpellName('Gumdrop Poisoner')}`);
+                } else {
+                    log('❌ Failed to load by creature name', 'error');
+                }
+                
+                // Test 3: Load by adventure spell name
+                log('<h3>Test 3: Loading by adventure spell name "Tempt with Treats"</h3>');
+                await ScryfallCache.load(['Tempt with Treats']);
+                
+                const spellCard = ScryfallCache.get('Tempt with Treats');
+                if (spellCard) {
+                    log('✅ Successfully loaded by adventure spell name', 'success');
+                    log(`Resolved to: ${spellCard.name}`);
+                    log(`getFullCardName: ${ScryfallCache.getFullCardName('Tempt with Treats')}`);
+                } else {
+                    log('❌ Failed to load by adventure spell name', 'error');
+                }
+                
+                // Test 4: Compare with double-faced card
+                log('<h3>Test 4: Comparing with a true double-faced card</h3>');
+                log('Loading "Stump // Stomp" for comparison...');
+                await ScryfallCache.load(['Stump // Stomp']);
+                
+                const dfcCard = ScryfallCache.get('Stump // Stomp');
+                if (dfcCard) {
+                    log('✅ Loaded DFC for comparison', 'success');
+                    log(`DFC Layout: ${dfcCard.layout}`);
+                    log(`DFC hasBackFace: ${ScryfallCache.hasBackFace('Stump // Stomp')}`);
+                    log(`Adventure hasBackFace: ${ScryfallCache.hasBackFace('Gumdrop Poisoner // Tempt with Treats')}`);
+                    
+                    log('<strong>Key Difference:</strong>');
+                    log(`DFC Layout: "${dfcCard.layout}" - hasBackFace: ${ScryfallCache.hasBackFace('Stump // Stomp')}`);
+                    log(`Adventure Layout: "${fullCard?.layout}" - hasBackFace: ${ScryfallCache.hasBackFace('Gumdrop Poisoner // Tempt with Treats')}`);
+                }
+                
+                // Test 5: Cache stats
+                log('<h3>Cache Statistics</h3>');
+                const stats = ScryfallCache.getCacheStats();
+                logObject(stats, 'Cache Stats');
+                
+                log('<h2>🎉 All tests completed!</h2>', 'success');
+                
+            } catch (error) {
+                log(`❌ Test failed with error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+        
+        // Run the test
+        runDebugTest();
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Adventure Card Test</title>
+</head>
+<body>
+    <h1>Adventure Card Test</h1>
+    <div id="results"></div>
+    
+    <script type="module">
+        import ScryfallCache from '../scryfallCache.js';
+        
+        async function runTest() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Running test...</p>';
+            
+            try {
+                console.log('Testing adventure card loading...');
+                
+                // Test loading an adventure card
+                await ScryfallCache.load(['Gumdrop Poisoner']);
+                const card = ScryfallCache.get('Gumdrop Poisoner');
+                
+                let output = '';
+                
+                if (card) {
+                    output += `✅ Successfully loaded: ${card.name}<br>`;
+                    output += `Layout: ${card.layout}<br>`;
+                    output += `Is Adventure: ${ScryfallCache.isAdventureCard('Gumdrop Poisoner')}<br>`;
+                    output += `Has Back Face: ${ScryfallCache.hasBackFace('Gumdrop Poisoner')}<br>`;
+                    
+                    if (card.card_faces) {
+                        output += 'Faces:<br>';
+                        card.card_faces.forEach((face, i) => {
+                            output += `&nbsp;&nbsp;${i + 1}: ${face.name} (${face.type_line})<br>`;
+                        });
+                    }
+                    
+                    // Test getting creature and adventure names
+                    const creatureName = ScryfallCache.getCreatureName('Gumdrop Poisoner');
+                    const adventureName = ScryfallCache.getAdventureSpellName('Gumdrop Poisoner');
+                    output += `<br>Creature Name: ${creatureName}<br>`;
+                    output += `Adventure Name: ${adventureName}<br>`;
+                } else {
+                    output += '❌ Failed to load adventure card<br>';
+                }
+                
+                // Test adventure spell name
+                await ScryfallCache.load(['Tempt with Treats']);
+                const spellCard = ScryfallCache.get('Tempt with Treats');
+                output += '<br>Testing adventure spell search:<br>';
+                output += `Found: ${spellCard ? spellCard.name : 'Not found'}<br>`;
+                
+                // Test full card name resolution
+                const fullName1 = ScryfallCache.getFullCardName('Gumdrop Poisoner');
+                const fullName2 = ScryfallCache.getFullCardName('Tempt with Treats');
+                output += `<br>Full name from creature: ${fullName1}<br>`;
+                output += `Full name from adventure: ${fullName2}<br>`;
+                
+                resultsDiv.innerHTML = output;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `Error: ${error.message}`;
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Run test when page loads
+        runTest();
+    </script>
+</body>
+</html>
