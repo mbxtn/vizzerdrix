@@ -2640,7 +2640,7 @@ function autoUntapAllPlayerCards() {
     
     let cardsUntapped = 0;
     
-    // Untap all tapped cards in the play zone
+    // Untap all tapped cards in the game state play zone
     playerPlayZone.forEach(cardData => {
         if (cardData.rotation && cardData.rotation !== 0) {
             cardData.rotation = 0;
@@ -2648,19 +2648,24 @@ function autoUntapAllPlayerCards() {
         }
     });
     
-    // Also update the local playZone array to match
+    // IMPORTANT: Sync the changes back to the local playZone array that gets sent to server
     if (playZone && Array.isArray(playZone)) {
         playZone.forEach(cardData => {
             if (cardData.rotation && cardData.rotation !== 0) {
                 cardData.rotation = 0;
             }
         });
+        
+        // Also make sure local playZone matches the gameState data completely
+        // This ensures the server gets the correct state
+        playZone.length = 0; // Clear the array
+        playZone.push(...playerPlayZone); // Copy all data from gameState
     }
     
     if (cardsUntapped > 0) {
         console.log(`Auto-untapped ${cardsUntapped} cards`);
-        // Send the updated state to server
-        debouncedSendMove();
+        // Send the updated state to server immediately (no debouncing for auto-untap)
+        sendMove();
         // Re-render to show the visual changes
         debouncedRender();
     } else {
