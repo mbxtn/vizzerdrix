@@ -378,6 +378,7 @@ socket.on('state', async (state) => {
         currentTurn: state.currentTurn,
         turnOrderSet: state.turnOrderSet,
         turnOrder: state.turnOrder,
+        turnCounter: state.turnCounter,
         isRejoin: isRejoinState // Use the global flag
     });
     
@@ -388,12 +389,14 @@ socket.on('state', async (state) => {
     const turnOrderChanged = !gameState || 
         gameState.currentTurn !== state.currentTurn ||
         gameState.turnOrderSet !== state.turnOrderSet ||
+        gameState.turnCounter !== state.turnCounter ||
         JSON.stringify(gameState.turnOrder) !== JSON.stringify(state.turnOrder);
     
     console.log('Received state update:', {
         turnOrderSet: state.turnOrderSet,
         turnOrder: state.turnOrder,
         currentTurn: state.currentTurn,
+        turnCounter: state.turnCounter,
         stateChanged,
         turnOrderChanged,
         isRejoin: isRejoinState,
@@ -1540,25 +1543,40 @@ async function render() {
     console.log('Updating turn control UI:', {
         turnOrderSet: gameState.turnOrderSet,
         turnOrder: gameState.turnOrder,
-        currentTurn: gameState.currentTurn
+        currentTurn: gameState.currentTurn,
+        turnCounter: gameState.turnCounter
     });
     
     if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
         const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
-        const currentPlayerName = gameState.players[currentTurnPlayerId]?.displayName || 'Unknown';
+        const currentPlayer = gameState.players[currentTurnPlayerId];
+        const turnCounter = gameState.turnCounter || 1; // Default to 1 if not set
         
-        console.log('Turn control - current player:', currentTurnPlayerId, 'my player ID:', playerId, 'is my turn:', currentTurnPlayerId === playerId);
+        console.log('Turn control - current player:', currentTurnPlayerId, 'my player ID:', playerId, 'is my turn:', currentTurnPlayerId === playerId, 'turn:', turnCounter);
         
-        turnIndicator.style.display = 'block';
-        currentPlayerNameEl.textContent = currentTurnPlayerId === playerId ? 'You' : currentPlayerName;
-        
-        // Show end turn button only if it's the current player's turn
-        if (currentTurnPlayerId === playerId) {
-            console.log('Showing end turn button for my turn');
-            endTurnBtn.style.display = 'block';
-            endTurnBtn.disabled = false;
+        if (currentPlayer) {
+            // Player exists and is connected
+            turnIndicator.style.display = 'block';
+            
+            // Display current player and turn counter
+            const playerText = currentTurnPlayerId === playerId ? 'You' : currentPlayer.displayName;
+            currentPlayerNameEl.textContent = `${playerText} (Turn ${turnCounter})`;
+            
+            // Show end turn button only if it's the current player's turn
+            if (currentTurnPlayerId === playerId) {
+                console.log('Showing end turn button for my turn');
+                endTurnBtn.style.display = 'block';
+                endTurnBtn.disabled = false;
+            } else {
+                console.log('Hiding end turn button - not my turn');
+                endTurnBtn.style.display = 'none';
+                endTurnBtn.disabled = true;
+            }
         } else {
-            console.log('Hiding end turn button - not my turn');
+            // Current turn player is disconnected - this shouldn't happen with server-side skipping
+            // but handle it gracefully
+            console.log('Current turn player is disconnected, hiding turn indicator');
+            turnIndicator.style.display = 'none';
             endTurnBtn.style.display = 'none';
             endTurnBtn.disabled = true;
         }

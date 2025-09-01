@@ -25,6 +25,58 @@ setInterval(() => {
     const now = Date.now();
     const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
     
+    // First, check for disconnected players whose turn it currently is and skip them
+    for (const [roomName, gameState] of Object.entries(games)) {
+        if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
+            const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
+            
+            // If current turn player is disconnected, skip to next connected player
+            if (!gameState.players[currentTurnPlayerId]) {
+                console.log(`Automatically skipping turn for disconnected player ${currentTurnPlayerId} in room ${roomName}`);
+                
+                let nextTurnIndex = (gameState.currentTurn + 1) % gameState.turnOrder.length;
+                let attempts = 0;
+                
+                // If we're going back to the first player, increment turn counter
+                if (nextTurnIndex === 0 && gameState.currentTurn !== 0) {
+                    gameState.turnCounter = (gameState.turnCounter || 1) + 1;
+                    console.log('Completed a full round while auto-skipping, turn counter:', gameState.turnCounter);
+                }
+                
+                // Find next connected player
+                while (attempts < gameState.turnOrder.length && !gameState.players[gameState.turnOrder[nextTurnIndex]]) {
+                    console.log(`Auto-skipping disconnected player ${gameState.turnOrder[nextTurnIndex]} at index ${nextTurnIndex}`);
+                    nextTurnIndex = (nextTurnIndex + 1) % gameState.turnOrder.length;
+                    
+                    // Check if we completed another full round while skipping
+                    if (nextTurnIndex === 0 && attempts > 0) {
+                        gameState.turnCounter = (gameState.turnCounter || 1) + 1;
+                        console.log('Completed another full round while auto-skipping, turn counter:', gameState.turnCounter);
+                    }
+                    
+                    attempts++;
+                }
+                
+                if (attempts < gameState.turnOrder.length) {
+                    gameState.currentTurn = nextTurnIndex;
+                    console.log(`Auto-advanced turn to player ${gameState.turnOrder[nextTurnIndex]} at index ${nextTurnIndex}`);
+                    
+                    // Emit updated state to all players in the room
+                    io.to(roomName).emit('state', gameState);
+                } else {
+                    console.log(`No connected players found in room ${roomName}, resetting turn order`);
+                    gameState.turnOrderSet = false;
+                    gameState.currentTurn = 0;
+                    gameState.turnCounter = 1;
+                    
+                    // Emit updated state to all players in the room
+                    io.to(roomName).emit('state', gameState);
+                }
+            }
+        }
+    }
+    
+    // Then, clean up old disconnected players
     for (const [playerId, info] of Object.entries(disconnectedPlayers)) {
         // Clean up old disconnected players
         if (now - info.disconnectedAt > oneHour) {
@@ -46,6 +98,7 @@ setInterval(() => {
                     if (games[info.roomName].turnOrder.length === 0) {
                         games[info.roomName].turnOrderSet = false;
                         games[info.roomName].currentTurn = 0;
+                        games[info.roomName].turnCounter = 1; // Reset turn counter
                     }
                 }
             }
@@ -58,7 +111,7 @@ setInterval(() => {
             delete disconnectedPlayers[playerId];
         }
     }
-}, 5 * 60 * 1000); // Check every 5 minutes
+}, 30 * 1000); // Check every 30 seconds for turn skipping and every 5 minutes worth of checks for cleanup
 
 function createDeck(cardNames, isCommander = false) {
     // Create card objects with unique IDs
@@ -90,7 +143,8 @@ io.on('connection', (socket) => {
                 playZones: {},
                 turnOrder: [], // Array of player IDs in turn order
                 currentTurn: 0, // Index in turnOrder array
-                turnOrderSet: false // Whether turn order has been established
+                turnOrderSet: false, // Whether turn order has been established
+                turnCounter: 1 // Track which turn number we're on
             };
         } else {
             console.log(`Joining existing room: ${roomName} with ${Object.keys(games[roomName].players).length} players`);
@@ -296,6 +350,7 @@ io.on('connection', (socket) => {
                         console.log(`No connected players found, resetting turn order`);
                         games[room].turnOrderSet = false;
                         games[room].currentTurn = 0;
+                        games[room].turnCounter = 1; // Reset turn counter
                     }
                 }
             }
@@ -329,6 +384,11 @@ io.on('connection', (socket) => {
     socket.on('pickTurnOrder', () => {
         console.log('Received pickTurnOrder event from player:', playerId, 'in room:', room);
         if (room && games[room]) {
+            // Initialize turn counter if it doesn't exist (for existing games)
+            if (games[room].turnCounter === undefined) {
+                games[room].turnCounter = 1;
+            }
+            
             // Get all player IDs and shuffle them
             const playerIds = Object.keys(games[room].players);
             console.log('Players in room:', playerIds);
@@ -343,8 +403,9 @@ io.on('connection', (socket) => {
             games[room].turnOrder = shuffledOrder;
             games[room].currentTurn = 0;
             games[room].turnOrderSet = true;
+            games[room].turnCounter = 1; // Initialize turn counter
             
-            console.log('Set turn order:', shuffledOrder, 'current turn:', games[room].currentTurn);
+            console.log('Set turn order:', shuffledOrder, 'current turn:', games[room].currentTurn, 'turn counter:', games[room].turnCounter);
             
             io.to(room).emit('state', games[room]);
         }
@@ -353,6 +414,11 @@ io.on('connection', (socket) => {
     socket.on('endTurn', () => {
         console.log('Received endTurn event from player:', playerId, 'in room:', room);
         if (room && games[room] && games[room].turnOrderSet) {
+            // Initialize turn counter if it doesn't exist (for existing games)
+            if (games[room].turnCounter === undefined) {
+                games[room].turnCounter = 1;
+            }
+            
             // Check if it's actually this player's turn
             const currentTurnPlayer = games[room].turnOrder[games[room].currentTurn];
             if (currentTurnPlayer !== playerId) {
@@ -361,8 +427,39 @@ io.on('connection', (socket) => {
             }
             
             // Move to next player's turn
-            games[room].currentTurn = (games[room].currentTurn + 1) % games[room].turnOrder.length;
-            console.log('Turn ended, new current turn:', games[room].currentTurn, 'player:', games[room].turnOrder[games[room].currentTurn]);
+            let nextTurnIndex = (games[room].currentTurn + 1) % games[room].turnOrder.length;
+            
+            // If we're going back to the first player, increment the turn counter
+            if (nextTurnIndex === 0 && games[room].currentTurn !== 0) {
+                games[room].turnCounter = (games[room].turnCounter || 1) + 1;
+                console.log('Completed a full round, incrementing turn counter to:', games[room].turnCounter);
+            }
+            
+            // Skip disconnected players
+            let attempts = 0;
+            while (attempts < games[room].turnOrder.length && !games[room].players[games[room].turnOrder[nextTurnIndex]]) {
+                console.log(`Skipping disconnected player ${games[room].turnOrder[nextTurnIndex]} at index ${nextTurnIndex}`);
+                nextTurnIndex = (nextTurnIndex + 1) % games[room].turnOrder.length;
+                
+                // Check if we completed another full round while skipping
+                if (nextTurnIndex === 0 && attempts > 0) {
+                    games[room].turnCounter = (games[room].turnCounter || 1) + 1;
+                    console.log('Completed another full round while skipping disconnected players, turn counter:', games[room].turnCounter);
+                }
+                
+                attempts++;
+            }
+            
+            if (attempts < games[room].turnOrder.length) {
+                games[room].currentTurn = nextTurnIndex;
+                console.log('Turn ended, new current turn:', games[room].currentTurn, 'player:', games[room].turnOrder[games[room].currentTurn], 'turn counter:', games[room].turnCounter);
+            } else {
+                console.log('No connected players found, resetting turn order');
+                games[room].turnOrderSet = false;
+                games[room].currentTurn = 0;
+                games[room].turnCounter = 1;
+            }
+            
             io.to(room).emit('state', games[room]);
         }
     });
