@@ -175,8 +175,16 @@ let hoveredCardElement = null;
 
 // Global functions for cardFactory.js to set/clear hovered card
 window.setHoveredCard = function(card, cardEl) {
-    hoveredCard = card;
-    hoveredCardElement = cardEl;
+    // Only allow hovering for cards that belong to the current player
+    // Check if we're viewing our own zones or if this is our card
+    if (currentlyViewedPlayerId === playerId || activePlayZonePlayerId === playerId) {
+        hoveredCard = card;
+        hoveredCardElement = cardEl;
+    } else {
+        // Don't set hover state for other players' cards
+        hoveredCard = null;
+        hoveredCardElement = null;
+    }
 };
 
 window.clearHoveredCard = function() {
@@ -2847,14 +2855,21 @@ document.addEventListener('keydown', (e) => {
     let targetCardElements = [];
     
     if (selectedCards.length > 0) {
-        // Use selected cards
-        targetCards = selectedCards.map(cardEl => {
-            const cardId = cardEl.dataset.id;
-            return findCardObjectById(cardId);
-        }).filter(card => card !== null);
-        targetCardElements = selectedCards;
+        // Filter selected cards to only include cards that belong to the current player
+        const ownedSelectedCards = selectedCards.filter(cardEl => {
+            const cardParent = cardEl.closest('#hand-zone') || cardEl.closest(`#play-zone-${playerId}`);
+            return cardParent !== null;
+        });
+        
+        if (ownedSelectedCards.length > 0) {
+            targetCards = ownedSelectedCards.map(cardEl => {
+                const cardId = cardEl.dataset.id;
+                return findCardObjectById(cardId);
+            }).filter(card => card !== null);
+            targetCardElements = ownedSelectedCards;
+        }
     } else if (hoveredCard && hoveredCardElement) {
-        // Use hovered card
+        // Use hovered card (already filtered by setHoveredCard)
         targetCards = [hoveredCard];
         targetCardElements = [hoveredCardElement];
     }
