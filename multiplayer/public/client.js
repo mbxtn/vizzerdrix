@@ -822,8 +822,17 @@ socket.on('selectionUpdate', (data) => {
     if (data.playerSelections) {
         allPlayerSelections = data.playerSelections;
         updatePlayerColors();
-        // Re-render cards to show updated selection labels
-        debouncedRender();
+        // Only re-render if the selection update is from another player
+        // If it's our own selection, we already have the correct state
+        const ourSelection = data.playerSelections[playerId];
+        const ourCurrentSelection = selectedCardIds.sort().join(',');
+        const receivedSelection = (ourSelection || []).sort().join(',');
+        
+        // Only render if the received selection doesn't match our current selection
+        // This prevents losing selection state when our own selection update comes back from server
+        if (receivedSelection !== ourCurrentSelection) {
+            debouncedRender();
+        }
     }
 });
 
@@ -2609,23 +2618,39 @@ function handleCardClick(e, card, cardEl, location) {
     const isSelected = selectedCardIds.includes(cardId);
     
     if (!e.ctrlKey && !e.metaKey) {
-        selectedCards.forEach(c => c.classList.remove('selected-card'));
-        selectedCards = [];
-        selectedCardIds = [];
-    }
-    
-    if (isSelected) {
-        selectedCardIds = selectedCardIds.filter(id => id !== cardId);
-        const index = selectedCards.indexOf(cardEl);
-        if (index > -1) selectedCards.splice(index, 1);
-        cardEl.classList.remove('selected-card');
-    } else {
-        // Only add if not already in the array (prevent duplicates)
-        if (!selectedCardIds.includes(cardId)) {
+        // For single clicks without modifiers, if the card is already selected (and it's the only selected card),
+        // deselect it. Otherwise, clear all selections and select only this card.
+        if (isSelected && selectedCardIds.length === 1) {
+            // Deselect the single selected card
+            selectedCards.forEach(c => c.classList.remove('selected-card'));
+            selectedCards = [];
+            selectedCardIds = [];
+        } else {
+            // Clear all selections and select only this card
+            selectedCards.forEach(c => c.classList.remove('selected-card'));
+            selectedCards = [];
+            selectedCardIds = [];
+            
+            // Add this card to selection
             selectedCardIds.push(cardId);
             selectedCards.push(cardEl);
+            cardEl.classList.add('selected-card');
         }
-        cardEl.classList.add('selected-card');
+    } else {
+        // With modifier keys, toggle the selection of this specific card
+        if (isSelected) {
+            selectedCardIds = selectedCardIds.filter(id => id !== cardId);
+            const index = selectedCards.indexOf(cardEl);
+            if (index > -1) selectedCards.splice(index, 1);
+            cardEl.classList.remove('selected-card');
+        } else {
+            // Only add if not already in the array (prevent duplicates)
+            if (!selectedCardIds.includes(cardId)) {
+                selectedCardIds.push(cardId);
+                selectedCards.push(cardEl);
+            }
+            cardEl.classList.add('selected-card');
+        }
     }
     
     // Send selection update to server
