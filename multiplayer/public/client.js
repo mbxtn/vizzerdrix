@@ -48,12 +48,15 @@ let gameState = null;
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
+let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
 
 // UI Elements
 const magnifyToggleBtn = document.getElementById('magnify-toggle-btn');
 const magnifyStatusEl = document.getElementById('magnify-status');
+const autoFocusToggleBtn = document.getElementById('auto-focus-toggle-btn');
+const autoFocusStatusEl = document.getElementById('auto-focus-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -391,6 +394,16 @@ socket.on('state', async (state) => {
         gameState.turnOrderSet !== state.turnOrderSet ||
         gameState.turnCounter !== state.turnCounter ||
         JSON.stringify(gameState.turnOrder) !== JSON.stringify(state.turnOrder);
+    
+    // Handle auto-focus on turn change
+    const currentTurnChanged = gameState && gameState.currentTurn !== state.currentTurn;
+    if (currentTurnChanged && isAutoFocusEnabled && state.turnOrderSet && state.turnOrder && state.currentTurn !== undefined) {
+        const newCurrentTurnPlayerId = state.turnOrder[state.currentTurn];
+        if (newCurrentTurnPlayerId && state.players[newCurrentTurnPlayerId]) {
+            console.log('Turn changed - auto-focusing on player:', newCurrentTurnPlayerId);
+            activePlayZonePlayerId = newCurrentTurnPlayerId;
+        }
+    }
     
     console.log('Received state update:', {
         turnOrderSet: state.turnOrderSet,
@@ -772,6 +785,18 @@ function updateMagnifyStatusUI() {
     }
 }
 
+function updateAutoFocusStatusUI() {
+    if (isAutoFocusEnabled) {
+        autoFocusStatusEl.textContent = 'On';
+        autoFocusStatusEl.classList.remove('bg-red-600');
+        autoFocusStatusEl.classList.add('bg-green-600');
+    } else {
+        autoFocusStatusEl.textContent = 'Off';
+        autoFocusStatusEl.classList.remove('bg-green-600');
+        autoFocusStatusEl.classList.add('bg-red-600');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -795,6 +820,11 @@ magnifyToggleBtn.addEventListener('click', () => {
     isMagnifyEnabled = !isMagnifyEnabled;
     updateMagnifyStatusUI();
     applyMagnifyEffectToAllCards();
+});
+
+autoFocusToggleBtn.addEventListener('click', () => {
+    isAutoFocusEnabled = !isAutoFocusEnabled;
+    updateAutoFocusStatusUI();
 });
 
 // Magnify size slider event listeners
@@ -2192,6 +2222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Initial cache stats:', cacheStats);
     
     updateMagnifyStatusUI(); // Set initial status
+    updateAutoFocusStatusUI(); // Set initial auto-focus status
     initializeCardZones(); // Initialize the card zones
     
     // Initialize magnify size slider and global variable
