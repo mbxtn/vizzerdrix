@@ -120,12 +120,23 @@ function createDeck(cardNames, isCommander = false) {
     // Create card objects with unique IDs
     let counter = 0;
     const timestamp = Date.now();
-    return cardNames.map(name => ({
+    const cards = cardNames.map(name => ({
         id: `card-${timestamp}-${counter++}-${Math.floor(Math.random() * 10000)}`,
         name,
         displayName: name,
         ...(isCommander && { isCommander: true }) // Add isCommander flag if this is a commander card
     }));
+    
+    // Shuffle the deck if it's not a commander deck (commanders should stay in order)
+    if (!isCommander && cards.length > 0) {
+        // Fisher-Yates shuffle
+        for (let i = cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cards[i], cards[j]] = [cards[j], cards[i]];
+        }
+    }
+    
+    return cards;
 }
 
 function initializePlayer(game, playerId, displayName) {

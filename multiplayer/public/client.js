@@ -802,6 +802,16 @@ resetBtnModal.addEventListener('click', () => {
         commanderCards.push(card);
     });
     command.length = 0; // Clear command zone
+    
+    // Process cards from library (these should be non-commanders, but check anyway)
+    library.forEach(card => {
+        if (card.isCommander) {
+            commanderCards.push(card);
+        } else {
+            allNonCommanderCards.push(card);
+        }
+    });
+    library.length = 0; // Clear library
 
     // Shuffle all non-commander cards
     shuffleArray(allNonCommanderCards);
@@ -814,6 +824,20 @@ resetBtnModal.addEventListener('click', () => {
 
     // Reset cascadedHandCardsInAreaCount as all cards are now in library or command zone
     cascadedHandCardsInAreaCount = 0;
+
+    // Update CardZone instances immediately with the new data
+    if (libraryZone) {
+        libraryZone.updateCards([...library]); // Pass a copy to ensure change detection works
+    }
+    if (commandZone) {
+        commandZone.updateCards([...command]); // Pass a copy to ensure change detection works
+    }
+    if (graveyardZone) {
+        graveyardZone.updateCards([]); // Clear graveyard
+    }
+    if (exileZone) {
+        exileZone.updateCards([]); // Clear exile
+    }
 
     // Send the updated state to the server
     sendMove();
