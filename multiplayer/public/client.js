@@ -50,6 +50,7 @@ let currentlyViewedPlayerId = null; // Track which player's zones we're currentl
 let isMagnifyEnabled = false; // New state variable for magnify on hover
 let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
+let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 
 // Load persistent settings from localStorage
@@ -61,6 +62,7 @@ function loadPersistentSettings() {
             isMagnifyEnabled = settings.isMagnifyEnabled ?? false;
             isAutoFocusEnabled = settings.isAutoFocusEnabled ?? true;
             isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
+            isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             console.log('Loaded persistent settings:', settings);
         }
@@ -76,6 +78,7 @@ function savePersistentSettings() {
             isMagnifyEnabled,
             isAutoFocusEnabled,
             isGhostModeEnabled,
+            isReverseGhostModeEnabled,
             magnifyPreviewWidth
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
@@ -93,6 +96,8 @@ const autoFocusToggleBtn = document.getElementById('auto-focus-toggle-btn');
 const autoFocusStatusEl = document.getElementById('auto-focus-status');
 const ghostModeToggleBtn = document.getElementById('ghost-mode-toggle-btn');
 const ghostModeStatusEl = document.getElementById('ghost-mode-status');
+const reverseGhostModeToggleBtn = document.getElementById('reverse-ghost-mode-toggle-btn');
+const reverseGhostModeStatusEl = document.getElementById('reverse-ghost-mode-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -857,6 +862,22 @@ function updateGhostModeStatusUI() {
     }
 }
 
+function updateReverseGhostModeStatusUI() {
+    if (isReverseGhostModeEnabled) {
+        reverseGhostModeStatusEl.textContent = 'On';
+        reverseGhostModeStatusEl.classList.remove('bg-red-600');
+        reverseGhostModeStatusEl.classList.add('bg-green-600');
+        reverseGhostModeToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        reverseGhostModeToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        reverseGhostModeStatusEl.textContent = 'Off';
+        reverseGhostModeStatusEl.classList.remove('bg-green-600');
+        reverseGhostModeStatusEl.classList.add('bg-red-600');
+        reverseGhostModeToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        reverseGhostModeToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -893,6 +914,14 @@ ghostModeToggleBtn.addEventListener('click', () => {
     isGhostModeEnabled = !isGhostModeEnabled;
     updateGhostModeStatusUI();
     // Re-render to apply ghost mode changes
+    debouncedRender();
+    savePersistentSettings(); // Save settings when changed
+});
+
+reverseGhostModeToggleBtn.addEventListener('click', () => {
+    isReverseGhostModeEnabled = !isReverseGhostModeEnabled;
+    updateReverseGhostModeStatusUI();
+    // Re-render to apply reverse ghost mode changes
     debouncedRender();
     savePersistentSettings(); // Save settings when changed
 });
@@ -1650,6 +1679,72 @@ async function render() {
                 playerZoneEl.appendChild(ghostCardEl);
             });
         }
+        
+        // Add reverse ghost cards if reverse ghost mode is enabled and we're viewing our own battlefield
+        if (isReverseGhostModeEnabled && pid === playerId && pid === activePlayZonePlayerId) {
+            // Show ghost cards of the current turn player (if different from us)
+            if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
+                const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
+                if (currentTurnPlayerId && currentTurnPlayerId !== playerId && gameState.playZones[currentTurnPlayerId]) {
+                    const activePlayerZoneData = gameState.playZones[currentTurnPlayerId] || [];
+                    activePlayerZoneData.forEach(cardData => {
+                        const reverseGhostCardEl = createCardElement(cardData, 'play', {
+                            isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for reverse ghost cards
+                            isInteractable: false, // Reverse ghost cards are not interactable
+                            onCardClick: null,
+                            onCardDblClick: null,
+                            onCardDragStart: null,
+                            onCounterClick: null,
+                            showBack: cardData.faceShown === 'back',
+                            isReverseGhost: true // Special flag to indicate this is a reverse ghost card
+                        });
+                        
+                        // Style reverse ghost cards with reduced opacity and different border (orange theme)
+                        reverseGhostCardEl.style.position = 'absolute';
+                        reverseGhostCardEl.style.left = `${cardData.x}px`;
+                        reverseGhostCardEl.style.top = `${cardData.y}px`;
+                        reverseGhostCardEl.style.transform = `rotate(${cardData.rotation || 0}deg)`;
+                        reverseGhostCardEl.style.opacity = '0.3';
+                        reverseGhostCardEl.style.border = '2px dashed #f59e0b'; // Orange dashed border for active player's cards
+                        reverseGhostCardEl.style.borderRadius = '8px';
+                        reverseGhostCardEl.style.filter = 'brightness(0.6) saturate(0.4) hue-rotate(30deg)';
+                        reverseGhostCardEl.style.cursor = 'default'; // Change cursor to indicate non-interactable
+                        reverseGhostCardEl.style.zIndex = '2'; // Put reverse ghost cards between normal ghosts and regular cards
+                        
+                        // Add a subtle orange glow effect
+                        reverseGhostCardEl.style.boxShadow = '0 0 8px rgba(245, 158, 11, 0.4)';
+                        
+                        // Prevent drag and drop events but allow hover events for magnify
+                        reverseGhostCardEl.addEventListener('dragstart', (e) => e.preventDefault());
+                        reverseGhostCardEl.addEventListener('drop', (e) => e.preventDefault());
+                        reverseGhostCardEl.addEventListener('dragover', (e) => e.preventDefault());
+                        
+                        // Add a small indicator that this is the active player's card
+                        const reverseGhostIndicator = document.createElement('div');
+                        reverseGhostIndicator.style.position = 'absolute';
+                        reverseGhostIndicator.style.top = '-8px';
+                        reverseGhostIndicator.style.right = '-8px';
+                        reverseGhostIndicator.style.width = '16px';
+                        reverseGhostIndicator.style.height = '16px';
+                        reverseGhostIndicator.style.backgroundColor = '#f59e0b';
+                        reverseGhostIndicator.style.borderRadius = '50%';
+                        reverseGhostIndicator.style.border = '2px solid #fff';
+                        reverseGhostIndicator.style.fontSize = '10px';
+                        reverseGhostIndicator.style.color = 'white';
+                        reverseGhostIndicator.style.display = 'flex';
+                        reverseGhostIndicator.style.alignItems = 'center';
+                        reverseGhostIndicator.style.justifyContent = 'center';
+                        reverseGhostIndicator.style.fontWeight = 'bold';
+                        reverseGhostIndicator.style.pointerEvents = 'none'; // Indicator shouldn't interfere with hover
+                        reverseGhostIndicator.textContent = '⚡'; // Lightning icon to indicate active player's card
+                        reverseGhostIndicator.title = `${gameState.players[currentTurnPlayerId]?.displayName || 'Active player'}'s card (reverse ghost view)`;
+                        
+                        reverseGhostCardEl.appendChild(reverseGhostIndicator);
+                        playerZoneEl.appendChild(reverseGhostCardEl);
+                    });
+                }
+            }
+        }
         playZonesContainer.appendChild(playerZoneEl);
 
         // Create player tab
@@ -2359,6 +2454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateMagnifyStatusUI(); // Set initial status
     updateAutoFocusStatusUI(); // Set initial auto-focus status
     updateGhostModeStatusUI(); // Set initial ghost mode status
+    updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     initializeCardZones(); // Initialize the card zones
     
     // Initialize magnify size slider and global variable with loaded settings
