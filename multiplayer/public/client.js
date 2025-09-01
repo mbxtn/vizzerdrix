@@ -1122,10 +1122,6 @@ pickTurnOrderBtn.addEventListener('click', () => {
     optionsModal.classList.add('hidden'); // Close options modal
 });
 
-endTurnBtn.addEventListener('click', () => {
-    socket.emit('endTurn');
-});
-
 function handleCardMove(cardId, sourceZone, targetZone) {
     // Find the card in the source zone
     let cardObj = null;

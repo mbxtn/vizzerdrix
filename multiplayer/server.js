@@ -36,11 +36,13 @@ setInterval(() => {
                 
                 let nextTurnIndex = (gameState.currentTurn + 1) % gameState.turnOrder.length;
                 let attempts = 0;
+                let turnCounterIncremented = false;
                 
-                // If we're going back to the first player, increment turn counter
-                if (nextTurnIndex === 0 && gameState.currentTurn !== 0) {
+                // If we're going back to the first player OR if there's only one player, increment turn counter
+                if (nextTurnIndex === 0 && (gameState.currentTurn !== 0 || gameState.turnOrder.length === 1)) {
                     gameState.turnCounter = (gameState.turnCounter || 1) + 1;
-                    console.log('Completed a full round while auto-skipping, turn counter:', gameState.turnCounter);
+                    turnCounterIncremented = true;
+                    console.log('Completed a turn while auto-skipping, turn counter:', gameState.turnCounter);
                 }
                 
                 // Find next connected player
@@ -48,10 +50,11 @@ setInterval(() => {
                     console.log(`Auto-skipping disconnected player ${gameState.turnOrder[nextTurnIndex]} at index ${nextTurnIndex}`);
                     nextTurnIndex = (nextTurnIndex + 1) % gameState.turnOrder.length;
                     
-                    // Check if we completed another full round while skipping
-                    if (nextTurnIndex === 0 && attempts > 0) {
+                    // Check if we completed another turn while skipping (but only if we haven't already incremented)
+                    if (nextTurnIndex === 0 && attempts > 0 && !turnCounterIncremented) {
                         gameState.turnCounter = (gameState.turnCounter || 1) + 1;
-                        console.log('Completed another full round while auto-skipping, turn counter:', gameState.turnCounter);
+                        turnCounterIncremented = true;
+                        console.log('Completed another turn while auto-skipping, turn counter:', gameState.turnCounter);
                     }
                     
                     attempts++;
@@ -428,11 +431,13 @@ io.on('connection', (socket) => {
             
             // Move to next player's turn
             let nextTurnIndex = (games[room].currentTurn + 1) % games[room].turnOrder.length;
+            let turnCounterIncremented = false;
             
-            // If we're going back to the first player, increment the turn counter
-            if (nextTurnIndex === 0 && games[room].currentTurn !== 0) {
+            // If we're going back to the first player OR if there's only one player, increment the turn counter
+            if (nextTurnIndex === 0 && (games[room].currentTurn !== 0 || games[room].turnOrder.length === 1)) {
                 games[room].turnCounter = (games[room].turnCounter || 1) + 1;
-                console.log('Completed a full round, incrementing turn counter to:', games[room].turnCounter);
+                turnCounterIncremented = true;
+                console.log('Completed a turn, incrementing turn counter to:', games[room].turnCounter);
             }
             
             // Skip disconnected players
@@ -441,10 +446,11 @@ io.on('connection', (socket) => {
                 console.log(`Skipping disconnected player ${games[room].turnOrder[nextTurnIndex]} at index ${nextTurnIndex}`);
                 nextTurnIndex = (nextTurnIndex + 1) % games[room].turnOrder.length;
                 
-                // Check if we completed another full round while skipping
-                if (nextTurnIndex === 0 && attempts > 0) {
+                // Check if we completed another turn while skipping (but only if we haven't already incremented)
+                if (nextTurnIndex === 0 && attempts > 0 && !turnCounterIncremented) {
                     games[room].turnCounter = (games[room].turnCounter || 1) + 1;
-                    console.log('Completed another full round while skipping disconnected players, turn counter:', games[room].turnCounter);
+                    turnCounterIncremented = true;
+                    console.log('Completed another turn while skipping disconnected players, turn counter:', games[room].turnCounter);
                 }
                 
                 attempts++;
