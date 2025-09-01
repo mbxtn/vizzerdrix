@@ -51,6 +51,39 @@ let isMagnifyEnabled = false; // New state variable for magnify on hover
 let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
+
+// Load persistent settings from localStorage
+function loadPersistentSettings() {
+    try {
+        const savedSettings = localStorage.getItem('vizzerdrix-settings');
+        if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            isMagnifyEnabled = settings.isMagnifyEnabled ?? false;
+            isAutoFocusEnabled = settings.isAutoFocusEnabled ?? true;
+            isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
+            magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
+            console.log('Loaded persistent settings:', settings);
+        }
+    } catch (error) {
+        console.error('Error loading persistent settings:', error);
+    }
+}
+
+// Save persistent settings to localStorage
+function savePersistentSettings() {
+    try {
+        const settings = {
+            isMagnifyEnabled,
+            isAutoFocusEnabled,
+            isGhostModeEnabled,
+            magnifyPreviewWidth
+        };
+        localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
+        console.log('Saved persistent settings:', settings);
+    } catch (error) {
+        console.error('Error saving persistent settings:', error);
+    }
+}
 let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
 
 // UI Elements
@@ -847,11 +880,13 @@ magnifyToggleBtn.addEventListener('click', () => {
     isMagnifyEnabled = !isMagnifyEnabled;
     updateMagnifyStatusUI();
     applyMagnifyEffectToAllCards();
+    savePersistentSettings(); // Save settings when changed
 });
 
 autoFocusToggleBtn.addEventListener('click', () => {
     isAutoFocusEnabled = !isAutoFocusEnabled;
     updateAutoFocusStatusUI();
+    savePersistentSettings(); // Save settings when changed
 });
 
 ghostModeToggleBtn.addEventListener('click', () => {
@@ -859,6 +894,7 @@ ghostModeToggleBtn.addEventListener('click', () => {
     updateGhostModeStatusUI();
     // Re-render to apply ghost mode changes
     debouncedRender();
+    savePersistentSettings(); // Save settings when changed
 });
 
 // Magnify size slider event listeners
@@ -875,6 +911,7 @@ magnifySizeSlider.addEventListener('change', (e) => {
         width: magnifyPreviewWidth,
         height: magnifyPreviewHeight
     };
+    savePersistentSettings(); // Save settings when magnify size changes
 });
 
 function showMessage(message) {
@@ -2311,6 +2348,9 @@ function updateCounts() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Load persistent settings first
+    loadPersistentSettings();
+    
     // Initialize Scryfall cache from localStorage
     console.log('Initializing Scryfall cache...');
     const cacheStats = ScryfallCache.getCacheStats();
@@ -2321,7 +2361,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGhostModeStatusUI(); // Set initial ghost mode status
     initializeCardZones(); // Initialize the card zones
     
-    // Initialize magnify size slider and global variable
+    // Initialize magnify size slider and global variable with loaded settings
+    magnifySizeSlider.value = magnifyPreviewWidth; // Set slider to saved value
     window.magnifyPreviewSize = {
         width: magnifyPreviewWidth,
         height: magnifyPreviewHeight
