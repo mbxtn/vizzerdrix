@@ -227,8 +227,16 @@ export class CardZone {
                 const activePlayZone = targetZone.element.querySelector('.play-zone:not([style*="display: none"])');
                 if (activePlayZone) {
                     const zoneRect = activePlayZone.getBoundingClientRect();
-                    const x = e.clientX - zoneRect.left - (this.currentCardWidth / 2);
-                    const y = e.clientY - zoneRect.top - ((this.currentCardWidth * 120/90) / 2);
+                    let x = e.clientX - zoneRect.left - (this.currentCardWidth / 2);
+                    let y = e.clientY - zoneRect.top - ((this.currentCardWidth * 120/90) / 2);
+                    
+                    // Apply snap to grid if enabled (check global setting)
+                    if (window.isSnapToGridEnabled && window.snapToGrid) {
+                        const snappedPos = window.snapToGrid(x, y);
+                        x = snappedPos.x;
+                        y = snappedPos.y;
+                    }
+                    
                     cardObj.x = x;
                     cardObj.y = y;
                     this.onCardDraw?.(cardObj, 'play', { x, y });

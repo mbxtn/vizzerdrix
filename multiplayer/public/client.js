@@ -52,6 +52,7 @@ let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
 let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
 let isAutoUntapEnabled = false; // Auto untap all cards when your turn begins (disabled by default)
+let isSnapToGridEnabled = false; // Snap to grid for card movement in play zone (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 
 // Load persistent settings from localStorage
@@ -65,6 +66,7 @@ function loadPersistentSettings() {
             isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
             isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
             isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
+            isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             console.log('Loaded persistent settings:', settings);
         }
@@ -82,6 +84,7 @@ function savePersistentSettings() {
             isGhostModeEnabled,
             isReverseGhostModeEnabled,
             isAutoUntapEnabled,
+            isSnapToGridEnabled,
             magnifyPreviewWidth
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
@@ -103,6 +106,8 @@ const reverseGhostModeToggleBtn = document.getElementById('reverse-ghost-mode-to
 const reverseGhostModeStatusEl = document.getElementById('reverse-ghost-mode-status');
 const autoUntapToggleBtn = document.getElementById('auto-untap-toggle-btn');
 const autoUntapStatusEl = document.getElementById('auto-untap-status');
+const snapToGridToggleBtn = document.getElementById('snap-to-grid-toggle-btn');
+const snapToGridStatusEl = document.getElementById('snap-to-grid-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -174,9 +179,53 @@ window.clearHoveredCard = function() {
     hoveredCardElement = null;
 };
 
+// Global functions for snap-to-grid functionality
+window.snapToGrid = snapToGrid;
+window.isSnapToGridEnabled = false; // Will be updated when settings load
+
 let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
+
+// Snap to grid configuration
+const GRID_SIZE_BASE = 20; // Base grid spacing in pixels for 80px card width
+
+// Utility function to snap coordinates to grid (scales with card width)
+function snapToGrid(x, y) {
+    if (!isSnapToGridEnabled) {
+        return { x, y };
+    }
+    // Scale grid size based on current card width (80px is the base size)
+    const scaledGridSize = Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
+    return {
+        x: Math.round(x / scaledGridSize) * scaledGridSize,
+        y: Math.round(y / scaledGridSize) * scaledGridSize
+    };
+}
+
+// Function to get the current scaled grid size for CSS updates
+function getScaledGridSize() {
+    return Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
+}
+
+// Function to update grid visual size
+function updateGridVisuals() {
+    const gridSize = getScaledGridSize();
+    const majorGridSize = gridSize * 5; // Major grid lines every 5 grid units
+    
+    // Update CSS custom properties for grid size
+    document.documentElement.style.setProperty('--grid-size', `${gridSize}px`);
+    document.documentElement.style.setProperty('--major-grid-size', `${majorGridSize}px`);
+    
+    if (isSnapToGridEnabled) {
+        // Force update of existing play zones
+        document.querySelectorAll('.play-zone.snap-grid-enabled').forEach(playZone => {
+            playZone.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+            // Update the ::before pseudo-element by forcing a style recalculation
+            playZone.offsetHeight; // Trigger reflow
+        });
+    }
+}
 
 // Context menu state
 let cardContextMenu = null;
@@ -955,6 +1004,22 @@ function updateAutoUntapStatusUI() {
     }
 }
 
+function updateSnapToGridStatusUI() {
+    if (isSnapToGridEnabled) {
+        snapToGridStatusEl.textContent = 'On';
+        snapToGridStatusEl.classList.remove('bg-red-600');
+        snapToGridStatusEl.classList.add('bg-green-600');
+        snapToGridToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        snapToGridToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        snapToGridStatusEl.textContent = 'Off';
+        snapToGridStatusEl.classList.remove('bg-green-600');
+        snapToGridStatusEl.classList.add('bg-red-600');
+        snapToGridToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        snapToGridToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -1006,6 +1071,26 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
 autoUntapToggleBtn.addEventListener('click', () => {
     isAutoUntapEnabled = !isAutoUntapEnabled;
     updateAutoUntapStatusUI();
+    savePersistentSettings(); // Save settings when changed
+});
+
+snapToGridToggleBtn.addEventListener('click', () => {
+    isSnapToGridEnabled = !isSnapToGridEnabled;
+    window.isSnapToGridEnabled = isSnapToGridEnabled; // Update global reference
+    updateSnapToGridStatusUI();
+    
+    // Update existing play zones with grid class
+    document.querySelectorAll('.play-zone').forEach(playZone => {
+        if (isSnapToGridEnabled) {
+            playZone.classList.add('snap-grid-enabled');
+        } else {
+            playZone.classList.remove('snap-grid-enabled');
+        }
+    });
+    
+    // Update grid visuals with current card size
+    updateGridVisuals();
+    
     savePersistentSettings(); // Save settings when changed
 });
 
@@ -1679,6 +1764,12 @@ async function render() {
         const playerZoneEl = document.createElement('div');
         playerZoneEl.id = `play-zone-${pid}`;
         playerZoneEl.className = 'play-zone w-full h-full relative';
+        if (isSnapToGridEnabled) {
+            playerZoneEl.classList.add('snap-grid-enabled');
+            // Apply current grid size to this new play zone
+            const gridSize = getScaledGridSize();
+            playerZoneEl.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+        }
         if (pid !== activePlayZonePlayerId) {
             playerZoneEl.style.display = 'none';
         }
@@ -1995,8 +2086,13 @@ function addDropListeners() {
                     const cascadeOffset = 15;
                     groupData.cardIds.forEach((cardId, index) => {
                         const rect = zone.getBoundingClientRect();
-                        const x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
-                        const y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2) + (index * cascadeOffset);
+                        let x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
+                        let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2) + (index * cascadeOffset);
+                        
+                        // Apply snap to grid if enabled
+                        const snappedPos = snapToGrid(x, y);
+                        x = snappedPos.x;
+                        y = snappedPos.y;
                         
                         let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || command.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
@@ -2070,8 +2166,13 @@ function addDropListeners() {
                 // For play zone drops, we need to handle positioning manually
                 if (zone.id.startsWith('play-zone')) {
                     const rect = zone.getBoundingClientRect();
-                    const x = e.clientX - rect.left - (currentCardWidth / 2);
-                    const y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
+                    let x = e.clientX - rect.left - (currentCardWidth / 2);
+                    let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
+                    
+                    // Apply snap to grid if enabled
+                    const snappedPos = snapToGrid(x, y);
+                    x = snappedPos.x;
+                    y = snappedPos.y;
                     
                     removeCardFromSource(cardId, sourceZone);
                     
@@ -2244,13 +2345,16 @@ function generateCardId() {
 
 // Create a temporary placeholder card
 async function createPlaceholderCard(text) {
+    // Apply snap to grid for default position if enabled
+    const defaultPos = snapToGrid(50, 50);
+    
     const placeholderCard = {
         id: generateCardId(),
         name: text,
         displayName: text,
         isPlaceholder: true, // Mark this as a placeholder card
-        x: 50, // Default position
-        y: 50,
+        x: defaultPos.x, // Use snapped position
+        y: defaultPos.y,
         rotation: 0
     };
     
@@ -2304,6 +2408,15 @@ async function createCopiesOfTargetCards() {
         const originalCard = findCardObjectById(cardId);
         
         if (originalCard) {
+            // Calculate initial position with cascade offset
+            let x = (originalCard.x || 50) + cascadeOffset + (index * 10);
+            let y = (originalCard.y || 50) + cascadeOffset + (index * 10);
+            
+            // Apply snap to grid if enabled
+            const snappedPos = snapToGrid(x, y);
+            x = snappedPos.x;
+            y = snappedPos.y;
+            
             // Create a copy with the same visual properties but marked as a copy
             const copyCard = {
                 id: generateCardId(),
@@ -2312,8 +2425,8 @@ async function createCopiesOfTargetCards() {
                 isPlaceholder: true, // Mark as placeholder so it disappears when moved out of play
                 isCopy: true, // Mark as a copy
                 faceShown: originalCard.faceShown || 'front', // Preserve which face is shown
-                x: (originalCard.x || 50) + cascadeOffset + (index * 10), // Offset position slightly
-                y: (originalCard.y || 50) + cascadeOffset + (index * 10),
+                x: x, // Use snapped position
+                y: y, // Use snapped position
                 rotation: 0 // Copies start untapped
             };
             
@@ -2438,8 +2551,13 @@ function handleCardDoubleClick(e, card, location) {
             const maxCardsPerRow = 5;
             const row = Math.floor(cascadedHandCardsInAreaCount / maxCardsPerRow);
             const col = cascadedHandCardsInAreaCount % maxCardsPerRow;
-            const x = initialX + (col * cascadeOffset);
-            const y = initialY + (row * cascadeOffset);
+            let x = initialX + (col * cascadeOffset);
+            let y = initialY + (row * cascadeOffset);
+            
+            // Apply snap to grid if enabled
+            const snappedPos = snapToGrid(x, y);
+            x = snappedPos.x;
+            y = snappedPos.y;
             
             // Move the full card object to playZone, preserving its ID and properties
             const playCard = { ...cardObj, x, y, rotation: 0, fromHandCascade: true };
@@ -2556,6 +2674,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGhostModeStatusUI(); // Set initial ghost mode status
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
+    updateSnapToGridStatusUI(); // Set initial snap to grid status
+    
+    // Update global variables for other modules
+    window.isSnapToGridEnabled = isSnapToGridEnabled;
+    
+    // Initialize grid visuals with current card size
+    updateGridVisuals();
+    
     initializeCardZones(); // Initialize the card zones
     
     // Initialize magnify size slider and global variable with loaded settings
@@ -2794,6 +2920,9 @@ function updateCardSize() {
     if (commandZone) {
         commandZone.updateCardWidth(currentCardWidth);
     }
+    
+    // Update grid visuals to match new card size
+    updateGridVisuals();
     
     // Re-render to apply new size
     render();

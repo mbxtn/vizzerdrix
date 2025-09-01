@@ -1,5 +1,7 @@
 :root {
     --card-width: 80px;
+    --grid-size: 20px;
+    --major-grid-size: 100px;
 }
 
 body {
@@ -82,6 +84,31 @@ body {
     outline: 2px dashed #4299e1;
     outline-offset: -2px; /* Optional: to make outline appear inside the border-box */
     background-color: rgba(66, 153, 225, 0.1);
+}
+
+/* Snap to grid overlay */
+.play-zone.snap-grid-enabled {
+    background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+    background-position: 0 0;
+}
+
+.play-zone.snap-grid-enabled::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+    background-size: var(--major-grid-size) var(--major-grid-size);
+    background-position: 0 0;
+    pointer-events: none;
+    z-index: 0;
 }
 
 #graveyard-pile.touch-pop-active, #library.touch-pop-active {
