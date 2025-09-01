@@ -2551,7 +2551,9 @@ function handleCardDoubleClick(e, card, location) {
             const cardObj = hand.splice(cardIndex, 1)[0];
             console.log('Removed card from hand:', cardObj);
             
-            const cascadeOffset = 15;
+            // Calculate cascade offset - ensure it's at least as large as grid size to prevent overlap when snap-to-grid is enabled
+            const gridSize = isSnapToGridEnabled ? getScaledGridSize() : 15;
+            const cascadeOffset = Math.max(15, gridSize);
             const initialX = 10;
             const initialY = 10;
             const maxCardsPerRow = 5;
@@ -2882,7 +2884,9 @@ function autoUntapAllPlayerCards() {
 
 function updateCascadedHandCardsInAreaCount() {
     // Count cards that are still in their original cascade positions
-    const cascadeOffset = 15;
+    // Use the same cascade offset calculation as in the double-click handler
+    const gridSize = isSnapToGridEnabled ? getScaledGridSize() : 15;
+    const cascadeOffset = Math.max(15, gridSize);
     const initialX = 10;
     const initialY = 10;
     const maxCardsPerRow = 5;
@@ -2894,11 +2898,19 @@ function updateCascadedHandCardsInAreaCount() {
             // Calculate what the position should be for this cascade index
             const row = Math.floor(count / maxCardsPerRow);
             const col = count % maxCardsPerRow;
-            const expectedX = initialX + (col * cascadeOffset);
-            const expectedY = initialY + (row * cascadeOffset);
+            let expectedX = initialX + (col * cascadeOffset);
+            let expectedY = initialY + (row * cascadeOffset);
             
-            // Check if the card is still in its original cascade position
-            if (Math.abs(card.x - expectedX) < 5 && Math.abs(card.y - expectedY) < 5) {
+            // If snap to grid is enabled, snap the expected position to match what would be generated
+            if (isSnapToGridEnabled) {
+                const snappedExpected = snapToGrid(expectedX, expectedY);
+                expectedX = snappedExpected.x;
+                expectedY = snappedExpected.y;
+            }
+            
+            // Check if the card is still in its original cascade position (with tolerance for grid snapping)
+            const tolerance = isSnapToGridEnabled ? gridSize / 2 : 5;
+            if (Math.abs(card.x - expectedX) < tolerance && Math.abs(card.y - expectedY) < tolerance) {
                 count++;
             }
         }
