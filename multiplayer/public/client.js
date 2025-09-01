@@ -46,6 +46,7 @@ let room = null;
 let playerId = null;
 let gameState = null;
 let activePlayZonePlayerId = null;
+let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
 let magnifyPreviewWidth = 320; // Default magnify preview width
 let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
@@ -1328,6 +1329,7 @@ async function render() {
         
         // Other zones show data for the player whose play zone is currently being viewed
         const viewedPlayerId = activePlayZonePlayerId || playerId;
+        currentlyViewedPlayerId = viewedPlayerId; // Update the global tracking variable
         const serverLibrary = gameState.players[viewedPlayerId]?.library || [];
         const serverGraveyard = gameState.players[viewedPlayerId]?.graveyard || [];
         const serverExile = gameState.players[viewedPlayerId]?.exile || [];
@@ -1607,6 +1609,17 @@ function addDropListeners() {
             if (zone.id.startsWith('play-zone') && activePlayZonePlayerId !== playerId) {
                 return;
             }
+            
+            // For hand zone, don't show active state if we're viewing another player's zones
+            // (This provides visual feedback that the drop won't be allowed)
+            if (zone.id === 'hand-zone' && currentlyViewedPlayerId !== playerId) {
+                // Check if the drag types suggest this is from a card zone (rather than from play area)
+                const types = Array.from(e.dataTransfer.types);
+                if (types.includes('text/plain') && types.includes('sourceZone')) {
+                    return; // Don't show active state
+                }
+            }
+            
             zone.classList.add('zone-active');
         });
         zone.addEventListener('dragleave', (e) => {
@@ -1650,6 +1663,16 @@ function addDropListeners() {
                         playZone.push(cardCopy);
                     });
                 } else if (zone.id === 'hand-zone') {
+                    // Check if drag is coming from another player's zone by checking source zone type and current viewed player
+                    const sourceZone = groupData.sourceZone;
+                    const isViewingOtherPlayer = currentlyViewedPlayerId !== playerId;
+                    
+                    // Prevent moving cards from other players' zones to our hand
+                    if (isViewingOtherPlayer && (sourceZone === 'library' || sourceZone === 'graveyard' || sourceZone === 'exile' || sourceZone === 'command')) {
+                        console.log('Cannot move cards from another player\'s zone to your hand');
+                        return;
+                    }
+                    
                     groupData.cardIds.forEach(cardId => {
                         let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || command.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
@@ -1678,6 +1701,13 @@ function addDropListeners() {
             } else {
                 const cardId = e.dataTransfer.getData('text/plain');
                 const sourceZone = e.dataTransfer.getData('sourceZone');
+                const isViewingOtherPlayer = currentlyViewedPlayerId !== playerId;
+                
+                // Check if drag is coming from another player's zone and target is hand
+                if (zone.id === 'hand-zone' && isViewingOtherPlayer && (sourceZone === 'library' || sourceZone === 'graveyard' || sourceZone === 'exile' || sourceZone === 'command')) {
+                    console.log('Cannot move cards from another player\'s zone to your hand');
+                    return;
+                }
                 
                 // Handle cards from any source zone
                 let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || command.find(c => c.id === cardId) || library.find(c => c.id === cardId);

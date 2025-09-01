@@ -772,6 +772,7 @@ export class CardZone {
                     // Prevent drag when disabled
                     e.preventDefault();
                     e.stopPropagation();
+                    return false;
                 },
                 showBack: card.faceShown === 'back'
             });
@@ -782,6 +783,15 @@ export class CardZone {
             cardEl.style.height = 'auto';
             cardEl.style.flexShrink = '0';
             cardEl.draggable = this.interactionEnabled;
+            
+            // Explicitly prevent dragging if interactions are disabled
+            if (!this.interactionEnabled) {
+                cardEl.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                });
+            }
             
             // Add proper drag cursor handling (only if interactions are enabled)
             if (this.interactionEnabled) {
