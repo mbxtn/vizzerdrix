@@ -152,8 +152,12 @@
                             <button id="increase-life-btn" class="px-1.5 py-0.5 bg-green-600 hover:bg-green-700 rounded text-xs font-medium text-white">+</button>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button id="increase-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">+</button>
-                            <button id="decrease-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium">-</button>
+                            <button id="increase-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium flex items-center justify-center" title="Zoom In">
+                                <img src="zoom_in.svg" alt="Zoom In" class="w-4 h-4">
+                            </button>
+                            <button id="decrease-size-btn" class="px-1.5 py-0.5 bg-gray-600 hover:bg-gray-700 rounded text-xs font-medium flex items-center justify-center" title="Zoom Out">
+                                <img src="zoom_out.svg" alt="Zoom Out" class="w-4 h-4">
+                            </button>
                             <!-- Magnify Size Slider (only visible when magnify is enabled) -->
                             <div id="magnify-size-slider-container" class="hidden flex items-center gap-1 bg-gray-700 px-2 py-0.5 rounded border border-gray-600">
                                 <label for="magnify-size-slider" class="text-xs font-medium text-gray-300">Preview:</label>
