@@ -367,7 +367,7 @@ const ScryfallCache = {
     async testCardResolution() {
         console.log('Testing double-faced card and adventure card resolution...');
         const testCards = [
-            'Stump', 'Stomp', 'Stump // Stomp', // DFC test
+            'Stump', 'Stomp', 'Stump Stomp //  Burnwillow Clearing', // DFC test
             'Gumdrop Poisoner', 'Tempt with Treats', 'Gumdrop Poisoner // Tempt with Treats' // Adventure test
         ];
         
