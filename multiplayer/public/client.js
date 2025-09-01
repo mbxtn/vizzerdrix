@@ -774,12 +774,16 @@ function updateMagnifyStatusUI() {
         magnifyStatusEl.textContent = 'On';
         magnifyStatusEl.classList.remove('bg-red-600');
         magnifyStatusEl.classList.add('bg-green-600');
+        magnifyToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        magnifyToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
         // Show the magnify size slider
         magnifySizeSliderContainer.classList.remove('hidden');
     } else {
         magnifyStatusEl.textContent = 'Off';
         magnifyStatusEl.classList.remove('bg-green-600');
         magnifyStatusEl.classList.add('bg-red-600');
+        magnifyToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        magnifyToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
         // Hide the magnify size slider
         magnifySizeSliderContainer.classList.add('hidden');
     }
@@ -790,10 +794,14 @@ function updateAutoFocusStatusUI() {
         autoFocusStatusEl.textContent = 'On';
         autoFocusStatusEl.classList.remove('bg-red-600');
         autoFocusStatusEl.classList.add('bg-green-600');
+        autoFocusToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        autoFocusToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
     } else {
         autoFocusStatusEl.textContent = 'Off';
         autoFocusStatusEl.classList.remove('bg-green-600');
         autoFocusStatusEl.classList.add('bg-red-600');
+        autoFocusToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        autoFocusToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
     }
 }
 
