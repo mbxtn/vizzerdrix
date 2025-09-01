@@ -463,6 +463,7 @@ socket.on('connect', () => {
 // Handle successful join
 socket.on('joinSuccess', (data) => {
     console.log('Successfully joined game:', data);
+    room = data.roomName; // Store the room name
     showMessage(`Welcome to Vizzerdrix! Joined room: ${data.roomName}`);
 });
 
@@ -472,6 +473,9 @@ socket.on('rejoinSuccess', (data) => {
     
     // Set rejoin flag FIRST
     isRejoinState = true;
+    
+    // Store the room name
+    room = data.roomName;
     
     // Clear ALL existing client state to ensure we use server state completely
     lastClientAction = null;
@@ -1868,6 +1872,7 @@ async function render() {
 
     // Render play zones and tabs
     playZonesContainer.innerHTML = '';
+    
     playerTabsEl.innerHTML = '';
     
     // Determine player order - use turn order if set, otherwise just use Object.keys order
@@ -2048,6 +2053,11 @@ async function render() {
             }
         }
         playZonesContainer.appendChild(playerZoneEl);
+        
+        // Set room name as data attribute for CSS background display
+        if (room) {
+            playerZoneEl.setAttribute('data-room-name', room);
+        }
 
         // Create player tab
         const tabEl = document.createElement('button');

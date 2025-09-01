@@ -135,6 +135,22 @@ body {
     z-index: 0;
 }
 
+/* Room name background display */
+.play-zone::after {
+    content: attr(data-room-name);
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-size: 48px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.03);
+    pointer-events: none;
+    z-index: 0;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
 #graveyard-pile.touch-pop-active, #library.touch-pop-active {
     border-color: #4299e1;
     box-shadow: 0 0 15px #4299e1, 0 0 10px #4299e1;
