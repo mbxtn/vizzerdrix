@@ -164,6 +164,11 @@ let startX = 0;
 let startY = 0;
 let justSelectedByDrag = false;
 
+// Multi-player selection tracking
+let allPlayerSelections = {}; // { playerId: [cardIds] }
+let playerColors = {}; // { playerId: color }
+let selectionUpdateTimeout = null;
+
 // Hover state for keyboard shortcuts
 let hoveredCard = null;
 let hoveredCardElement = null;
@@ -186,6 +191,46 @@ window.isSnapToGridEnabled = false; // Will be updated when settings load
 let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
+
+// Player color generation for selection labels
+function generatePlayerColor(playerId, playerIndex) {
+    // Generate a consistent color for each player based on their index
+    const colors = [
+        '#ef4444', // red
+        '#3b82f6', // blue 
+        '#10b981', // green
+        '#f59e0b', // yellow
+        '#8b5cf6', // purple
+        '#f97316', // orange
+        '#06b6d4', // cyan
+        '#ec4899', // pink
+        '#84cc16', // lime
+        '#6366f1'  // indigo
+    ];
+    
+    if (playerIndex < colors.length) {
+        return colors[playerIndex];
+    }
+    
+    // For more than 10 players, generate a color based on player ID hash
+    let hash = 0;
+    for (let i = 0; i < playerId.length; i++) {
+        hash = playerId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 70%, 50%)`;
+}
+
+function updatePlayerColors() {
+    if (!gameState || !gameState.players) return;
+    
+    const playerIds = Object.keys(gameState.players);
+    playerIds.forEach((pid, index) => {
+        if (!playerColors[pid]) {
+            playerColors[pid] = generatePlayerColor(pid, index);
+        }
+    });
+}
 
 // Snap to grid configuration
 const GRID_SIZE_BASE = 20; // Base grid spacing in pixels for 80px card width
@@ -353,6 +398,7 @@ rejoinBtn.addEventListener('click', () => {
 
 socket.on('connect', () => {
     playerId = socket.id;
+    window.playerId = playerId; // Expose playerId to window for cardFactory access
     activePlayZonePlayerId = socket.id;
     console.log('Client connected. Player ID:', playerId);
     
@@ -588,6 +634,7 @@ socket.on('state', async (state) => {
     }
 
     gameState = state;
+    window.gameState = gameState; // Expose gameState to window for cardFactory access
     
     // Handle auto-untap when it becomes the player's turn (after gameState is updated)
     if (currentTurnChanged && isAutoUntapEnabled && gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
@@ -749,11 +796,27 @@ socket.on('state', async (state) => {
         }
     }
     
+    // Handle player selections if they exist in the state
+    if (state.playerSelections) {
+        allPlayerSelections = state.playerSelections;
+        updatePlayerColors();
+    }
+    
     // Only render if state actually changed, or if this is a turn order update
     // TEMPORARY: Force render on any state update to debug
     console.log('Forcing render for debugging');
     debouncedRender();
     updateCascadedHandCardsInAreaCount(); // Call it here to update after server state
+});
+
+// Handle real-time selection updates
+socket.on('selectionUpdate', (data) => {
+    if (data.playerSelections) {
+        allPlayerSelections = data.playerSelections;
+        updatePlayerColors();
+        // Re-render cards to show updated selection labels
+        debouncedRender();
+    }
 });
 
 closeModalBtn.addEventListener('click', () => {
@@ -1208,6 +1271,21 @@ function debouncedSendMove() {
         clearTimeout(sendMoveTimeout);
     }
     sendMoveTimeout = setTimeout(sendMove, 50); // 50ms debounce
+}
+
+// Selection update functions
+function sendSelectionUpdate() {
+    if (!playerId || !gameState) return;
+    socket.emit('updateSelection', {
+        selectedCardIds: selectedCardIds
+    });
+}
+
+function debouncedSendSelectionUpdate() {
+    if (selectionUpdateTimeout) {
+        clearTimeout(selectionUpdateTimeout);
+    }
+    selectionUpdateTimeout = setTimeout(sendSelectionUpdate, 100); // 100ms debounce
 }
 
 // Initialize card zones
@@ -1735,12 +1813,14 @@ async function render() {
         hand.forEach(card => {
             handZoneEl.appendChild(createCardElement(card, 'hand', {
                 isMagnifyEnabled: isMagnifyEnabled,
-                isInteractable: allowInteractions, // Only allow interactions when viewing your own zones
-                onCardClick: allowInteractions ? handleCardClick : null,
-                onCardDblClick: allowInteractions ? handleCardDoubleClick : null,
-                onCardDragStart: allowInteractions ? handleCardDragStart : null,
-                onCounterClick: allowInteractions ? handleCounterClick : null,
-                showBack: card.faceShown === 'back'
+                isInteractable: allowInteractions, // Only allow full interactability when viewing your own zones
+                onCardClick: handleCardClick, // Always allow clicking for selection
+                onCardDblClick: allowInteractions ? handleCardDoubleClick : null, // Only allow double-click on own cards
+                onCardDragStart: allowInteractions ? handleCardDragStart : null, // Only allow dragging own cards
+                onCounterClick: allowInteractions ? handleCounterClick : null, // Only allow counter interactions on own cards
+                showBack: card.faceShown === 'back',
+                playerSelections: allPlayerSelections,
+                playerColors: playerColors
             }));
         });
 
@@ -1776,15 +1856,17 @@ async function render() {
         
         const playerZoneData = gameState.playZones[pid] || [];
         playerZoneData.forEach(cardData => {
-            const isInteractable = (pid === activePlayZonePlayerId && pid === playerId);
+            const isOwnCard = (pid === activePlayZonePlayerId && pid === playerId);
             const cardEl = createCardElement(cardData, 'play', {
                 isMagnifyEnabled: isMagnifyEnabled,
-                isInteractable: isInteractable,
-                onCardClick: isInteractable ? handleCardClick : null,
-                onCardDblClick: isInteractable ? handleCardDoubleClick : null,
-                onCardDragStart: isInteractable ? handleCardDragStart : null,
-                onCounterClick: isInteractable ? handleCounterClick : null,
-                showBack: cardData.faceShown === 'back'
+                isInteractable: isOwnCard, // Only allow full interactability for own cards
+                onCardClick: handleCardClick, // Always allow clicking for selection
+                onCardDblClick: isOwnCard ? handleCardDoubleClick : null, // Only allow double-click on own cards
+                onCardDragStart: isOwnCard ? handleCardDragStart : null, // Only allow dragging own cards
+                onCounterClick: isOwnCard ? handleCounterClick : null, // Only allow counter interactions on own cards
+                showBack: cardData.faceShown === 'back',
+                playerSelections: allPlayerSelections,
+                playerColors: playerColors
             });
             cardEl.style.position = 'absolute';
             cardEl.style.left = `${cardData.x}px`;
@@ -1800,13 +1882,15 @@ async function render() {
             myPlayZoneData.forEach(cardData => {
                 const ghostCardEl = createCardElement(cardData, 'play', {
                     isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for ghost cards
-                    isInteractable: false, // Ghost cards are not interactable
-                    onCardClick: null,
-                    onCardDblClick: null,
-                    onCardDragStart: null,
-                    onCounterClick: null,
+                    isInteractable: false, // Ghost cards are not draggable
+                    onCardClick: handleCardClick, // Allow clicking for selection
+                    onCardDblClick: null, // No double-click for ghost cards
+                    onCardDragStart: null, // No dragging for ghost cards
+                    onCounterClick: null, // No counter interactions for ghost cards
                     showBack: cardData.faceShown === 'back',
-                    isGhost: true // Special flag to indicate this is a ghost card
+                    isGhost: true, // Special flag to indicate this is a ghost card
+                    playerSelections: allPlayerSelections,
+                    playerColors: playerColors
                 });
                 
                 // Style ghost cards with reduced opacity and different border
@@ -1864,13 +1948,15 @@ async function render() {
                     activePlayerZoneData.forEach(cardData => {
                         const reverseGhostCardEl = createCardElement(cardData, 'play', {
                             isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for reverse ghost cards
-                            isInteractable: false, // Reverse ghost cards are not interactable
-                            onCardClick: null,
-                            onCardDblClick: null,
-                            onCardDragStart: null,
-                            onCounterClick: null,
+                            isInteractable: false, // Reverse ghost cards are not draggable
+                            onCardClick: handleCardClick, // Allow clicking for selection
+                            onCardDblClick: null, // No double-click for reverse ghost cards
+                            onCardDragStart: null, // No dragging for reverse ghost cards
+                            onCounterClick: null, // No counter interactions for reverse ghost cards
                             showBack: cardData.faceShown === 'back',
-                            isReverseGhost: true // Special flag to indicate this is a reverse ghost card
+                            isReverseGhost: true, // Special flag to indicate this is a reverse ghost card
+                            playerSelections: allPlayerSelections,
+                            playerColors: playerColors
                         });
                         
                         // Style reverse ghost cards with reduced opacity and different border (orange theme)
@@ -2230,6 +2316,7 @@ function addDropListeners() {
             
             sendMove();
             selectedCardIds = [];
+            debouncedSendSelectionUpdate();
             debouncedRender();
         });
     });
@@ -2291,6 +2378,9 @@ document.addEventListener('mousemove', (e) => {
                 cardEl.classList.remove('selected-card');
             }
         });
+        
+        // Send selection update to server
+        debouncedSendSelectionUpdate();
     }
 });
 
@@ -2316,6 +2406,7 @@ document.addEventListener('click', (e) => {
         selectedCards.forEach(c => c.classList.remove('selected-card'));
         selectedCards = [];
         selectedCardIds = [];
+        debouncedSendSelectionUpdate();
     }
     // Hide context menu on any click (unless it was just shown)
     if (!contextMenuJustShown) {
@@ -2497,14 +2588,19 @@ let shuffledLibraryCache = new Map();
 // Card interaction callbacks for the cardFactory
 function handleCardClick(e, card, cardEl, location) {
     e.stopPropagation();
-    if (location === 'play' && activePlayZonePlayerId !== playerId) return;
+    
+    // Allow selection of any card, but only allow full interaction with own cards
+    const isOwnCard = (location === 'hand') || (location === 'play' && activePlayZonePlayerId === playerId);
+    
     const cardId = cardEl.dataset.id;
     const isSelected = selectedCardIds.includes(cardId);
+    
     if (!e.ctrlKey && !e.metaKey) {
         selectedCards.forEach(c => c.classList.remove('selected-card'));
         selectedCards = [];
         selectedCardIds = [];
     }
+    
     if (isSelected) {
         selectedCardIds = selectedCardIds.filter(id => id !== cardId);
         const index = selectedCards.indexOf(cardEl);
@@ -2518,10 +2614,18 @@ function handleCardClick(e, card, cardEl, location) {
         }
         cardEl.classList.add('selected-card');
     }
+    
+    // Send selection update to server
+    debouncedSendSelectionUpdate();
 }
 
 function handleCardDoubleClick(e, card, location) {
     e.stopPropagation();
+    
+    // Only allow double-click interactions on own cards
+    const isOwnCard = (location === 'hand') || (location === 'play' && activePlayZonePlayerId === playerId);
+    if (!isOwnCard) return; // Don't allow double-click interactions on other players' cards
+    
     console.log('Double click detected:', { cardId: card.id, cardName: card.name, location });
     
     const cardId = card.id;
@@ -2593,6 +2697,13 @@ function handleCardDoubleClick(e, card, location) {
 }
 
 function handleCardDragStart(e, card, location) {
+    // Only allow dragging own cards
+    const isOwnCard = (location === 'hand') || (location === 'play' && activePlayZonePlayerId === playerId);
+    if (!isOwnCard) {
+        e.preventDefault(); // Prevent dragging other players' cards
+        return;
+    }
+    
     const sourceZone = location;
     if (selectedCardIds.length > 1 && selectedCardIds.includes(card.id)) {
         const groupData = {

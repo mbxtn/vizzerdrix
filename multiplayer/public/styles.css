@@ -33,7 +33,7 @@ body {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     position: relative;
     transform: rotate(0deg);
-    overflow: hidden; /* Ensure content doesn't overflow the rounded corners */
+    overflow: visible; /* Allow selection labels to show outside card bounds */
 }
 
 #hand-zone .card {
@@ -78,6 +78,30 @@ body {
     border: 1px dashed #48bb78;
     pointer-events: none;
     z-index: 99;
+}
+
+/* Selection labels for multi-player selections */
+.selection-labels {
+    z-index: 1000; /* Ensure labels appear above cards */
+    pointer-events: none; /* Don't interfere with card interactions */
+    overflow: visible; /* Allow labels to show outside card bounds */
+}
+
+.selection-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-sizing: border-box;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, 0.8);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    font-size: 9px;
+    line-height: 1.1;
+    padding: 1px 3px;
+    color: white;
+    font-weight: bold;
 }
 
 .zone-active {

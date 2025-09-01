@@ -19,6 +19,8 @@ app.use(express.static(__dirname + '/public'));
 const games = {};
 // Track disconnected players for rejoin functionality
 const disconnectedPlayers = {};
+// Track player selections for each room
+const playerSelections = {};
 
 // Clean up old disconnected players (older than 1 hour)
 setInterval(() => {
@@ -160,6 +162,8 @@ io.on('connection', (socket) => {
                 turnOrderSet: false, // Whether turn order has been established
                 turnCounter: 1 // Track which turn number we're on
             };
+            // Initialize player selections for this room
+            playerSelections[roomName] = {};
         } else {
             console.log(`Joining existing room: ${roomName} with ${Object.keys(games[roomName].players).length} players`);
         }
@@ -180,6 +184,12 @@ io.on('connection', (socket) => {
         socket.join(roomName);
         room = roomName;
         
+        // Initialize player selections for this player
+        if (!playerSelections[roomName]) {
+            playerSelections[roomName] = {};
+        }
+        playerSelections[roomName][socket.id] = [];
+        
         // Migration: Ensure all existing players have command zones and life totals
         Object.keys(games[roomName].players).forEach(existingPlayerId => {
             if (!games[roomName].players[existingPlayerId].command) {
@@ -190,7 +200,10 @@ io.on('connection', (socket) => {
             }
         });
         
-        io.to(room).emit('state', games[room]);
+        io.to(room).emit('state', {
+            ...games[room],
+            playerSelections: playerSelections[room] || {}
+        });
         socket.emit('joinSuccess', { roomName, displayName });
     });
 
@@ -259,6 +272,12 @@ io.on('connection', (socket) => {
             games[roomName].players[socket.id] = playerData;
             games[roomName].playZones[socket.id] = playZoneData || [];
             
+            // Initialize player selections for rejoined player
+            if (!playerSelections[roomName]) {
+                playerSelections[roomName] = {};
+            }
+            playerSelections[roomName][socket.id] = []; // Start with empty selection
+            
             socket.join(roomName);
             room = roomName;
             playerId = socket.id;
@@ -278,10 +297,16 @@ io.on('connection', (socket) => {
             setTimeout(() => {
                 console.log(`Sending state to room ${roomName} after rejoin`);
                 // Send the current state to the entire room (including the rejoined player)
-                io.to(room).emit('state', games[room]);
+                io.to(room).emit('state', {
+                    ...games[room],
+                    playerSelections: playerSelections[room] || {}
+                });
                 
                 // Also send state directly to the rejoined player to ensure they get it
-                socket.emit('state', games[room]);
+                socket.emit('state', {
+                    ...games[room],
+                    playerSelections: playerSelections[room] || {}
+                });
             }, 100); // 100ms delay
         } else {
             socket.emit('rejoinError', { message: 'No player found with that name in this room' });
@@ -303,7 +328,23 @@ io.on('connection', (socket) => {
                 life: data.life !== undefined ? data.life : 40 // Update life total, default to 20 if not provided
             };
             games[room].playZones[playerId] = data.playZone;
-            io.to(room).emit('state', games[room]);
+            io.to(room).emit('state', {
+                ...games[room],
+                playerSelections: playerSelections[room] || {}
+            });
+        }
+    });
+
+    socket.on('updateSelection', (data) => {
+        // data: { selectedCardIds: array of card IDs }
+        if (room && playerSelections[room]) {
+            playerSelections[room][playerId] = data.selectedCardIds || [];
+            // Broadcast updated selections to all players in the room
+            io.to(room).emit('selectionUpdate', {
+                playerId: playerId,
+                selectedCardIds: playerSelections[room][playerId],
+                playerSelections: playerSelections[room]
+            });
         }
     });
 
@@ -318,7 +359,16 @@ io.on('connection', (socket) => {
             Object.keys(games[room].playZones).forEach(pid => {
                 games[room].playZones[pid] = [];
             });
-            io.to(room).emit('state', games[room]);
+            // Reset player selections
+            if (playerSelections[room]) {
+                Object.keys(playerSelections[room]).forEach(pid => {
+                    playerSelections[room][pid] = [];
+                });
+            }
+            io.to(room).emit('state', {
+                ...games[room],
+                playerSelections: playerSelections[room] || {}
+            });
         }
     });
 
@@ -338,6 +388,11 @@ io.on('connection', (socket) => {
 
             delete games[room].players[playerId];
             delete games[room].playZones[playerId];
+            
+            // Clear player selections
+            if (playerSelections[room]) {
+                delete playerSelections[room][playerId];
+            }
 
             // Update turn order if it was set and player was in it
             // NOTE: We keep the player in the turn order temporarily to preserve their position for rejoin
@@ -388,9 +443,13 @@ io.on('connection', (socket) => {
                 });
                 
                 delete games[room];
+                delete playerSelections[room]; // Clean up player selections for this room
             } else {
                 // Only emit state if the room still exists and has players
-                io.to(room).emit('state', games[room]);
+                io.to(room).emit('state', {
+                    ...games[room],
+                    playerSelections: playerSelections[room] || {}
+                });
             }
         }
     });
@@ -421,7 +480,10 @@ io.on('connection', (socket) => {
             
             console.log('Set turn order:', shuffledOrder, 'current turn:', games[room].currentTurn, 'turn counter:', games[room].turnCounter);
             
-            io.to(room).emit('state', games[room]);
+            io.to(room).emit('state', {
+                ...games[room],
+                playerSelections: playerSelections[room] || {}
+            });
         }
     });
 
@@ -477,7 +539,10 @@ io.on('connection', (socket) => {
                 games[room].turnCounter = 1;
             }
             
-            io.to(room).emit('state', games[room]);
+            io.to(room).emit('state', {
+                ...games[room],
+                playerSelections: playerSelections[room] || {}
+            });
         }
     });
 

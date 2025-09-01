@@ -47,7 +47,7 @@ function findMatchingFace(scryfallData, requestedName) {
 }
 
 export function createCardElement(card, location, options) {
-    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false } = options;
+    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false, playerSelections = {}, playerColors = {} } = options;
 
     const cardEl = document.createElement('div');
     cardEl.className = 'card flex-shrink-0 cursor-grab';
@@ -386,6 +386,79 @@ export function createCardElement(card, location, options) {
         });
     } else {
         cardEl.setAttribute('draggable', 'false');
+    }
+
+    // Add selection labels if other players have this card selected
+    if (playerSelections && playerColors && card.id) {
+        const playersWithThisCardSelected = [];
+        for (const [playerId, selectedCards] of Object.entries(playerSelections)) {
+            // Skip the current player's own selections
+            if (playerId === window.playerId) continue;
+            
+            if (selectedCards && selectedCards.includes(card.id)) {
+                playersWithThisCardSelected.push(playerId);
+            }
+        }
+        
+        if (playersWithThisCardSelected.length > 0) {
+            // Create a wrapper div to hold both card and labels without overflow constraints
+            const cardWrapper = document.createElement('div');
+            cardWrapper.style.position = 'relative';
+            cardWrapper.style.display = 'inline-block';
+            
+            // Move the card element into the wrapper (we'll return the wrapper instead)
+            const originalParent = cardEl.parentNode;
+            
+            const selectionLabelsContainer = document.createElement('div');
+            selectionLabelsContainer.className = 'selection-labels absolute pointer-events-none';
+            
+            // Position the container to the right side of the card
+            selectionLabelsContainer.style.left = '100%';
+            selectionLabelsContainer.style.top = '0';
+            selectionLabelsContainer.style.bottom = '0';
+            selectionLabelsContainer.style.paddingLeft = '4px';
+            selectionLabelsContainer.style.zIndex = '1000';
+            selectionLabelsContainer.style.minWidth = '80px'; // Ensure enough space for labels
+            
+            // Create a flexbox layout that stacks vertically
+            selectionLabelsContainer.style.display = 'flex';
+            selectionLabelsContainer.style.flexDirection = 'column';
+            selectionLabelsContainer.style.gap = '2px';
+            selectionLabelsContainer.style.justifyContent = 'flex-start';
+            selectionLabelsContainer.style.alignItems = 'flex-start';
+            
+            playersWithThisCardSelected.forEach(playerId => {
+                // Get player display name from gameState if available
+                let playerName = playerId;
+                if (window.gameState && window.gameState.players && window.gameState.players[playerId]) {
+                    playerName = window.gameState.players[playerId].displayName || playerId;
+                }
+                
+                const label = document.createElement('div');
+                label.className = 'selection-label text-xs font-bold px-1 py-0.5 rounded text-white shadow-sm';
+                label.style.backgroundColor = playerColors[playerId] || '#6b7280';
+                label.style.fontSize = '10px';
+                label.style.lineHeight = '1.2';
+                label.style.textAlign = 'center';
+                label.style.whiteSpace = 'nowrap';
+                label.style.overflow = 'hidden';
+                label.style.textOverflow = 'ellipsis';
+                label.style.flexShrink = '0'; // Prevent shrinking
+                label.style.maxWidth = '80px'; // Max width for labels
+                label.style.minHeight = '16px'; // Ensure minimum height
+                label.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+                label.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.5)';
+                label.style.padding = '2px 4px';
+                label.textContent = playerName;
+                
+                selectionLabelsContainer.appendChild(label);
+            });
+            
+            cardWrapper.appendChild(cardEl);
+            cardWrapper.appendChild(selectionLabelsContainer);
+            
+            return cardWrapper;
+        }
     }
 
     return cardEl;
