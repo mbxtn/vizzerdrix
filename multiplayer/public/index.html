@@ -13,21 +13,44 @@
 </head>
 <body class="bg-gray-900 text-gray-200">
     <!-- Join Room UI -->
-    <div id="join-ui" class="flex flex-col items-center justify-center h-screen">
-        <h1 class="text-4xl font-bold mb-4">Vizzerdrix</h1>
-        <div class="mb-4 max-w-md w-full">
-            <input id="display-name-input" placeholder="Enter your display name" class="w-full p-2 rounded-md border border-gray-700 bg-gray-800 text-gray-200 mb-2" />
-            <input id="room-input" placeholder="Enter room name" class="w-full p-2 rounded-md border border-gray-700 bg-gray-800 text-gray-200 mb-2" />
-            <textarea id="decklist-input" placeholder="Paste your decklist here&#10;&#10;Example decklist:&#10;4 Lightning Bolt&#10;2 Sol Ring&#10;1 Black Lotus&#10;&#10;Thrasios, Triton Hero" rows="8" class="w-full p-2 mb-3 border rounded-md border-gray-700 bg-gray-800 text-gray-200"></textarea>
-            <div class="flex gap-2">
-                <button id="join-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">
-                    Create/Join Room
-                </button>
-                <button id="rejoin-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">
-                    Rejoin Game
-                </button>
+    <div id="join-ui" class="min-h-screen flex flex-col items-center justify-center p-4 overflow-y-auto">
+        <div class="w-full max-w-md flex-shrink-0">
+            <h1 class="text-4xl font-bold mb-4 text-center">Vizzerdrix</h1>
+            <div class="mb-4">
+                <input id="display-name-input" placeholder="Enter your display name" class="w-full p-2 rounded-md border border-gray-700 bg-gray-800 text-gray-200 mb-2" />
+                <input id="room-input" placeholder="Enter room name" class="w-full p-2 rounded-md border border-gray-700 bg-gray-800 text-gray-200 mb-2" />
+                <textarea id="decklist-input" placeholder="Paste your decklist here&#10;&#10;Supports multiple formats:&#10;4 Lightning Bolt&#10;1x Sol Ring (C14)&#10;1 Snow-Covered Wastes (MH3) 309 *F*&#10;1x Burning Inquiry (m10) 128 [Draw]&#10;&#10;Commanders:&#10;Thrasios, Triton Hero (CMDR)" rows="8" class="w-full p-2 mb-3 border rounded-md border-gray-700 bg-gray-800 text-gray-200"></textarea>
+                <div class="flex gap-2">
+                    <button id="join-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                        Create/Join Room
+                    </button>
+                    <button id="rejoin-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                        Rejoin Game
+                    </button>
+                </div>
+                <p class="text-sm text-gray-400 mt-2 text-center">Use "Rejoin Game" if you were disconnected from an existing game</p>
             </div>
-            <p class="text-sm text-gray-400 mt-2 text-center">Use "Rejoin Game" if you were disconnected from an existing game</p>
+        </div>
+    </div>
+
+    <!-- Commander Selection Modal (outside game UI so it can show during join process) -->
+    <div id="commander-selection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-2xl w-full my-8 flex-shrink-0">
+            <h3 class="text-xl font-semibold mb-4 text-center">Select Your Commanders</h3>
+            <p class="text-sm text-gray-300 mb-4 text-center">No commanders were automatically detected. Please select which cards should be your commanders:</p>
+            
+            <div id="commander-selection-list" class="max-h-80 overflow-y-auto mb-4 border border-gray-600 rounded-lg p-4 bg-gray-700">
+                <!-- Card selection list will be populated here -->
+            </div>
+            
+            <div class="text-sm text-gray-400 mb-4 text-center">
+                <span id="selected-commanders-count">0</span> commander(s) selected
+            </div>
+            
+            <div class="flex gap-3">
+                <button id="cancel-commander-selection-btn" class="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md transition-colors">Cancel</button>
+                <button id="confirm-commander-selection-btn" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors">Join Game</button>
+            </div>
         </div>
     </div>
 
@@ -203,6 +226,7 @@
                 </div>
             </div>
         </div>
+        
         <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
             <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
                 <p id="message-text" class="text-lg font-medium mb-4"></p>

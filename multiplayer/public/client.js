@@ -144,6 +144,11 @@ const placeholderModal = document.getElementById('placeholder-modal'); // Placeh
 const placeholderTextInput = document.getElementById('placeholder-text-input'); // Placeholder text input
 const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn'); // Confirm placeholder button
 const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn'); // Cancel placeholder button
+const commanderSelectionModal = document.getElementById('commander-selection-modal'); // Commander selection modal
+const commanderSelectionList = document.getElementById('commander-selection-list'); // Commander selection list
+const selectedCommandersCount = document.getElementById('selected-commanders-count'); // Selected commanders count
+const confirmCommanderSelectionBtn = document.getElementById('confirm-commander-selection-btn'); // Confirm commander selection button
+const cancelCommanderSelectionBtn = document.getElementById('cancel-commander-selection-btn'); // Cancel commander selection button
 const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container'); // Magnify size slider container
 const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Magnify size slider
 const lifeTotalEl = document.getElementById('life-total'); // Life total display
@@ -199,6 +204,12 @@ window.isSnapToGridEnabled = false; // Will be updated when settings load
 let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
+
+// Commander selection state
+let pendingDecklistForCommander = [];
+let pendingRoomName = '';
+let pendingDisplayName = '';
+let selectedCommanderIndices = new Set();
 
 // Player color generation for selection labels
 function generatePlayerColor(playerId, playerIndex) {
@@ -342,14 +353,36 @@ joinBtn.addEventListener('click', () => {
     
     // Determine which lines are commanders vs library cards
     const isCommanderSection = (index) => {
+        const line = lines[index];
+        
         // Cards marked with (CMDR) are always commanders
-        if (/\(CMDR\)/i.test(lines[index])) {
+        if (/\(CMDR\)/i.test(line)) {
+            console.log(`Found (CMDR) marker in line: "${line}"`);
             return true;
         }
+        
+        // Cards marked with *CMDR* are also commanders (some formats use this)
+        if (/\*CMDR\*/i.test(line)) {
+            console.log(`Found *CMDR* marker in line: "${line}"`);
+            return true;
+        }
+        
+        // Cards in sections labeled "Commander" or "Commanders" (check previous lines for section headers)
+        for (let i = index - 1; i >= 0; i--) {
+            const prevLine = lines[i].toLowerCase().trim();
+            if (prevLine === '' && i < index - 1) break; // Stop at empty line that's not immediately before
+            if (/^commanders?:?\s*$/i.test(prevLine)) {
+                console.log(`Found commander section header "${lines[i]}" for line: "${line}"`);
+                return true;
+            }
+        }
+        
         // If there's an empty line and this card is after it (and it's the last section), it's a commander
         if (lastEmptyLineIndex >= 0 && index > lastEmptyLineIndex) {
+            console.log(`Line "${line}" is after last empty line at index ${lastEmptyLineIndex}, treating as commander`);
             return true;
         }
+        
         return false;
     };
     
@@ -358,9 +391,17 @@ joinBtn.addEventListener('click', () => {
         
         const isCommander = isCommanderSection(index);
         
-        // Parse count and card name, e.g. "2 Arcane Signet" or "1x Arcane Signet" or "Arcane Signet"
-        const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
+        // Enhanced parsing to handle various formats:
+        // Standard: "2 Lightning Bolt" or "1x Lightning Bolt" or "Lightning Bolt"
+        // Moxfield: "1 Snow-Covered Wastes (MH3) 309 *F*"
+        // Archidekt: "1x Burning Inquiry (m10) 128 [Consistent Shared Draw,Draw]"
+        // MTGO/Arena: "4 Lightning Bolt"
+        // EDHRec: "1 Sol Ring (C14)"
+        
         let cardName, count;
+        
+        // First, try to match count at the beginning
+        const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
         
         if (countMatch) {
             count = parseInt(countMatch[1]);
@@ -371,8 +412,35 @@ joinBtn.addEventListener('click', () => {
             cardName = line;
         }
         
-        // Remove set codes like "(M21)" and commander marker "(CMDR)"
-        cardName = cardName.replace(/\s+\([^)]*\)$/g, '').trim();
+        // Clean up the card name by removing various suffixes:
+        // Remove set codes: "(M21)", "(MH3)", "(m10)", etc.
+        cardName = cardName.replace(/\s+\([^)]*\)/g, '');
+        
+        // Remove collector numbers: " 309", " 128", etc. (space + numbers at end)
+        cardName = cardName.replace(/\s+\d+\s*$/, '');
+        
+        // Remove special markers: "*F*" (foil), "*E*" (etched), etc.
+        cardName = cardName.replace(/\s+\*[A-Z]+\*\s*$/, '');
+        
+        // Remove tags in square brackets: "[Consistent Shared Draw,Draw]"
+        cardName = cardName.replace(/\s+\[[^\]]*\]\s*$/, '');
+        
+        // Remove commander marker "(CMDR)" if present
+        cardName = cardName.replace(/\s+\(CMDR\)\s*$/i, '');
+        
+        // Remove any trailing/leading whitespace
+        cardName = cardName.trim();
+        
+        // Skip if card name is empty after cleaning
+        if (!cardName) {
+            console.warn('Empty card name after parsing:', line);
+            return;
+        }
+        
+        // Log parsing for debugging (only for first few cards to avoid spam)
+        if (index < 10) {
+            console.log(`Parsed line "${line}" -> Count: ${count}, Name: "${cardName}", Commander: ${isCommander}`);
+        }
         
         // Add the specified number of copies to the appropriate zone
         const targetArray = isCommander ? commanders : decklist;
@@ -381,17 +449,33 @@ joinBtn.addEventListener('click', () => {
         }
     });
     
+    // Log parsing summary
+    console.log(`Decklist parsing complete: ${decklist.length} library cards, ${commanders.length} commanders`);
+    if (commanders.length > 0) {
+        console.log('Commanders found:', commanders);
+    }
+    
     if (roomName && displayName && (decklist.length > 0 || commanders.length > 0)) {
-        // Save game info for potential future rejoins
-        localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
-            roomName,
-            displayName,
-            timestamp: Date.now()
-        }));
-        
-        // Emit join event for new players
-        socket.emit('join', { roomName, displayName, decklist, commanders });
-        showMessage("Joining Vizzerdrix game...");
+        console.log('Final check before join:', { commanders: commanders.length, decklist: decklist.length });
+        // Check if commanders were detected automatically
+        if (commanders.length === 0 && decklist.length > 0) {
+            // No commanders found - show selection modal
+            console.log('No commanders detected automatically, showing selection modal');
+            showCommanderSelectionModal([...decklist], roomName, displayName);
+        } else {
+            // Commanders found or no cards at all - proceed normally
+            console.log('Commanders detected or no cards, proceeding with join');
+            // Save game info for potential future rejoins
+            localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
+                roomName,
+                displayName,
+                timestamp: Date.now()
+            }));
+            
+            // Emit join event for new players
+            socket.emit('join', { roomName, displayName, decklist, commanders });
+            showMessage("Joining Vizzerdrix game...");
+        }
     } else {
         showMessage("Please enter a room name, display name, and at least one card in your decklist.");
     }
@@ -403,6 +487,169 @@ rejoinBtn.addEventListener('click', () => {
     const displayName = displayNameInput.value.trim();
     attemptRejoin(roomName, displayName);
 });
+
+// Commander selection functions
+function showCommanderSelectionModal(allCardNames, roomName, displayName) {
+    console.log('showCommanderSelectionModal called with:', { cardCount: allCardNames.length, roomName, displayName });
+    console.log('Modal elements check:', {
+        commanderSelectionModal: !!commanderSelectionModal,
+        commanderSelectionList: !!commanderSelectionList,
+        selectedCommandersCount: !!selectedCommandersCount,
+        confirmCommanderSelectionBtn: !!confirmCommanderSelectionBtn
+    });
+    
+    if (!commanderSelectionModal) {
+        console.error('Commander selection modal element not found!');
+        return;
+    }
+    
+    pendingDecklistForCommander = [...allCardNames];
+    pendingRoomName = roomName;
+    pendingDisplayName = displayName;
+    selectedCommanderIndices.clear();
+    
+    // Populate the selection list
+    commanderSelectionList.innerHTML = '';
+    
+    // Group identical card names and show counts while preserving order
+    const cardCounts = {};
+    const uniqueCardOrder = []; // Track the order cards first appear
+    allCardNames.forEach(cardName => {
+        if (!cardCounts[cardName]) {
+            cardCounts[cardName] = 0;
+            uniqueCardOrder.push(cardName); // Add to order list when first encountered
+        }
+        cardCounts[cardName]++;
+    });
+    
+    // Use the original order instead of alphabetical
+    const uniqueCards = uniqueCardOrder;
+    console.log('Creating selection for', uniqueCards.length, 'unique cards');
+    
+    uniqueCards.forEach((cardName, index) => {
+        const count = cardCounts[cardName];
+        const cardItem = document.createElement('div');
+        cardItem.className = 'flex items-center justify-between p-2 border border-gray-600 rounded-md mb-2 cursor-pointer hover:bg-gray-600 transition-colors';
+        cardItem.dataset.cardIndex = index;
+        cardItem.dataset.cardName = cardName;
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'mr-3';
+        checkbox.id = `commander-checkbox-${index}`;
+        
+        const label = document.createElement('label');
+        label.htmlFor = `commander-checkbox-${index}`;
+        label.className = 'flex-1 cursor-pointer';
+        label.textContent = count > 1 ? `${cardName} (${count}x)` : cardName;
+        
+        cardItem.appendChild(checkbox);
+        cardItem.appendChild(label);
+        
+        // Add click handler
+        cardItem.addEventListener('click', (e) => {
+            if (e.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            toggleCommanderSelection(index, cardName, checkbox.checked);
+        });
+        
+        checkbox.addEventListener('change', (e) => {
+            toggleCommanderSelection(index, cardName, e.target.checked);
+        });
+        
+        commanderSelectionList.appendChild(cardItem);
+    });
+    
+    updateSelectedCommandersCount();
+    
+    // Show the modal
+    commanderSelectionModal.classList.remove('hidden');
+}
+
+function toggleCommanderSelection(index, cardName, isSelected) {
+    if (isSelected) {
+        selectedCommanderIndices.add(index);
+    } else {
+        selectedCommanderIndices.delete(index);
+    }
+    updateSelectedCommandersCount();
+}
+
+function updateSelectedCommandersCount() {
+    selectedCommandersCount.textContent = selectedCommanderIndices.size;
+    
+    // Enable/disable the confirm button based on selection
+    if (selectedCommanderIndices.size > 0) {
+        confirmCommanderSelectionBtn.disabled = false;
+        confirmCommanderSelectionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        confirmCommanderSelectionBtn.disabled = true;
+        confirmCommanderSelectionBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function processCommanderSelection() {
+    const decklist = [];
+    const commanders = [];
+    
+    // Group identical card names and show counts while preserving order
+    const cardCounts = {};
+    const uniqueCardOrder = []; // Track the order cards first appear
+    pendingDecklistForCommander.forEach(cardName => {
+        if (!cardCounts[cardName]) {
+            cardCounts[cardName] = 0;
+            uniqueCardOrder.push(cardName); // Add to order list when first encountered
+        }
+        cardCounts[cardName]++;
+    });
+    
+    const uniqueCards = uniqueCardOrder;
+    
+    selectedCommanderIndices.forEach(index => {
+        const cardName = uniqueCards[index];
+        const count = cardCounts[cardName];
+        
+        // Add all copies of this card as commanders
+        for (let i = 0; i < count; i++) {
+            commanders.push(cardName);
+        }
+        
+        // Remove from potential decklist
+        delete cardCounts[cardName];
+    });
+    
+    // Add remaining cards to decklist
+    Object.entries(cardCounts).forEach(([cardName, count]) => {
+        for (let i = 0; i < count; i++) {
+            decklist.push(cardName);
+        }
+    });
+    
+    console.log(`Commander selection complete: ${decklist.length} library cards, ${commanders.length} commanders`);
+    if (commanders.length > 0) {
+        console.log('Selected commanders:', commanders);
+    }
+    
+    // Save game info for potential future rejoins
+    localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
+        roomName: pendingRoomName,
+        displayName: pendingDisplayName,
+        timestamp: Date.now()
+    }));
+    
+    // Emit join event
+    socket.emit('join', { 
+        roomName: pendingRoomName, 
+        displayName: pendingDisplayName, 
+        decklist, 
+        commanders 
+    });
+    showMessage("Joining Vizzerdrix game...");
+    
+    // Hide the modal
+    commanderSelectionModal.classList.add('hidden');
+}
 
 socket.on('connect', () => {
     playerId = socket.id;
@@ -909,6 +1156,18 @@ placeholderTextInput.addEventListener('keypress', (e) => {
             placeholderTextInput.value = '';
         }
     }
+});
+
+// Commander selection modal event listeners
+confirmCommanderSelectionBtn.addEventListener('click', () => {
+    if (selectedCommanderIndices.size > 0) {
+        processCommanderSelection();
+    }
+});
+
+cancelCommanderSelectionBtn.addEventListener('click', () => {
+    commanderSelectionModal.classList.add('hidden');
+    selectedCommanderIndices.clear();
 });
 
 resetBtnModal.addEventListener('click', () => {
@@ -2869,6 +3128,22 @@ document.addEventListener('DOMContentLoaded', () => {
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
     updateSnapToGridStatusUI(); // Set initial snap to grid status
+    
+    // Initialize commander selection modal button state
+    if (confirmCommanderSelectionBtn) {
+        confirmCommanderSelectionBtn.disabled = true;
+        confirmCommanderSelectionBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        console.log('Commander selection modal elements initialized successfully');
+    } else {
+        console.error('Commander selection modal elements not found during initialization!');
+        console.log('Available modal elements:', {
+            commanderSelectionModal: !!document.getElementById('commander-selection-modal'),
+            commanderSelectionList: !!document.getElementById('commander-selection-list'),
+            selectedCommandersCount: !!document.getElementById('selected-commanders-count'),
+            confirmCommanderSelectionBtn: !!document.getElementById('confirm-commander-selection-btn'),
+            cancelCommanderSelectionBtn: !!document.getElementById('cancel-commander-selection-btn')
+        });
+    }
     
     // Update global variables for other modules
     window.isSnapToGridEnabled = isSnapToGridEnabled;
