@@ -1567,11 +1567,11 @@ async function render() {
         hand.forEach(card => {
             handZoneEl.appendChild(createCardElement(card, 'hand', {
                 isMagnifyEnabled: isMagnifyEnabled,
-                isInteractable: true,
-                onCardClick: handleCardClick,
-                onCardDblClick: handleCardDoubleClick,
-                onCardDragStart: handleCardDragStart,
-                onCounterClick: handleCounterClick,
+                isInteractable: allowInteractions, // Only allow interactions when viewing your own zones
+                onCardClick: allowInteractions ? handleCardClick : null,
+                onCardDblClick: allowInteractions ? handleCardDoubleClick : null,
+                onCardDragStart: allowInteractions ? handleCardDragStart : null,
+                onCounterClick: allowInteractions ? handleCounterClick : null,
                 showBack: card.faceShown === 'back'
             }));
         });
