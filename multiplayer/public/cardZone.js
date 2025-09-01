@@ -130,8 +130,10 @@ export class CardZone {
     handleGlobalMouseMove(e) {
         if (this.isPopping && this.poppedCardEl) {
             // Update the position of the ghost card to follow the cursor
+            // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
+            const cardHeight = this.currentCardWidth * (107/80);
             this.poppedCardEl.style.left = `${e.clientX - (this.currentCardWidth / 2)}px`;
-            this.poppedCardEl.style.top = `${e.clientY - ((this.currentCardWidth * 120/90) / 2)}px`;
+            this.poppedCardEl.style.top = `${e.clientY - (cardHeight / 2)}px`;
         }
     }
     
@@ -158,11 +160,20 @@ export class CardZone {
             showBack: shouldShowBack
         });
         this.poppedCardEl.classList.add('popped-card');
+        
+        // Force the popped card to use the current card width for consistent positioning
+        // Override the CSS variable for this specific element to ensure it matches our positioning calculations
+        this.poppedCardEl.style.setProperty('--card-width', `${this.currentCardWidth}px`);
+        this.poppedCardEl.style.width = `${this.currentCardWidth}px`;
+        // Let aspect-ratio handle the height automatically
+        
         document.body.appendChild(this.poppedCardEl);
         
         // Position the popped card at the mouse
+        // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
+        const cardHeight = this.currentCardWidth * (107/80);
         this.poppedCardEl.style.left = `${e.clientX - (this.currentCardWidth / 2)}px`;
-        this.poppedCardEl.style.top = `${e.clientY - ((this.currentCardWidth * 120/90) / 2)}px`;
+        this.poppedCardEl.style.top = `${e.clientY - (cardHeight / 2)}px`;
     }
     
     endPeek(e) {
@@ -227,8 +238,10 @@ export class CardZone {
                 const activePlayZone = targetZone.element.querySelector('.play-zone:not([style*="display: none"])');
                 if (activePlayZone) {
                     const zoneRect = activePlayZone.getBoundingClientRect();
+                    // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
+                    const cardHeight = this.currentCardWidth * (107/80);
                     let x = e.clientX - zoneRect.left - (this.currentCardWidth / 2);
-                    let y = e.clientY - zoneRect.top - ((this.currentCardWidth * 120/90) / 2);
+                    let y = e.clientY - zoneRect.top - (cardHeight / 2);
                     
                     // Apply snap to grid if enabled (check global setting)
                     if (window.isSnapToGridEnabled && window.snapToGrid) {
@@ -1007,6 +1020,14 @@ export class CardZone {
     
     updateCardWidth(newWidth) {
         this.currentCardWidth = newWidth;
+        
+        // If we have a popped card active, update its size too
+        if (this.poppedCardEl) {
+            this.poppedCardEl.style.setProperty('--card-width', `${this.currentCardWidth}px`);
+            this.poppedCardEl.style.width = `${this.currentCardWidth}px`;
+            // Let aspect-ratio handle the height automatically
+        }
+        
         // Update top card display to reflect new size
         // Don't set specific pixel widths - let CSS variables handle sizing
         this.updateTopCardDisplay();

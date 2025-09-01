@@ -330,6 +330,24 @@ export function createCardElement(card, location, options) {
                 return;
             }
             isDragging = true;
+            
+            // Create custom drag image with current card size
+            // Get the current card width from CSS variable or default
+            const computedStyle = getComputedStyle(document.documentElement);
+            const currentCardWidth = parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+            
+            const customDragImage = createCustomDragImage(cardEl, currentCardWidth);
+            
+            // Set the custom drag image
+            e.dataTransfer.setDragImage(customDragImage, currentCardWidth / 2, (currentCardWidth * (107/80)) / 2);
+            
+            // Clean up the temporary drag image after a short delay
+            setTimeout(() => {
+                if (customDragImage && customDragImage.parentNode) {
+                    customDragImage.parentNode.removeChild(customDragImage);
+                }
+            }, 0);
+            
             if (onCardDragStart) {
                 onCardDragStart(e, card, location);
             }
@@ -371,6 +389,31 @@ export function createCardElement(card, location, options) {
     }
 
     return cardEl;
+}
+
+// Helper function to create a custom drag image with the current card size
+function createCustomDragImage(originalCard, currentCardWidth) {
+    // Create a clone of the card element
+    const dragImage = originalCard.cloneNode(true);
+    
+    // Force the drag image to use the current card width
+    dragImage.style.width = `${currentCardWidth}px`;
+    dragImage.style.height = `${currentCardWidth * (107/80)}px`;
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-9999px'; // Hide it off-screen
+    dragImage.style.left = '-9999px';
+    dragImage.style.pointerEvents = 'none';
+    dragImage.style.opacity = '0.8'; // Make it slightly transparent
+    dragImage.style.transform = 'none'; // Remove any transforms
+    dragImage.style.zIndex = '999999';
+    
+    // Override CSS variables for this specific element
+    dragImage.style.setProperty('--card-width', `${currentCardWidth}px`);
+    
+    // Add to document temporarily
+    document.body.appendChild(dragImage);
+    
+    return dragImage;
 }
 
 // Function to flip a card between front and back

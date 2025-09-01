@@ -2086,8 +2086,10 @@ function addDropListeners() {
                     const cascadeOffset = 15;
                     groupData.cardIds.forEach((cardId, index) => {
                         const rect = zone.getBoundingClientRect();
+                        // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
+                        const cardHeight = currentCardWidth * (107/80);
                         let x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
-                        let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2) + (index * cascadeOffset);
+                        let y = e.clientY - rect.top - (cardHeight / 2) + (index * cascadeOffset);
                         
                         // Apply snap to grid if enabled
                         const snappedPos = snapToGrid(x, y);
@@ -2166,8 +2168,10 @@ function addDropListeners() {
                 // For play zone drops, we need to handle positioning manually
                 if (zone.id.startsWith('play-zone')) {
                     const rect = zone.getBoundingClientRect();
+                    // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
+                    const cardHeight = currentCardWidth * (107/80);
                     let x = e.clientX - rect.left - (currentCardWidth / 2);
-                    let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
+                    let y = e.clientY - rect.top - (cardHeight / 2);
                     
                     // Apply snap to grid if enabled
                     const snappedPos = snapToGrid(x, y);
