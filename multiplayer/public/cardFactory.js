@@ -177,6 +177,11 @@ export function createCardElement(card, location, options) {
 
     // Magnify on hover logic
     cardEl.addEventListener('mouseenter', (e) => {
+        // Set global hover state for keyboard shortcuts
+        if (window.setHoveredCard) {
+            window.setHoveredCard(card, cardEl);
+        }
+        
         if (!isMagnifyEnabled) return;
         // Remove any existing preview
         const oldPreview = document.getElementById('magnify-preview');
@@ -281,6 +286,11 @@ export function createCardElement(card, location, options) {
         document.body.appendChild(preview);
     });
     cardEl.addEventListener('mouseleave', () => {
+        // Clear global hover state for keyboard shortcuts
+        if (window.clearHoveredCard) {
+            window.clearHoveredCard();
+        }
+        
         const preview = document.getElementById('magnify-preview');
         if (preview) preview.remove();
     });

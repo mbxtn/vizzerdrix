@@ -159,6 +159,21 @@ let startX = 0;
 let startY = 0;
 let justSelectedByDrag = false;
 
+// Hover state for keyboard shortcuts
+let hoveredCard = null;
+let hoveredCardElement = null;
+
+// Global functions for cardFactory.js to set/clear hovered card
+window.setHoveredCard = function(card, cardEl) {
+    hoveredCard = card;
+    hoveredCardElement = cardEl;
+};
+
+window.clearHoveredCard = function() {
+    hoveredCard = null;
+    hoveredCardElement = null;
+};
+
 let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
@@ -2262,14 +2277,29 @@ async function createPlaceholderCard(text) {
 }
 
 // Create copies of selected cards
-async function createCopiesOfSelectedCards() {
-    if (selectedCards.length === 0) return;
+async function createCopiesOfTargetCards() {
+    // Determine which cards to copy: selected cards take priority, fallback to hovered card
+    let targetCards = [];
+    let targetCardElements = [];
+    
+    if (selectedCards.length > 0) {
+        targetCards = selectedCards.map(cardEl => {
+            const cardId = cardEl.dataset.id;
+            return findCardObjectById(cardId);
+        }).filter(card => card !== null);
+        targetCardElements = selectedCards;
+    } else if (hoveredCard && hoveredCardElement) {
+        targetCards = [hoveredCard];
+        targetCardElements = [hoveredCardElement];
+    }
+    
+    if (targetCardElements.length === 0) return;
     
     let copiesCreated = 0;
     const cascadeOffset = 15;
     
-    for (let index = 0; index < selectedCards.length; index++) {
-        const cardEl = selectedCards[index];
+    for (let index = 0; index < targetCardElements.length; index++) {
+        const cardEl = targetCardElements[index];
         const cardId = cardEl.dataset.id;
         const originalCard = findCardObjectById(cardId);
         
@@ -2305,10 +2335,12 @@ async function createCopiesOfSelectedCards() {
     }
     
     if (copiesCreated > 0) {
-        // Clear selection after creating copies
-        selectedCards.forEach(c => c.classList.remove('selected-card'));
-        selectedCards = [];
-        selectedCardIds = [];
+        // Clear selection after creating copies (only if we used selected cards)
+        if (selectedCards.length > 0) {
+            selectedCards.forEach(c => c.classList.remove('selected-card'));
+            selectedCards = [];
+            selectedCardIds = [];
+        }
         
         // Send update to server
         sendMove();
@@ -2563,13 +2595,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && selectedCards.length > 0) {
+    // Determine which cards to operate on: selected cards take priority, fallback to hovered card
+    let targetCards = [];
+    let targetCardElements = [];
+    
+    if (selectedCards.length > 0) {
+        // Use selected cards
+        targetCards = selectedCards.map(cardEl => {
+            const cardId = cardEl.dataset.id;
+            return findCardObjectById(cardId);
+        }).filter(card => card !== null);
+        targetCardElements = selectedCards;
+    } else if (hoveredCard && hoveredCardElement) {
+        // Use hovered card
+        targetCards = [hoveredCard];
+        targetCardElements = [hoveredCardElement];
+    }
+    
+    if (e.code === 'Space' && targetCardElements.length > 0) {
         e.preventDefault();
-        tapUntapCards(selectedCards);
-    } else if (e.code === 'KeyF' && selectedCards.length > 0) {
+        tapUntapCards(targetCardElements);
+    } else if (e.code === 'KeyF' && targetCardElements.length > 0) {
         e.preventDefault();
-        // Flip selected cards that have back faces
-        selectedCards.forEach(cardEl => {
+        // Flip selected/hovered cards that have back faces
+        targetCardElements.forEach(cardEl => {
             import('./cardFactory.js').then(module => {
                 const flipped = module.flipCard(cardEl);
                 if (flipped) {
@@ -2598,10 +2647,10 @@ document.addEventListener('keydown', (e) => {
                 }
             });
         });
-    } else if (e.code === 'KeyX' && selectedCards.length > 0) {
+    } else if (e.code === 'KeyX' && targetCards.length > 0) {
         e.preventDefault();
-        // Create copies asynchronously to allow for Scryfall image loading
-        createCopiesOfSelectedCards().catch(error => {
+        // Create copies of selected/hovered cards asynchronously to allow for Scryfall image loading
+        createCopiesOfTargetCards().catch(error => {
             console.error('Error creating copies:', error);
         });
     }
