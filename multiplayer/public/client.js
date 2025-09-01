@@ -49,6 +49,7 @@ let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
 let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
+let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
 
@@ -57,6 +58,8 @@ const magnifyToggleBtn = document.getElementById('magnify-toggle-btn');
 const magnifyStatusEl = document.getElementById('magnify-status');
 const autoFocusToggleBtn = document.getElementById('auto-focus-toggle-btn');
 const autoFocusStatusEl = document.getElementById('auto-focus-status');
+const ghostModeToggleBtn = document.getElementById('ghost-mode-toggle-btn');
+const ghostModeStatusEl = document.getElementById('ghost-mode-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -805,6 +808,22 @@ function updateAutoFocusStatusUI() {
     }
 }
 
+function updateGhostModeStatusUI() {
+    if (isGhostModeEnabled) {
+        ghostModeStatusEl.textContent = 'On';
+        ghostModeStatusEl.classList.remove('bg-red-600');
+        ghostModeStatusEl.classList.add('bg-green-600');
+        ghostModeToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        ghostModeToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        ghostModeStatusEl.textContent = 'Off';
+        ghostModeStatusEl.classList.remove('bg-green-600');
+        ghostModeStatusEl.classList.add('bg-red-600');
+        ghostModeToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        ghostModeToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -833,6 +852,13 @@ magnifyToggleBtn.addEventListener('click', () => {
 autoFocusToggleBtn.addEventListener('click', () => {
     isAutoFocusEnabled = !isAutoFocusEnabled;
     updateAutoFocusStatusUI();
+});
+
+ghostModeToggleBtn.addEventListener('click', () => {
+    isGhostModeEnabled = !isGhostModeEnabled;
+    updateGhostModeStatusUI();
+    // Re-render to apply ghost mode changes
+    debouncedRender();
 });
 
 // Magnify size slider event listeners
@@ -1524,8 +1550,69 @@ async function render() {
             cardEl.style.left = `${cardData.x}px`;
             cardEl.style.top = `${cardData.y}px`;
             cardEl.style.transform = `rotate(${cardData.rotation || 0}deg)`;
+            cardEl.style.zIndex = '10'; // Ensure regular cards appear above ghost cards
             playerZoneEl.appendChild(cardEl);
         });
+        
+        // Add ghost cards if ghost mode is enabled and we're viewing another player's battlefield
+        if (isGhostModeEnabled && pid !== playerId && pid === activePlayZonePlayerId) {
+            const myPlayZoneData = gameState.playZones[playerId] || [];
+            myPlayZoneData.forEach(cardData => {
+                const ghostCardEl = createCardElement(cardData, 'play', {
+                    isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for ghost cards
+                    isInteractable: false, // Ghost cards are not interactable
+                    onCardClick: null,
+                    onCardDblClick: null,
+                    onCardDragStart: null,
+                    onCounterClick: null,
+                    showBack: cardData.faceShown === 'back',
+                    isGhost: true // Special flag to indicate this is a ghost card
+                });
+                
+                // Style ghost cards with reduced opacity and different border
+                ghostCardEl.style.position = 'absolute';
+                ghostCardEl.style.left = `${cardData.x}px`;
+                ghostCardEl.style.top = `${cardData.y}px`;
+                ghostCardEl.style.transform = `rotate(${cardData.rotation || 0}deg)`;
+                ghostCardEl.style.opacity = '0.4';
+                ghostCardEl.style.border = '2px dashed #48bb78'; // Green dashed border for your cards
+                ghostCardEl.style.borderRadius = '8px';
+                ghostCardEl.style.filter = 'brightness(0.7) saturate(0.5)';
+                ghostCardEl.style.cursor = 'default'; // Change cursor to indicate non-interactable
+                ghostCardEl.style.zIndex = '1'; // Put ghost cards behind other player's cards
+                
+                // Add a subtle glow effect
+                ghostCardEl.style.boxShadow = '0 0 8px rgba(72, 187, 120, 0.3)';
+                
+                // Prevent drag and drop events but allow hover events for magnify
+                ghostCardEl.addEventListener('dragstart', (e) => e.preventDefault());
+                ghostCardEl.addEventListener('drop', (e) => e.preventDefault());
+                ghostCardEl.addEventListener('dragover', (e) => e.preventDefault());
+                
+                // Add a small indicator that this is your card
+                const ghostIndicator = document.createElement('div');
+                ghostIndicator.style.position = 'absolute';
+                ghostIndicator.style.top = '-8px';
+                ghostIndicator.style.right = '-8px';
+                ghostIndicator.style.width = '16px';
+                ghostIndicator.style.height = '16px';
+                ghostIndicator.style.backgroundColor = '#48bb78';
+                ghostIndicator.style.borderRadius = '50%';
+                ghostIndicator.style.border = '2px solid #fff';
+                ghostIndicator.style.fontSize = '10px';
+                ghostIndicator.style.color = 'white';
+                ghostIndicator.style.display = 'flex';
+                ghostIndicator.style.alignItems = 'center';
+                ghostIndicator.style.justifyContent = 'center';
+                ghostIndicator.style.fontWeight = 'bold';
+                ghostIndicator.style.pointerEvents = 'none'; // Indicator shouldn't interfere with hover
+                ghostIndicator.textContent = '👤'; // User icon to indicate it's your card
+                ghostIndicator.title = 'Your card (ghost view)';
+                
+                ghostCardEl.appendChild(ghostIndicator);
+                playerZoneEl.appendChild(ghostCardEl);
+            });
+        }
         playZonesContainer.appendChild(playerZoneEl);
 
         // Create player tab
@@ -2231,6 +2318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateMagnifyStatusUI(); // Set initial status
     updateAutoFocusStatusUI(); // Set initial auto-focus status
+    updateGhostModeStatusUI(); // Set initial ghost mode status
     initializeCardZones(); // Initialize the card zones
     
     // Initialize magnify size slider and global variable
