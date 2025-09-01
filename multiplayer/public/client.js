@@ -51,6 +51,7 @@ let isMagnifyEnabled = false; // New state variable for magnify on hover
 let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
 let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
+let isAutoUntapEnabled = false; // Auto untap all cards when your turn begins (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 
 // Load persistent settings from localStorage
@@ -63,6 +64,7 @@ function loadPersistentSettings() {
             isAutoFocusEnabled = settings.isAutoFocusEnabled ?? true;
             isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
             isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
+            isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             console.log('Loaded persistent settings:', settings);
         }
@@ -79,6 +81,7 @@ function savePersistentSettings() {
             isAutoFocusEnabled,
             isGhostModeEnabled,
             isReverseGhostModeEnabled,
+            isAutoUntapEnabled,
             magnifyPreviewWidth
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
@@ -98,6 +101,8 @@ const ghostModeToggleBtn = document.getElementById('ghost-mode-toggle-btn');
 const ghostModeStatusEl = document.getElementById('ghost-mode-status');
 const reverseGhostModeToggleBtn = document.getElementById('reverse-ghost-mode-toggle-btn');
 const reverseGhostModeStatusEl = document.getElementById('reverse-ghost-mode-status');
+const autoUntapToggleBtn = document.getElementById('auto-untap-toggle-btn');
+const autoUntapStatusEl = document.getElementById('auto-untap-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -519,6 +524,23 @@ socket.on('state', async (state) => {
     }
 
     gameState = state;
+    
+    // Handle auto-untap when it becomes the player's turn (after gameState is updated)
+    if (currentTurnChanged && isAutoUntapEnabled && gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
+        const newCurrentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
+        console.log('Auto-untap check:', {
+            currentTurnChanged,
+            isAutoUntapEnabled,
+            newCurrentTurnPlayerId,
+            playerId,
+            isMyTurn: newCurrentTurnPlayerId === playerId
+        });
+        if (newCurrentTurnPlayerId === playerId) {
+            console.log('Turn changed to yours - auto-untapping all cards');
+            autoUntapAllPlayerCards();
+        }
+    }
+    
     console.log('activePlayZonePlayerId management:', {
         currentActivePlayZonePlayerId: activePlayZonePlayerId,
         playerId: playerId,
@@ -878,6 +900,22 @@ function updateReverseGhostModeStatusUI() {
     }
 }
 
+function updateAutoUntapStatusUI() {
+    if (isAutoUntapEnabled) {
+        autoUntapStatusEl.textContent = 'On';
+        autoUntapStatusEl.classList.remove('bg-red-600');
+        autoUntapStatusEl.classList.add('bg-green-600');
+        autoUntapToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        autoUntapToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        autoUntapStatusEl.textContent = 'Off';
+        autoUntapStatusEl.classList.remove('bg-green-600');
+        autoUntapStatusEl.classList.add('bg-red-600');
+        autoUntapToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        autoUntapToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -923,6 +961,12 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
     updateReverseGhostModeStatusUI();
     // Re-render to apply reverse ghost mode changes
     debouncedRender();
+    savePersistentSettings(); // Save settings when changed
+});
+
+autoUntapToggleBtn.addEventListener('click', () => {
+    isAutoUntapEnabled = !isAutoUntapEnabled;
+    updateAutoUntapStatusUI();
     savePersistentSettings(); // Save settings when changed
 });
 
@@ -2455,6 +2499,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAutoFocusStatusUI(); // Set initial auto-focus status
     updateGhostModeStatusUI(); // Set initial ghost mode status
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
+    updateAutoUntapStatusUI(); // Set initial auto-untap status
     initializeCardZones(); // Initialize the card zones
     
     // Initialize magnify size slider and global variable with loaded settings
@@ -2577,6 +2622,50 @@ function tapUntapCards(cardElements) {
     }, 100); // 100ms debounce to prevent rapid firing
     
     return true;
+}
+
+// Auto-untap functionality for when it becomes the player's turn
+function autoUntapAllPlayerCards() {
+    // Work directly with gameState.playZones instead of local playZone array
+    if (!gameState || !gameState.playZones || !gameState.playZones[playerId]) {
+        console.log('No play zone found for player:', playerId);
+        return;
+    }
+    
+    const playerPlayZone = gameState.playZones[playerId];
+    if (!Array.isArray(playerPlayZone) || playerPlayZone.length === 0) {
+        console.log('Player play zone is empty or invalid');
+        return;
+    }
+    
+    let cardsUntapped = 0;
+    
+    // Untap all tapped cards in the play zone
+    playerPlayZone.forEach(cardData => {
+        if (cardData.rotation && cardData.rotation !== 0) {
+            cardData.rotation = 0;
+            cardsUntapped++;
+        }
+    });
+    
+    // Also update the local playZone array to match
+    if (playZone && Array.isArray(playZone)) {
+        playZone.forEach(cardData => {
+            if (cardData.rotation && cardData.rotation !== 0) {
+                cardData.rotation = 0;
+            }
+        });
+    }
+    
+    if (cardsUntapped > 0) {
+        console.log(`Auto-untapped ${cardsUntapped} cards`);
+        // Send the updated state to server
+        debouncedSendMove();
+        // Re-render to show the visual changes
+        debouncedRender();
+    } else {
+        console.log('No tapped cards found to untap');
+    }
 }
 
 function updateCascadedHandCardsInAreaCount() {
