@@ -2424,8 +2424,13 @@ document.addEventListener('click', (e) => {
 
 // Context menu event handlers
 document.addEventListener('contextmenu', (e) => {
-    // Only show context menu if we have selected cards and right-clicking in a valid area
-    if (selectedCards.length > 0 && (e.target.closest('.play-zone') || e.target.closest('#hand-zone') || e.target.closest('.card'))) {
+    // Only show context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
+    const isViewingOwnZones = currentlyViewedPlayerId === playerId;
+    const isInOwnPlayZone = activePlayZonePlayerId === playerId;
+    
+    if (selectedCards.length > 0 && 
+        (e.target.closest('.play-zone') || e.target.closest('#hand-zone') || e.target.closest('.card')) &&
+        (isViewingOwnZones || isInOwnPlayZone)) {
         showCardContextMenu(e);
     }
 });
@@ -3121,6 +3126,21 @@ function showCardContextMenu(e) {
     
     // Only show context menu if we have selected cards
     if (selectedCards.length === 0) return;
+    
+    // Double-check that we're viewing our own zones or operating on our own cards
+    const isViewingOwnZones = currentlyViewedPlayerId === playerId;
+    const isInOwnPlayZone = activePlayZonePlayerId === playerId;
+    
+    // Filter selected cards to only include cards from our own zones
+    const ownedSelectedCards = selectedCards.filter(cardEl => {
+        const cardParent = cardEl.closest('#hand-zone') || cardEl.closest(`#play-zone-${playerId}`);
+        return cardParent !== null;
+    });
+    
+    // Exit if no owned cards are selected or if we're not in our own zones
+    if (ownedSelectedCards.length === 0 || (!isViewingOwnZones && !isInOwnPlayZone)) {
+        return;
+    }
     
     // Set flag to prevent immediate click events
     contextMenuJustShown = true;
