@@ -2084,17 +2084,19 @@ function addDropListeners() {
                 
                 if (zone.id.startsWith('play-zone')) {
                     const cascadeOffset = 15;
+                    
+                    // Calculate base position and snap it to grid first
+                    const rect = zone.getBoundingClientRect();
+                    let baseX = e.clientX - rect.left - (currentCardWidth / 2);
+                    let baseY = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
+                    
+                    // Apply snap to grid to the base position only
+                    const snappedBasePos = snapToGrid(baseX, baseY);
+                    
                     groupData.cardIds.forEach((cardId, index) => {
-                        const rect = zone.getBoundingClientRect();
-                        // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
-                        const cardHeight = currentCardWidth * (107/80);
-                        let x = e.clientX - rect.left - (currentCardWidth / 2) + (index * cascadeOffset);
-                        let y = e.clientY - rect.top - (cardHeight / 2) + (index * cascadeOffset);
-                        
-                        // Apply snap to grid if enabled
-                        const snappedPos = snapToGrid(x, y);
-                        x = snappedPos.x;
-                        y = snappedPos.y;
+                        // Apply cascade offset to the snapped base position
+                        let x = snappedBasePos.x + (index * cascadeOffset);
+                        let y = snappedBasePos.y + (index * cascadeOffset);
                         
                         let cardObj = hand.find(c => c.id === cardId) || playZone.find(c => c.id === cardId) || graveyard.find(c => c.id === cardId) || exile.find(c => c.id === cardId) || command.find(c => c.id === cardId) || library.find(c => c.id === cardId);
                         if (!cardObj) {
@@ -2168,10 +2170,8 @@ function addDropListeners() {
                 // For play zone drops, we need to handle positioning manually
                 if (zone.id.startsWith('play-zone')) {
                     const rect = zone.getBoundingClientRect();
-                    // Use the same aspect ratio as CSS: 80/107, so height = width * (107/80)
-                    const cardHeight = currentCardWidth * (107/80);
                     let x = e.clientX - rect.left - (currentCardWidth / 2);
-                    let y = e.clientY - rect.top - (cardHeight / 2);
+                    let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
                     
                     // Apply snap to grid if enabled
                     const snappedPos = snapToGrid(x, y);
@@ -2412,14 +2412,16 @@ async function createCopiesOfTargetCards() {
         const originalCard = findCardObjectById(cardId);
         
         if (originalCard) {
-            // Calculate initial position with cascade offset
-            let x = (originalCard.x || 50) + cascadeOffset + (index * 10);
-            let y = (originalCard.y || 50) + cascadeOffset + (index * 10);
+            // Calculate base position and apply snap to grid first
+            let baseX = (originalCard.x || 50) + cascadeOffset;
+            let baseY = (originalCard.y || 50) + cascadeOffset;
             
-            // Apply snap to grid if enabled
-            const snappedPos = snapToGrid(x, y);
-            x = snappedPos.x;
-            y = snappedPos.y;
+            // Apply snap to grid to the base position
+            const snappedBasePos = snapToGrid(baseX, baseY);
+            
+            // Apply cascade offset to the snapped base position
+            let x = snappedBasePos.x + (index * 10);
+            let y = snappedBasePos.y + (index * 10);
             
             // Create a copy with the same visual properties but marked as a copy
             const copyCard = {
@@ -2555,13 +2557,15 @@ function handleCardDoubleClick(e, card, location) {
             const maxCardsPerRow = 5;
             const row = Math.floor(cascadedHandCardsInAreaCount / maxCardsPerRow);
             const col = cascadedHandCardsInAreaCount % maxCardsPerRow;
-            let x = initialX + (col * cascadeOffset);
-            let y = initialY + (row * cascadeOffset);
             
-            // Apply snap to grid if enabled
-            const snappedPos = snapToGrid(x, y);
-            x = snappedPos.x;
-            y = snappedPos.y;
+            // Calculate base position
+            let baseX = initialX + (col * cascadeOffset);
+            let baseY = initialY + (row * cascadeOffset);
+            
+            // Apply snap to grid to the base position
+            const snappedPos = snapToGrid(baseX, baseY);
+            let x = snappedPos.x;
+            let y = snappedPos.y;
             
             // Move the full card object to playZone, preserving its ID and properties
             const playCard = { ...cardObj, x, y, rotation: 0, fromHandCascade: true };
