@@ -317,3 +317,18 @@ body {
 #message-modal .bg-gray-800 {
     z-index: 9999999 !important; /* Ensure the modal content is also on top */
 }
+
+/* Context menu styles for better width optimization */
+.card-context-menu,
+.card-zone-context-menu {
+    width: fit-content;
+    min-width: 150px; /* Reasonable minimum but much smaller than before */
+    max-width: 250px; /* Prevent excessively wide menus */
+}
+
+.card-context-menu button,
+.card-zone-context-menu button {
+    white-space: nowrap; /* Keep button text on single line */
+    text-overflow: ellipsis;
+    overflow: hidden;
+}

@@ -570,7 +570,7 @@ export class CardZone {
         
         // Create context menu
         this.contextMenu = document.createElement('div');
-        this.contextMenu.className = 'card-zone-context-menu fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1 min-w-48';
+        this.contextMenu.className = 'card-zone-context-menu fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1';
         this.contextMenu.style.left = `${e.clientX}px`;
         this.contextMenu.style.top = `${e.clientY}px`;
         

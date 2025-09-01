@@ -3153,7 +3153,7 @@ function showCardContextMenu(e) {
     
     // Create context menu
     cardContextMenu = document.createElement('div');
-    cardContextMenu.className = 'card-context-menu fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1 min-w-48';
+    cardContextMenu.className = 'card-context-menu fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1';
     cardContextMenu.style.left = `${e.clientX}px`;
     cardContextMenu.style.top = `${e.clientY}px`;
     
