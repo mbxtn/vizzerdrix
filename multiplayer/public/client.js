@@ -2238,6 +2238,24 @@ async function render() {
     // Render play zones and tabs
     playZonesContainer.innerHTML = '';
     
+    // Create or update battlefield label overlay
+    let battlefieldLabelEl = document.getElementById('battlefield-label-overlay');
+    if (!battlefieldLabelEl) {
+        battlefieldLabelEl = document.createElement('div');
+        battlefieldLabelEl.id = 'battlefield-label-overlay';
+        battlefieldLabelEl.className = 'battlefield-label-overlay';
+        playZonesContainer.appendChild(battlefieldLabelEl);
+    }
+    
+    // Update battlefield label for active player
+    if (gameState.players[activePlayZonePlayerId]) {
+        const playerDisplayName = gameState.players[activePlayZonePlayerId]?.displayName || 'Unknown Player';
+        battlefieldLabelEl.textContent = `${playerDisplayName}'s Battlefield`;
+        battlefieldLabelEl.style.display = 'block';
+    } else {
+        battlefieldLabelEl.style.display = 'none';
+    }
+    
     playerTabsEl.innerHTML = '';
     
     // Determine player order - use turn order if set, otherwise just use Object.keys order
