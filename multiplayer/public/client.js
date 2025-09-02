@@ -68,6 +68,7 @@ function loadPersistentSettings() {
             isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
             isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
+            currentCardSpacing = settings.currentCardSpacing ?? 0;
             console.log('Loaded persistent settings:', settings);
         }
     } catch (error) {
@@ -85,7 +86,8 @@ function savePersistentSettings() {
             isReverseGhostModeEnabled,
             isAutoUntapEnabled,
             isSnapToGridEnabled,
-            magnifyPreviewWidth
+            magnifyPreviewWidth,
+            currentCardSpacing
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
         console.log('Saved persistent settings:', settings);
@@ -139,6 +141,7 @@ const currentPlayerNameEl = document.getElementById('current-player-name'); // C
 const playerTabsEl = document.getElementById('player-tabs'); // Player tabs container
 const increaseSizeBtn = document.getElementById('increase-size-btn'); // Card size controls
 const decreaseSizeBtn = document.getElementById('decrease-size-btn');
+const cardSpacingSlider = document.getElementById('card-spacing-slider'); // Card spacing slider
 const createPlaceholderBtn = document.getElementById('create-placeholder-btn'); // Placeholder card button
 const placeholderModal = document.getElementById('placeholder-modal'); // Placeholder modal
 const placeholderTextInput = document.getElementById('placeholder-text-input'); // Placeholder text input
@@ -2128,6 +2131,9 @@ async function render() {
                 playerColors: playerColors
             }));
         });
+        
+        // Apply card spacing after rendering hand cards
+        updateCardSpacing();
 
     // Render play zones and tabs
     playZonesContainer.innerHTML = '';
@@ -2897,6 +2903,7 @@ let currentCardWidth = 80;
 const minCardWidth = 60;
 const maxCardWidth = 200; // Increased from 120 to allow much larger cards
 const cardSizeStep = 10;
+let currentCardSpacing = 0; // Default spacing (0 = no gap, negative = overlap)
 
 // Cache for shuffled other players' libraries to avoid re-shuffling on every render
 let shuffledLibraryCache = new Map();
@@ -3128,6 +3135,12 @@ document.addEventListener('DOMContentLoaded', () => {
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
     updateSnapToGridStatusUI(); // Set initial snap to grid status
+    
+    // Initialize card spacing slider with loaded settings
+    if (cardSpacingSlider) {
+        cardSpacingSlider.value = currentCardSpacing;
+        updateCardSpacing(); // Apply the loaded spacing immediately
+    }
     
     // Initialize commander selection modal button state
     if (confirmCommanderSelectionBtn) {
@@ -3414,6 +3427,36 @@ function updateCardSize() {
     render();
 }
 
+function updateCardSpacing() {
+    // Update hand zone spacing to allow for card overlapping
+    const handZone = document.getElementById('hand-zone');
+    if (handZone) {
+        const cards = handZone.querySelectorAll('.card');
+        
+        if (currentCardSpacing >= 0) {
+            // Positive spacing: use gap property
+            handZone.style.gap = `${currentCardSpacing * 0.25}rem`;
+            // Reset any negative margins and z-index
+            cards.forEach((card, index) => {
+                card.style.marginLeft = '';
+                card.style.zIndex = '';
+            });
+        } else {
+            // Negative spacing: use negative margins for overlapping
+            handZone.style.gap = '0';
+            cards.forEach((card, index) => {
+                if (index > 0) {
+                    // Convert negative spacing to negative margin for overlap
+                    const overlapAmount = Math.abs(currentCardSpacing) * 0.75; // Increased multiplier for more overlap
+                    card.style.marginLeft = `-${overlapAmount}rem`;
+                }
+                // Set z-index so later cards appear on top
+                card.style.zIndex = index.toString();
+            });
+        }
+    }
+}
+
 function increaseCardSize() {
     if (currentCardWidth < maxCardWidth) {
         currentCardWidth = Math.min(currentCardWidth + cardSizeStep, maxCardWidth);
@@ -3431,6 +3474,13 @@ function decreaseCardSize() {
 // Add event listeners for card size buttons
 increaseSizeBtn.addEventListener('click', increaseCardSize);
 decreaseSizeBtn.addEventListener('click', decreaseCardSize);
+
+// Add event listener for card spacing slider
+cardSpacingSlider.addEventListener('input', (e) => {
+    currentCardSpacing = parseFloat(e.target.value);
+    updateCardSpacing();
+    savePersistentSettings();
+});
 
 // Life tracker event listeners
 increaseLifeBtn.addEventListener('click', () => {
