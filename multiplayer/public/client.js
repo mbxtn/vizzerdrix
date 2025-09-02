@@ -260,28 +260,58 @@ function updatePlayerColors() {
 const GRID_SIZE_BASE = 20; // Base grid spacing in pixels for 80px card width
 
 // Utility function to snap coordinates to grid (scales with card width)
-function snapToGrid(x, y) {
+function snapToGrid(x, y, playZoneElement = null) {
     if (!isSnapToGridEnabled) {
         return { x, y };
     }
     // Scale grid size based on current card width (80px is the base size)
     const scaledGridSize = Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
     
+    // Get the play zones container and its scroll position
+    const playZonesContainer = document.getElementById('play-zones-container');
+    if (!playZonesContainer) {
+        return { x, y };
+    }
+    
     // Account for the play zones container padding (p-3 = 12px in Tailwind)
     const containerPadding = 12;
     
-    // Adjust coordinates to align with the container's grid by accounting for padding
-    const adjustedX = x + containerPadding;
-    const adjustedY = y + containerPadding;
+    // Calculate the absolute position within the container's coordinate system
+    let absoluteX = x + containerPadding;
+    let absoluteY = y + containerPadding;
+    
+    // If we have a play zone element, we need to add its offset within the container
+    if (playZoneElement) {
+        const containerRect = playZonesContainer.getBoundingClientRect();
+        const zoneRect = playZoneElement.getBoundingClientRect();
+        
+        // Add the zone's offset relative to the container
+        absoluteX += (zoneRect.left - containerRect.left);
+        absoluteY += (zoneRect.top - containerRect.top);
+    }
+    
+    // Add the container's scroll position to align with the grid background
+    absoluteX += playZonesContainer.scrollLeft;
+    absoluteY += playZonesContainer.scrollTop;
     
     // Snap to grid
-    const snappedX = Math.round(adjustedX / scaledGridSize) * scaledGridSize;
-    const snappedY = Math.round(adjustedY / scaledGridSize) * scaledGridSize;
+    const snappedX = Math.round(absoluteX / scaledGridSize) * scaledGridSize;
+    const snappedY = Math.round(absoluteY / scaledGridSize) * scaledGridSize;
     
-    // Convert back to play zone coordinates (subtract padding)
+    // Convert back to play zone coordinates by subtracting all the offsets
+    let finalX = snappedX - containerPadding - playZonesContainer.scrollLeft;
+    let finalY = snappedY - containerPadding - playZonesContainer.scrollTop;
+    
+    if (playZoneElement) {
+        const containerRect = playZonesContainer.getBoundingClientRect();
+        const zoneRect = playZoneElement.getBoundingClientRect();
+        finalX -= (zoneRect.left - containerRect.left);
+        finalY -= (zoneRect.top - containerRect.top);
+    }
+    
     return {
-        x: snappedX - containerPadding,
-        y: snappedY - containerPadding
+        x: finalX,
+        y: finalY
     };
 }
 
@@ -2233,12 +2263,40 @@ async function render() {
         // Create play zone div
         const playerZoneEl = document.createElement('div');
         playerZoneEl.id = `play-zone-${pid}`;
-        playerZoneEl.className = 'play-zone w-full h-full relative';
+        playerZoneEl.className = 'play-zone relative';
+        
+        const playerZoneData = gameState.playZones[pid] || [];
+        
+        // Calculate the minimum size needed to contain all cards
+        let minWidth = 100; // Very minimal default
+        let minHeight = 100;
+        
+        if (playerZoneData.length > 0) {
+            let maxX = 0;
+            let maxY = 0;
+            
+            playerZoneData.forEach(cardData => {
+                const cardRight = (cardData.x || 0) + currentCardWidth;
+                const cardBottom = (cardData.y || 0) + (currentCardWidth * 120/90); // Card height
+                maxX = Math.max(maxX, cardRight);
+                maxY = Math.max(maxY, cardBottom);
+            });
+            
+            // Add minimal padding beyond the furthest cards
+            const padding = 50;
+            minWidth = Math.max(minWidth, maxX + padding);
+            minHeight = Math.max(minHeight, maxY + padding);
+        }
+        
+        playerZoneEl.style.width = `${minWidth}px`;
+        playerZoneEl.style.height = `${minHeight}px`;
+        playerZoneEl.style.minWidth = '100%';
+        playerZoneEl.style.minHeight = '100%';
+        
         if (pid !== activePlayZonePlayerId) {
             playerZoneEl.style.display = 'none';
         }
         
-        const playerZoneData = gameState.playZones[pid] || [];
         playerZoneData.forEach(cardData => {
             const isOwnCard = (pid === activePlayZonePlayerId && pid === playerId);
             const cardEl = createCardElement(cardData, 'play', {
@@ -2566,7 +2624,7 @@ function addDropListeners() {
                     let baseY = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
                     
                     // Apply snap to grid to the base position only
-                    const snappedBasePos = snapToGrid(baseX, baseY);
+                    const snappedBasePos = snapToGrid(baseX, baseY, zone);
                     
                     groupData.cardIds.forEach((cardId, index) => {
                         // Apply cascade offset to the snapped base position
@@ -2649,7 +2707,7 @@ function addDropListeners() {
                     let y = e.clientY - rect.top - ((currentCardWidth * 120/90) / 2);
                     
                     // Apply snap to grid if enabled
-                    const snappedPos = snapToGrid(x, y);
+                    const snappedPos = snapToGrid(x, y, zone);
                     x = snappedPos.x;
                     y = snappedPos.y;
                     
@@ -2854,8 +2912,11 @@ function generateCardId() {
 
 // Create a temporary placeholder card
 async function createPlaceholderCard(text) {
+    // Get the current player's play zone for snapping
+    const currentPlayZone = document.getElementById(`play-zone-${activePlayZonePlayerId}`);
+    
     // Apply snap to grid for default position if enabled
-    const defaultPos = snapToGrid(50, 50);
+    const defaultPos = snapToGrid(50, 50, currentPlayZone);
     
     const placeholderCard = {
         id: generateCardId(),
@@ -2917,12 +2978,16 @@ async function createCopiesOfTargetCards() {
         const originalCard = findCardObjectById(cardId);
         
         if (originalCard) {
+            // Determine which play zone the original card is in
+            const originalCardElement = targetCardElements[index];
+            const originalPlayZone = originalCardElement.closest('[id^="play-zone-"]');
+            
             // Calculate base position and apply snap to grid first
             let baseX = (originalCard.x || 50) + cascadeOffset;
             let baseY = (originalCard.y || 50) + cascadeOffset;
             
             // Apply snap to grid to the base position
-            const snappedBasePos = snapToGrid(baseX, baseY);
+            const snappedBasePos = snapToGrid(baseX, baseY, originalPlayZone);
             
             // Apply cascade offset to the snapped base position
             let x = snappedBasePos.x + (index * 10);
@@ -3099,8 +3164,11 @@ function handleCardDoubleClick(e, card, location) {
             let baseX = initialX + (col * cascadeOffset);
             let baseY = initialY + (row * cascadeOffset);
             
+            // Get the current player's play zone for snapping
+            const currentPlayZone = document.getElementById(`play-zone-${activePlayZonePlayerId}`);
+            
             // Apply snap to grid to the base position
-            const snappedPos = snapToGrid(baseX, baseY);
+            const snappedPos = snapToGrid(baseX, baseY, currentPlayZone);
             let x = snappedPos.x;
             let y = snappedPos.y;
             
@@ -3463,6 +3531,9 @@ function updateCascadedHandCardsInAreaCount() {
     const initialY = 10;
     const maxCardsPerRow = 5;
     
+    // Get the current player's play zone for snapping calculations
+    const currentPlayZone = document.getElementById(`play-zone-${activePlayZonePlayerId}`);
+    
     let count = 0;
     for (let i = 0; i < playZone.length; i++) {
         const card = playZone[i];
@@ -3475,7 +3546,7 @@ function updateCascadedHandCardsInAreaCount() {
             
             // If snap to grid is enabled, snap the expected position to match what would be generated
             if (isSnapToGridEnabled) {
-                const snappedExpected = snapToGrid(expectedX, expectedY);
+                const snappedExpected = snapToGrid(expectedX, expectedY, currentPlayZone);
                 expectedX = snappedExpected.x;
                 expectedY = snappedExpected.y;
             }
