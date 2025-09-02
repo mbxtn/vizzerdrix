@@ -465,22 +465,7 @@ joinBtn.addEventListener('click', () => {
             count = 1;
             cardName = line;
         }
-        
-        // Clean up the card name by removing various suffixes:
-        // Remove set codes: "(M21)", "(MH3)", "(m10)", etc.
-        cardName = cardName.replace(/\s+\([^)]*\)/g, '');
-        
-        // Remove collector numbers: " 309", " 128", etc. (space + numbers at end)
-        cardName = cardName.replace(/\s+\d+\s*$/, '');
-        
-        // Remove special markers: "*F*" (foil), "*E*" (etched), etc.
-        cardName = cardName.replace(/\s+\*[A-Z]+\*\s*$/, '');
-        
-        // Remove tags in square brackets: "[Consistent Shared Draw,Draw]"
-        cardName = cardName.replace(/\s+\[[^\]]*\]\s*$/, '');
-        
-        // Remove commander marker "(CMDR)" if present
-        cardName = cardName.replace(/\s+\(CMDR\)\s*$/i, '');
+        cardName = cardName.replace(/[^\sa-zA-Z0-9,'-].*$/, ""); // Remove any trailing set codes or tags
         
         // Remove any trailing/leading whitespace
         cardName = cardName.trim();
