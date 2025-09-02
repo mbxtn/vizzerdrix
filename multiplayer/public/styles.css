@@ -117,8 +117,8 @@ body {
     background-color: rgba(66, 153, 225, 0.1);
 }
 
-/* Snap to grid overlay */
-.play-zone.snap-grid-enabled {
+/* Extended snap-to-grid overlay on the play zones container for broader coverage */
+#play-zones-container.snap-grid-enabled {
     background-image: 
         linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
@@ -126,20 +126,13 @@ body {
     background-position: 0 0;
 }
 
-.play-zone.snap-grid-enabled::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: 
-        linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-    background-size: var(--major-grid-size) var(--major-grid-size);
-    background-position: 0 0;
-    pointer-events: none;
-    z-index: 0;
+/* Ensure individual play zones don't show any grid background */
+.play-zone {
+    background-image: none !important;
+}
+
+.play-zone::before {
+    display: none !important;
 }
 
 /* Room name background display */

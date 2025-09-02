@@ -266,9 +266,22 @@ function snapToGrid(x, y) {
     }
     // Scale grid size based on current card width (80px is the base size)
     const scaledGridSize = Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
+    
+    // Account for the play zones container padding (p-3 = 12px in Tailwind)
+    const containerPadding = 12;
+    
+    // Adjust coordinates to align with the container's grid by accounting for padding
+    const adjustedX = x + containerPadding;
+    const adjustedY = y + containerPadding;
+    
+    // Snap to grid
+    const snappedX = Math.round(adjustedX / scaledGridSize) * scaledGridSize;
+    const snappedY = Math.round(adjustedY / scaledGridSize) * scaledGridSize;
+    
+    // Convert back to play zone coordinates (subtract padding)
     return {
-        x: Math.round(x / scaledGridSize) * scaledGridSize,
-        y: Math.round(y / scaledGridSize) * scaledGridSize
+        x: snappedX - containerPadding,
+        y: snappedY - containerPadding
     };
 }
 
@@ -287,12 +300,13 @@ function updateGridVisuals() {
     document.documentElement.style.setProperty('--major-grid-size', `${majorGridSize}px`);
     
     if (isSnapToGridEnabled) {
-        // Force update of existing play zones
-        document.querySelectorAll('.play-zone.snap-grid-enabled').forEach(playZone => {
-            playZone.style.backgroundSize = `${gridSize}px ${gridSize}px`;
-            // Update the ::before pseudo-element by forcing a style recalculation
-            playZone.offsetHeight; // Trigger reflow
-        });
+        // Force update of play zones container grid
+        const playZonesContainer = document.getElementById('play-zones-container');
+        if (playZonesContainer && playZonesContainer.classList.contains('snap-grid-enabled')) {
+            playZonesContainer.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+            // Trigger reflow for the container's pseudo-element
+            playZonesContainer.offsetHeight;
+        }
     }
 }
 
@@ -1404,6 +1418,16 @@ function updateSnapToGridStatusUI() {
         snapToGridToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
         snapToGridToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
     }
+    
+    // Update play zones container grid class
+    const playZonesContainer = document.getElementById('play-zones-container');
+    if (playZonesContainer) {
+        if (isSnapToGridEnabled) {
+            playZonesContainer.classList.add('snap-grid-enabled');
+        } else {
+            playZonesContainer.classList.remove('snap-grid-enabled');
+        }
+    }
 }
 
 function updateSpacingSliderVisibilityUI() {
@@ -1482,14 +1506,15 @@ snapToGridToggleBtn.addEventListener('click', () => {
     window.isSnapToGridEnabled = isSnapToGridEnabled; // Update global reference
     updateSnapToGridStatusUI();
     
-    // Update existing play zones with grid class
-    document.querySelectorAll('.play-zone').forEach(playZone => {
+    // Update play zones container with grid class for broader coverage
+    const playZonesContainer = document.getElementById('play-zones-container');
+    if (playZonesContainer) {
         if (isSnapToGridEnabled) {
-            playZone.classList.add('snap-grid-enabled');
+            playZonesContainer.classList.add('snap-grid-enabled');
         } else {
-            playZone.classList.remove('snap-grid-enabled');
+            playZonesContainer.classList.remove('snap-grid-enabled');
         }
-    });
+    }
     
     // Update grid visuals with current card size
     updateGridVisuals();
@@ -2209,12 +2234,6 @@ async function render() {
         const playerZoneEl = document.createElement('div');
         playerZoneEl.id = `play-zone-${pid}`;
         playerZoneEl.className = 'play-zone w-full h-full relative';
-        if (isSnapToGridEnabled) {
-            playerZoneEl.classList.add('snap-grid-enabled');
-            // Apply current grid size to this new play zone
-            const gridSize = getScaledGridSize();
-            playerZoneEl.style.backgroundSize = `${gridSize}px ${gridSize}px`;
-        }
         if (pid !== activePlayZonePlayerId) {
             playerZoneEl.style.display = 'none';
         }
