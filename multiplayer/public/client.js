@@ -583,33 +583,46 @@ function showCommanderSelectionModal(allCardNames, roomName, displayName) {
     uniqueCards.forEach((cardName, index) => {
         const count = cardCounts[cardName];
         const cardItem = document.createElement('div');
-        cardItem.className = 'flex items-center justify-between p-2 border border-gray-600 rounded-md mb-2 cursor-pointer hover:bg-gray-600 transition-colors';
+        cardItem.className = 'flex items-center justify-between p-3 border border-gray-600 rounded-md mb-2 cursor-pointer hover:bg-gray-600 transition-colors';
         cardItem.dataset.cardIndex = index;
         cardItem.dataset.cardName = cardName;
         
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.className = 'flex items-center flex-1';
+        
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.className = 'mr-3';
+        checkbox.className = 'mr-3 pointer-events-none'; // Disable direct checkbox interaction
         checkbox.id = `commander-checkbox-${index}`;
         
         const label = document.createElement('label');
         label.htmlFor = `commander-checkbox-${index}`;
-        label.className = 'flex-1 cursor-pointer';
+        label.className = 'flex-1 cursor-pointer select-none'; // Prevent text selection
         label.textContent = count > 1 ? `${cardName} (${count}x)` : cardName;
         
-        cardItem.appendChild(checkbox);
-        cardItem.appendChild(label);
+        checkboxContainer.appendChild(checkbox);
+        checkboxContainer.appendChild(label);
+        cardItem.appendChild(checkboxContainer);
         
-        // Add click handler
+        // Add click handler to the entire row
         cardItem.addEventListener('click', (e) => {
-            if (e.target !== checkbox) {
-                checkbox.checked = !checkbox.checked;
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Toggle the checkbox state
+            checkbox.checked = !checkbox.checked;
+            
+            // Update visual state
+            if (checkbox.checked) {
+                cardItem.classList.add('bg-blue-600', 'border-blue-400');
+                cardItem.classList.remove('hover:bg-gray-600');
+            } else {
+                cardItem.classList.remove('bg-blue-600', 'border-blue-400');
+                cardItem.classList.add('hover:bg-gray-600');
             }
+            
+            // Update selection
             toggleCommanderSelection(index, cardName, checkbox.checked);
-        });
-        
-        checkbox.addEventListener('change', (e) => {
-            toggleCommanderSelection(index, cardName, e.target.checked);
         });
         
         commanderSelectionList.appendChild(cardItem);
