@@ -308,6 +308,7 @@ const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu'
 const toggleSpacingSliderBtn = document.getElementById('toggle-spacing-slider');
 const spacingSliderStatusEl = document.getElementById('spacing-slider-status');
 const cardSpacingSliderContainer = document.getElementById('card-spacing-slider-container');
+const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
 
 // Bottom bar state
 let isSpacingSliderVisible = true; // Default to visible
@@ -1503,6 +1504,18 @@ toggleSpacingSliderBtn.addEventListener('click', () => {
     updateSpacingSliderVisibilityUI();
     savePersistentSettings(); // Save settings when changed
     hideBottomBarContextMenu(); // Hide context menu after selection
+});
+
+// Bottom bar settings gear button
+bottomBarSettingsBtn.addEventListener('click', (e) => {
+    // Create a fake context menu event at the gear button's position
+    const rect = bottomBarSettingsBtn.getBoundingClientRect();
+    const fakeEvent = {
+        clientX: rect.left,
+        clientY: rect.bottom + 5, // Position slightly below the button
+        preventDefault: () => {}
+    };
+    showBottomBarContextMenu(fakeEvent);
 });
 
 // Magnify size slider event listeners
@@ -2776,20 +2789,31 @@ document.addEventListener('click', (e) => {
 
 // Context menu event handlers
 document.addEventListener('contextmenu', (e) => {
-    // Check if right-clicking on the bottom bar
+    // Check if right-clicking on specific card areas first (higher priority)
+    const isOnCard = e.target.closest('.card');
+    const isOnHandZone = e.target.closest('#hand-zone');
+    const isOnPlayZone = e.target.closest('.play-zone');
+    const isOnLibrary = e.target.closest('#library');
+    const isOnCardPile = e.target.closest('#graveyard-pile') || e.target.closest('#exile-pile') || e.target.closest('#command-pile');
+    
+    // If right-clicking on card-related areas, handle card context menu
+    if (isOnCard || isOnHandZone || isOnPlayZone || isOnLibrary || isOnCardPile) {
+        // Only show card context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
+        const isViewingOwnZones = currentlyViewedPlayerId === playerId;
+        const isInOwnPlayZone = activePlayZonePlayerId === playerId;
+        
+        if (selectedCards.length > 0 && 
+            (isOnPlayZone || isOnHandZone || isOnCard) &&
+            (isViewingOwnZones || isInOwnPlayZone)) {
+            showCardContextMenu(e);
+        }
+        return; // Don't show bottom bar context menu
+    }
+    
+    // Check if right-clicking on the bottom bar (but not on card areas)
     if (e.target.closest('#bottom-bar')) {
         showBottomBarContextMenu(e);
         return;
-    }
-    
-    // Only show card context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
-    const isViewingOwnZones = currentlyViewedPlayerId === playerId;
-    const isInOwnPlayZone = activePlayZonePlayerId === playerId;
-    
-    if (selectedCards.length > 0 && 
-        (e.target.closest('.play-zone') || e.target.closest('#hand-zone') || e.target.closest('.card')) &&
-        (isViewingOwnZones || isInOwnPlayZone)) {
-        showCardContextMenu(e);
     }
 });
 
