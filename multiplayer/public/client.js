@@ -1180,6 +1180,14 @@ document.getElementById('close-options-btn').addEventListener('click', () => {
 
 // Placeholder card event listeners
 createPlaceholderBtn.addEventListener('click', () => {
+    // Switch back to viewing our own playzone before starting placeholder creation
+    if (activePlayZonePlayerId !== playerId) {
+        activePlayZonePlayerId = playerId;
+        currentlyViewedPlayerId = playerId;
+        // Re-render to switch the view immediately
+        debouncedRender();
+    }
+    
     optionsModal.classList.add('hidden');
     placeholderModal.classList.remove('hidden');
     placeholderTextInput.focus();
