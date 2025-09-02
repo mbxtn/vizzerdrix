@@ -112,9 +112,9 @@ body {
 }
 
 .zone-active {
-    outline: 2px dashed #6b7280;
+    outline: 2px dashed #4299e1;
     outline-offset: -2px; /* Optional: to make outline appear inside the border-box */
-    background-color: rgba(107, 114, 128, 0.1);
+    background-color: rgba(66, 153, 225, 0.1);
 }
 
 /* Extended snap-to-grid overlay on the play zones container for broader coverage */
