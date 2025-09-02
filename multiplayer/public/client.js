@@ -53,6 +53,7 @@ let isGhostModeEnabled = false; // Ghost mode for showing your cards on other pl
 let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
 let isAutoUntapEnabled = false; // Auto untap all cards when your turn begins (disabled by default)
 let isSnapToGridEnabled = false; // Snap to grid for card movement in play zone (disabled by default)
+let isTabHoverPreviewEnabled = false; // Tab hover preview for showing player zones on tab hover (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 
 // Load persistent settings from localStorage
@@ -67,6 +68,7 @@ function loadPersistentSettings() {
             isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
             isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
             isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
+            isTabHoverPreviewEnabled = settings.isTabHoverPreviewEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             currentCardSpacing = settings.currentCardSpacing ?? 0;
             isSpacingSliderVisible = settings.isSpacingSliderVisible ?? true;
@@ -87,6 +89,7 @@ function savePersistentSettings() {
             isReverseGhostModeEnabled,
             isAutoUntapEnabled,
             isSnapToGridEnabled,
+            isTabHoverPreviewEnabled,
             magnifyPreviewWidth,
             currentCardSpacing,
             isSpacingSliderVisible
@@ -112,6 +115,8 @@ const autoUntapToggleBtn = document.getElementById('auto-untap-toggle-btn');
 const autoUntapStatusEl = document.getElementById('auto-untap-status');
 const snapToGridToggleBtn = document.getElementById('snap-to-grid-toggle-btn');
 const snapToGridStatusEl = document.getElementById('snap-to-grid-status');
+const tabHoverPreviewToggleBtn = document.getElementById('tab-hover-preview-toggle-btn');
+const tabHoverPreviewStatusEl = document.getElementById('tab-hover-preview-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
 const roomInput = document.getElementById('room-input');
@@ -348,6 +353,11 @@ const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
 
 // Bottom bar state
 let isSpacingSliderVisible = true; // Default to visible
+
+// Tab hover preview state
+let isHoveringTab = false;
+let originalActivePlayZonePlayerId = null;
+let hoverTimeoutId = null;
 
 // Card Zone instances
 let libraryZone = null;
@@ -1458,6 +1468,22 @@ function updateSnapToGridStatusUI() {
     }
 }
 
+function updateTabHoverPreviewStatusUI() {
+    if (isTabHoverPreviewEnabled) {
+        tabHoverPreviewStatusEl.textContent = 'On';
+        tabHoverPreviewStatusEl.classList.remove('bg-red-600');
+        tabHoverPreviewStatusEl.classList.add('bg-green-600');
+        tabHoverPreviewToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        tabHoverPreviewToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        tabHoverPreviewStatusEl.textContent = 'Off';
+        tabHoverPreviewStatusEl.classList.remove('bg-green-600');
+        tabHoverPreviewStatusEl.classList.add('bg-red-600');
+        tabHoverPreviewToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        tabHoverPreviewToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function updateSpacingSliderVisibilityUI() {
     if (isSpacingSliderVisible) {
         cardSpacingSliderContainer.classList.remove('hidden');
@@ -1547,6 +1573,14 @@ snapToGridToggleBtn.addEventListener('click', () => {
     // Update grid visuals with current card size
     updateGridVisuals();
     
+    savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
+});
+
+// Tab hover preview toggle
+tabHoverPreviewToggleBtn.addEventListener('click', () => {
+    isTabHoverPreviewEnabled = !isTabHoverPreviewEnabled;
+    updateTabHoverPreviewStatusUI();
     savePersistentSettings(); // Save settings when changed
     hideBottomBarContextMenu(); // Hide context menu after selection
 });
@@ -2520,9 +2554,54 @@ async function render() {
             tabEl.classList.add('bg-gray-700', 'hover:bg-gray-600');
         }
         tabEl.addEventListener('click', () => {
+            // Reset any hover state when clicking on a tab
+            resetTabHoverState();
             activePlayZonePlayerId = pid;
             render();
         });
+        
+        // Add hover functionality for tab preview
+        tabEl.addEventListener('mouseenter', () => {
+            if (isTabHoverPreviewEnabled && pid !== activePlayZonePlayerId) {
+                // Clear any existing hover timeout
+                if (hoverTimeoutId) {
+                    clearTimeout(hoverTimeoutId);
+                }
+                
+                // Store the original active player if we haven't already
+                if (!isHoveringTab) {
+                    originalActivePlayZonePlayerId = activePlayZonePlayerId;
+                    isHoveringTab = true;
+                }
+                
+                // Switch to the hovered player's zone after a short delay
+                hoverTimeoutId = setTimeout(() => {
+                    activePlayZonePlayerId = pid;
+                    render();
+                }, 150); // Small delay to prevent accidental triggers
+            }
+        });
+        
+        tabEl.addEventListener('mouseleave', () => {
+            if (isTabHoverPreviewEnabled && isHoveringTab) {
+                // Clear the hover timeout
+                if (hoverTimeoutId) {
+                    clearTimeout(hoverTimeoutId);
+                    hoverTimeoutId = null;
+                }
+                
+                // Restore the original active player zone after a delay
+                setTimeout(() => {
+                    if (isHoveringTab && originalActivePlayZonePlayerId !== null) {
+                        activePlayZonePlayerId = originalActivePlayZonePlayerId;
+                        isHoveringTab = false;
+                        originalActivePlayZonePlayerId = null;
+                        render();
+                    }
+                }, 100); // Small delay to allow moving to another tab
+            }
+        });
+        
         playerTabsEl.appendChild(tabEl);
     });
     
@@ -3360,6 +3439,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
     updateSnapToGridStatusUI(); // Set initial snap to grid status
+    updateTabHoverPreviewStatusUI(); // Set initial tab hover preview status
     updateSpacingSliderVisibilityUI(); // Set initial spacing slider visibility
     
     // Initialize card spacing slider with loaded settings
@@ -4041,6 +4121,21 @@ function findCardObjectById(cardId) {
     return null;
 }
 
+// Helper function to reset tab hover preview state
+function resetTabHoverState() {
+    if (hoverTimeoutId) {
+        clearTimeout(hoverTimeoutId);
+        hoverTimeoutId = null;
+    }
+    
+    if (isHoveringTab && originalActivePlayZonePlayerId !== null) {
+        activePlayZonePlayerId = originalActivePlayZonePlayerId;
+        isHoveringTab = false;
+        originalActivePlayZonePlayerId = null;
+        render();
+    }
+}
+
 // Helper function to find card object by ID across ALL players' zones
 function findCardObjectByIdGlobal(cardId) {
     // If we're viewing another player's battlefield and have selected cards,
@@ -4429,6 +4524,29 @@ function moveSelectedCardsToZone(targetZone) {
     if (message) {
         showMessage(message);
     }
+}
+
+// Add global event listeners for tab hover preview functionality
+if (playerTabsEl) {
+    playerTabsEl.addEventListener('mouseleave', () => {
+        if (isTabHoverPreviewEnabled && isHoveringTab) {
+            // Clear any pending hover timeout
+            if (hoverTimeoutId) {
+                clearTimeout(hoverTimeoutId);
+                hoverTimeoutId = null;
+            }
+            
+            // Restore the original active player zone
+            setTimeout(() => {
+                if (isHoveringTab && originalActivePlayZonePlayerId !== null) {
+                    activePlayZonePlayerId = originalActivePlayZonePlayerId;
+                    isHoveringTab = false;
+                    originalActivePlayZonePlayerId = null;
+                    render();
+                }
+            }, 100);
+        }
+    });
 }
 
 
