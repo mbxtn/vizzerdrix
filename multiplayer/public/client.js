@@ -2118,6 +2118,13 @@ async function render() {
         // Hand always shows current player's data
         const serverHand = gameState.players[playerId]?.hand || [];
         
+        // Get current player's actual game state (for sendMove())
+        const ourLibrary = gameState.players[playerId]?.library || [];
+        const ourGraveyard = gameState.players[playerId]?.graveyard || [];
+        const ourExile = gameState.players[playerId]?.exile || [];
+        const ourCommand = gameState.players[playerId]?.command || [];
+        const ourPlayZone = gameState.playZones[playerId] || [];
+        
         // Other zones show data for the player whose play zone is currently being viewed
         const viewedPlayerId = activePlayZonePlayerId || playerId;
         currentlyViewedPlayerId = viewedPlayerId; // Update the global tracking variable
@@ -2136,9 +2143,9 @@ async function render() {
             console.log('Preserving local state due to recent client action:', lastClientAction.action);
             // Keep local state for recent actions, but merge other players' changes
             // Only merge playZone from server if it has more cards (other players added cards)
-            if (serverPlayZone.length > playZone.length) {
+            if (ourPlayZone.length > playZone.length) {
                 // Merge server cards that aren't in our local state
-                serverPlayZone.forEach(serverCard => {
+                ourPlayZone.forEach(serverCard => {
                     if (!playZone.find(localCard => localCard.id === serverCard.id)) {
                         playZone.push(serverCard);
                     }
@@ -2152,11 +2159,11 @@ async function render() {
                 viewedPlayerId, 
                 playerId,
                 serverHandCount: serverHand.length,
-                serverLibraryCount: serverLibrary.length,
-                serverGraveyardCount: serverGraveyard.length,
-                serverExileCount: serverExile.length,
-                serverCommandCount: serverCommand.length,
-                serverPlayZoneCount: serverPlayZone.length
+                ourLibraryCount: ourLibrary.length,
+                ourGraveyardCount: ourGraveyard.length,
+                ourExileCount: ourExile.length,
+                ourCommandCount: ourCommand.length,
+                ourPlayZoneCount: ourPlayZone.length
             });
             hand = serverHand; // Hand is always current player
             
@@ -2167,33 +2174,20 @@ async function render() {
             }
             
             if (viewedPlayerId === playerId) {
-                // Viewing our own zones
-                library = serverLibrary;
-                graveyard = serverGraveyard;
-                exile = serverExile;
-                command = serverCommand || []; // Ensure command is always an array
-                playZone = serverPlayZone;
+                // Viewing our own zones - use our data
+                library = ourLibrary;
+                graveyard = ourGraveyard;
+                exile = ourExile;
+                command = ourCommand;
+                playZone = ourPlayZone;
             } else {
-                // Viewing another player's zones - use their data for zones but keep our hand
-                // Use cached shuffled library to avoid re-shuffling on every render
-                const cacheKey = `${viewedPlayerId}-${serverLibrary.length}-${JSON.stringify(serverLibrary.slice(0, 3))}`;
-                if (!shuffledLibraryCache.has(cacheKey)) {
-                    // Create a shuffled copy only if not cached
-                    const shuffledCopy = [...serverLibrary];
-                    shuffleArray(shuffledCopy);
-                    shuffledLibraryCache.set(cacheKey, shuffledCopy);
-                    
-                    // Clear old cache entries to prevent memory leaks (keep only last 10)
-                    if (shuffledLibraryCache.size > 10) {
-                        const firstKey = shuffledLibraryCache.keys().next().value;
-                        shuffledLibraryCache.delete(firstKey);
-                    }
-                }
-                library = shuffledLibraryCache.get(cacheKey);
-                graveyard = serverGraveyard;
-                exile = serverExile;
-                command = serverCommand || [];
-                playZone = serverPlayZone;
+                // Viewing another player's zones - still use OUR data for local state!
+                // This ensures sendMove() always sends our actual game state, not opponent's
+                library = ourLibrary;
+                graveyard = ourGraveyard;
+                exile = ourExile;
+                command = ourCommand;
+                playZone = ourPlayZone;
             }
         }
 
@@ -2208,19 +2202,36 @@ async function render() {
         }
         
         if (libraryZone) {
-            libraryZone.updateCards(library);
+            // Always use the correct data for display: our data when viewing ourselves, opponent's when viewing them
+            const displayLibrary = viewedPlayerId === playerId ? library : (() => {
+                // For opponent's library, use cached shuffled version
+                const cacheKey = `${viewedPlayerId}-${serverLibrary.length}-${JSON.stringify(serverLibrary.slice(0, 3))}`;
+                if (!shuffledLibraryCache.has(cacheKey)) {
+                    const shuffledCopy = [...serverLibrary];
+                    shuffleArray(shuffledCopy);
+                    shuffledLibraryCache.set(cacheKey, shuffledCopy);
+                    
+                    // Clear old cache entries to prevent memory leaks (keep only last 10)
+                    if (shuffledLibraryCache.size > 10) {
+                        const firstKey = shuffledLibraryCache.keys().next().value;
+                        shuffledLibraryCache.delete(firstKey);
+                    }
+                }
+                return shuffledLibraryCache.get(cacheKey);
+            })();
+            libraryZone.updateCards(displayLibrary);
             libraryZone.setInteractionEnabled(allowInteractions);
         }
         if (graveyardZone) {
-            graveyardZone.updateCards(graveyard);
+            graveyardZone.updateCards(viewedPlayerId === playerId ? graveyard : serverGraveyard);
             graveyardZone.setInteractionEnabled(allowInteractions);
         }
         if (exileZone) {
-            exileZone.updateCards(exile);
+            exileZone.updateCards(viewedPlayerId === playerId ? exile : serverExile);
             exileZone.setInteractionEnabled(allowInteractions);
         }
         if (commandZone) {
-            commandZone.updateCards(command);
+            commandZone.updateCards(viewedPlayerId === playerId ? command : serverCommand);
             commandZone.setInteractionEnabled(allowInteractions);
         }
 
@@ -2930,11 +2941,18 @@ function generateCardId() {
 
 // Create a temporary placeholder card
 async function createPlaceholderCard(text) {
+    console.log('=== CREATING PLACEHOLDER CARD ===');
+    console.log('Card name:', text);
+    console.log('activePlayZonePlayerId:', activePlayZonePlayerId);
+    console.log('playerId:', playerId);
+    
     // Get the current player's play zone for snapping
     const currentPlayZone = document.getElementById(`play-zone-${activePlayZonePlayerId}`);
+    console.log('Current play zone element:', currentPlayZone);
     
     // Apply snap to grid for default position if enabled
     const defaultPos = snapToGrid(50, 50, currentPlayZone);
+    console.log('Default position after snap:', defaultPos);
     
     const placeholderCard = {
         id: generateCardId(),
@@ -2946,11 +2964,23 @@ async function createPlaceholderCard(text) {
         rotation: 0
     };
     
+    console.log('Created placeholder card:', placeholderCard);
+    console.log('playZone before adding:', playZone.length, 'cards');
+    
+    // Mark this as a client action to preserve optimistic updates
+    markClientAction('createPlaceholder', placeholderCard.id);
+    
     // Add to play zone immediately (shows as placeholder initially)
     playZone.push(placeholderCard);
     
+    console.log('playZone after adding:', playZone.length, 'cards');
+    console.log('Last card in playZone:', playZone[playZone.length - 1]);
+    
     // Re-render to show the placeholder card
     render();
+    
+    // Send update to server
+    sendMove();
     
     // Try to load Scryfall data for this card in the background
     try {
@@ -2964,12 +2994,19 @@ async function createPlaceholderCard(text) {
         console.error('Error loading Scryfall data for placeholder:', error);
     }
     
-    // Send update to server
-    sendMove();
+    console.log('=== END PLACEHOLDER CARD CREATION ===');
 }
 
 // Create copies of selected cards
 async function createCopiesOfTargetCards() {
+    // Switch to our own playzone before creating copies
+    if (activePlayZonePlayerId !== playerId) {
+        activePlayZonePlayerId = playerId;
+        currentlyViewedPlayerId = playerId;
+        // Re-render to switch the view immediately
+        render();
+    }
+    
     // Determine which cards to copy: selected cards take priority, fallback to hovered card
     let targetCards = [];
     let targetCardElements = [];
@@ -2977,7 +3014,8 @@ async function createCopiesOfTargetCards() {
     if (selectedCards.length > 0) {
         targetCards = selectedCards.map(cardEl => {
             const cardId = cardEl.dataset.id;
-            return findCardObjectById(cardId);
+            const result = findCardObjectByIdGlobal(cardId);
+            return result ? result.card : null;
         }).filter(card => card !== null);
         targetCardElements = selectedCards;
     } else if (hoveredCard && hoveredCardElement) {
@@ -2993,7 +3031,14 @@ async function createCopiesOfTargetCards() {
     for (let index = 0; index < targetCardElements.length; index++) {
         const cardEl = targetCardElements[index];
         const cardId = cardEl.dataset.id;
-        const originalCard = findCardObjectById(cardId);
+        const result = findCardObjectByIdGlobal(cardId);
+        const originalCard = result ? result.card : null;
+        
+        console.log(`=== COPY CREATION DEBUG ===`);
+        console.log(`Card ID: ${cardId}`);
+        console.log(`Original card found:`, originalCard);
+        console.log(`Card belongs to player:`, result ? result.playerId : 'none');
+        console.log(`Current user ID:`, playerId);
         
         if (originalCard) {
             // Determine which play zone the original card is in
@@ -3029,6 +3074,10 @@ async function createCopiesOfTargetCards() {
             // Add to play zone
             playZone.push(copyCard);
             copiesCreated++;
+            
+            console.log(`Copy card created and added to playZone:`, copyCard);
+            console.log(`Total cards in playZone now:`, playZone.length);
+            console.log(`=== END COPY CREATION DEBUG ===`);
             
             // Try to load Scryfall data for this card in the background if not already cached
             try {
