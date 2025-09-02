@@ -3595,18 +3595,14 @@ document.addEventListener('keydown', (e) => {
                         selectedCardIds = [];
                         debouncedSendSelectionUpdate();
                         
-                        showMessage(`Created ${uniqueCardNames.length} placeholder${uniqueCardNames.length > 1 ? 's' : ''} from opponent selection: ${uniqueCardNames.join(', ')}`);
                     }).catch(error => {
                         console.error('Error creating placeholders:', error);
-                        showMessage('Error creating placeholders from opponent cards');
                     });
                 } catch (error) {
                     console.error('Error creating placeholders:', error);
-                    showMessage('Error creating placeholders from opponent cards');
                 }
             } else {
                 // No cards selected by anyone
-                showMessage('No cards selected. Select your own cards to copy, or wait for opponents to select cards to create placeholders.');
             }
         }
     }
