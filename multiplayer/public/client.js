@@ -69,6 +69,7 @@ function loadPersistentSettings() {
             isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             currentCardSpacing = settings.currentCardSpacing ?? 0;
+            isSpacingSliderVisible = settings.isSpacingSliderVisible ?? true;
             console.log('Loaded persistent settings:', settings);
         }
     } catch (error) {
@@ -87,7 +88,8 @@ function savePersistentSettings() {
             isAutoUntapEnabled,
             isSnapToGridEnabled,
             magnifyPreviewWidth,
-            currentCardSpacing
+            currentCardSpacing,
+            isSpacingSliderVisible
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
         console.log('Saved persistent settings:', settings);
@@ -297,6 +299,18 @@ function updateGridVisuals() {
 // Context menu state
 let cardContextMenu = null;
 let contextMenuJustShown = false;
+let bottomBarContextMenu = null;
+let bottomBarContextMenuJustShown = false;
+
+// Bottom bar elements
+const bottomBarEl = document.getElementById('bottom-bar');
+const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
+const toggleSpacingSliderBtn = document.getElementById('toggle-spacing-slider');
+const spacingSliderStatusEl = document.getElementById('spacing-slider-status');
+const cardSpacingSliderContainer = document.getElementById('card-spacing-slider-container');
+
+// Bottom bar state
+let isSpacingSliderVisible = true; // Default to visible
 
 // Card Zone instances
 let libraryZone = null;
@@ -1391,6 +1405,18 @@ function updateSnapToGridStatusUI() {
     }
 }
 
+function updateSpacingSliderVisibilityUI() {
+    if (isSpacingSliderVisible) {
+        cardSpacingSliderContainer.classList.remove('hidden');
+        spacingSliderStatusEl.textContent = 'Visible';
+        toggleSpacingSliderBtn.querySelector('span').textContent = 'Hide Hand Spacing Slider';
+    } else {
+        cardSpacingSliderContainer.classList.add('hidden');
+        spacingSliderStatusEl.textContent = 'Hidden';
+        toggleSpacingSliderBtn.querySelector('span').textContent = 'Show Hand Spacing Slider';
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -1463,6 +1489,14 @@ snapToGridToggleBtn.addEventListener('click', () => {
     updateGridVisuals();
     
     savePersistentSettings(); // Save settings when changed
+});
+
+// Toggle spacing slider visibility
+toggleSpacingSliderBtn.addEventListener('click', () => {
+    isSpacingSliderVisible = !isSpacingSliderVisible;
+    updateSpacingSliderVisibilityUI();
+    savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 // Magnify size slider event listeners
@@ -2725,15 +2759,24 @@ document.addEventListener('click', (e) => {
         selectedCardIds = [];
         debouncedSendSelectionUpdate();
     }
-    // Hide context menu on any click (unless it was just shown)
+    // Hide context menus on any click (unless they were just shown)
     if (!contextMenuJustShown) {
         hideCardContextMenu();
+    }
+    if (!bottomBarContextMenuJustShown) {
+        hideBottomBarContextMenu();
     }
 });
 
 // Context menu event handlers
 document.addEventListener('contextmenu', (e) => {
-    // Only show context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
+    // Check if right-clicking on the bottom bar
+    if (e.target.closest('#bottom-bar')) {
+        showBottomBarContextMenu(e);
+        return;
+    }
+    
+    // Only show card context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
     const isViewingOwnZones = currentlyViewedPlayerId === playerId;
     const isInOwnPlayZone = activePlayZonePlayerId === playerId;
     
@@ -3135,6 +3178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
     updateSnapToGridStatusUI(); // Set initial snap to grid status
+    updateSpacingSliderVisibilityUI(); // Set initial spacing slider visibility
     
     // Initialize card spacing slider with loaded settings
     if (cardSpacingSlider) {
@@ -3668,6 +3712,39 @@ function hideCardContextMenu() {
         cardContextMenu = null;
     }
     contextMenuJustShown = false;
+}
+
+// Bottom bar context menu functions
+function showBottomBarContextMenu(e) {
+    e.preventDefault();
+    
+    hideBottomBarContextMenu();
+    
+    bottomBarContextMenuJustShown = true;
+    setTimeout(() => {
+        bottomBarContextMenuJustShown = false;
+    }, 10);
+    
+    // Position the context menu
+    bottomBarContextMenuEl.style.left = `${e.clientX}px`;
+    bottomBarContextMenuEl.style.top = `${e.clientY}px`;
+    bottomBarContextMenuEl.classList.remove('hidden');
+    
+    // Ensure context menu stays within viewport
+    const rect = bottomBarContextMenuEl.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+        bottomBarContextMenuEl.style.left = `${e.clientX - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+        bottomBarContextMenuEl.style.top = `${e.clientY - rect.height}px`;
+    }
+}
+
+function hideBottomBarContextMenu() {
+    if (bottomBarContextMenuEl) {
+        bottomBarContextMenuEl.classList.add('hidden');
+    }
+    bottomBarContextMenuJustShown = false;
 }
 
 // Helper function to find card object by ID across all zones
