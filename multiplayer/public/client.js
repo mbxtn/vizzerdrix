@@ -3441,12 +3441,112 @@ document.addEventListener('keydown', (e) => {
                 }
             });
         });
-    } else if (e.code === 'KeyX' && targetCards.length > 0) {
+    } else if (e.code === 'KeyX') {
         e.preventDefault();
-        // Create copies of selected/hovered cards asynchronously to allow for Scryfall image loading
-        createCopiesOfTargetCards().catch(error => {
-            console.error('Error creating copies:', error);
-        });
+        
+        // Check if we have our own selected/hovered cards first
+        if (targetCards.length > 0) {
+            // Create copies of our own selected/hovered cards
+            createCopiesOfTargetCards().catch(error => {
+                console.error('Error creating copies:', error);
+            });
+        } else {
+            // Check if any opponents have selected cards
+            let opponentCardNames = [];
+            
+            console.log('=== DEBUGGING X KEY PRESS ===');
+            console.log('Checking for opponent selections:', allPlayerSelections);
+            console.log('Current local selections:', selectedCardIds);
+            console.log('Current selectedCards elements:', selectedCards.length);
+            
+            // First check locally selected cards for opponent cards
+            if (selectedCardIds && selectedCardIds.length > 0) {
+                console.log('Checking locally selected cards for opponent cards...');
+                for (const cardId of selectedCardIds) {
+                    try {
+                        const result = findCardObjectByIdGlobal(cardId);
+                        console.log(`Card ${cardId} lookup result:`, result);
+                        if (result && result.card && result.card.name && result.playerId !== playerId) {
+                            console.log(`✓ Found locally selected opponent card: ${result.card.name} (${cardId}) from player ${result.playerId}`);
+                            opponentCardNames.push(result.card.name);
+                        } else if (result && result.playerId === playerId) {
+                            console.log(`- Card ${cardId} belongs to current player, skipping`);
+                        }
+                    } catch (error) {
+                        console.error('Error finding locally selected card:', cardId, error);
+                    }
+                }
+            } else {
+                console.log('No locally selected cards found');
+            }
+            
+            // If no opponent cards found locally, check server-synced selections
+            if (opponentCardNames.length === 0 && allPlayerSelections && Object.keys(allPlayerSelections).length > 0) {
+                console.log('No opponent cards found locally, checking server selections...');
+                for (const pid of Object.keys(allPlayerSelections)) {
+                    if (pid === playerId) continue; // Skip our own selections
+                    
+                    const opponentSelectedCardIds = allPlayerSelections[pid] || [];
+                    console.log(`Player ${pid} has ${opponentSelectedCardIds.length} selected cards:`, opponentSelectedCardIds);
+                    
+                    for (const cardId of opponentSelectedCardIds) {
+                        try {
+                            const result = findCardObjectByIdGlobal(cardId);
+                            if (result && result.card && result.card.name) {
+                                console.log(`✓ Found opponent card: ${result.card.name} (${cardId}) from player ${result.playerId}`);
+                                opponentCardNames.push(result.card.name);
+                            } else {
+                                console.log(`Could not find card for ID: ${cardId}`);
+                            }
+                        } catch (error) {
+                            console.error('Error finding opponent card:', cardId, error);
+                        }
+                    }
+                }
+            } else {
+                console.log(`Found ${opponentCardNames.length} opponent cards locally, skipping server check`);
+            }
+            
+            console.log('Final opponent card names:', opponentCardNames);
+            console.log('=== END DEBUGGING ===');
+            
+            if (opponentCardNames.length > 0) {
+                // Switch to our own playzone before creating placeholders
+                if (activePlayZonePlayerId !== playerId) {
+                    activePlayZonePlayerId = playerId;
+                    currentlyViewedPlayerId = playerId;
+                    // Re-render to switch the view immediately
+                    debouncedRender();
+                }
+                
+                // Create placeholders for each unique opponent card name
+                const uniqueCardNames = [...new Set(opponentCardNames)];
+                console.log(`Creating placeholders for opponent cards: ${uniqueCardNames.join(', ')}`);
+                
+                try {
+                    // Create placeholders sequentially to avoid race conditions
+                    const placeholderPromises = uniqueCardNames.map(cardName => createPlaceholderCard(cardName));
+                    Promise.all(placeholderPromises).then(() => {
+                        // Clear selection after creating placeholders
+                        selectedCards.forEach(c => c.classList.remove('selected-card'));
+                        selectedCards = [];
+                        selectedCardIds = [];
+                        debouncedSendSelectionUpdate();
+                        
+                        showMessage(`Created ${uniqueCardNames.length} placeholder${uniqueCardNames.length > 1 ? 's' : ''} from opponent selection: ${uniqueCardNames.join(', ')}`);
+                    }).catch(error => {
+                        console.error('Error creating placeholders:', error);
+                        showMessage('Error creating placeholders from opponent cards');
+                    });
+                } catch (error) {
+                    console.error('Error creating placeholders:', error);
+                    showMessage('Error creating placeholders from opponent cards');
+                }
+            } else {
+                // No cards selected by anyone
+                showMessage('No cards selected. Select your own cards to copy, or wait for opponents to select cards to create placeholders.');
+            }
+        }
     }
 });
 
@@ -3893,6 +3993,69 @@ function findCardObjectById(cardId) {
     for (const zone of zones) {
         const card = zone.find(c => c.id === cardId);
         if (card) return card;
+    }
+    
+    return null;
+}
+
+// Helper function to find card object by ID across ALL players' zones
+function findCardObjectByIdGlobal(cardId) {
+    // If we're viewing another player's battlefield and have selected cards,
+    // prioritize searching in the viewed player's zones first
+    if (currentlyViewedPlayerId && currentlyViewedPlayerId !== playerId && gameState && gameState.players) {
+        const viewedPlayer = gameState.players[currentlyViewedPlayerId];
+        if (viewedPlayer) {
+            // Check the viewed player's play zone first (most likely location for selections)
+            if (gameState.playZones && gameState.playZones[currentlyViewedPlayerId]) {
+                const card = gameState.playZones[currentlyViewedPlayerId].find(c => c.id === cardId);
+                if (card) return { card, playerId: currentlyViewedPlayerId };
+            }
+            
+            // Then check their other zones
+            const zones = [
+                viewedPlayer.hand || [],
+                viewedPlayer.library || [],
+                viewedPlayer.graveyard || [],
+                viewedPlayer.exile || [],
+                viewedPlayer.command || []
+            ];
+            
+            for (const zone of zones) {
+                const card = zone.find(c => c.id === cardId);
+                if (card) return { card, playerId: currentlyViewedPlayerId };
+            }
+        }
+    }
+    
+    // Then check our own zones
+    const localCard = findCardObjectById(cardId);
+    if (localCard) return { card: localCard, playerId: playerId };
+    
+    // Finally check all other players' zones
+    if (gameState && gameState.players) {
+        for (const pid of Object.keys(gameState.players)) {
+            if (pid === playerId || pid === currentlyViewedPlayerId) continue; // Already checked these
+            
+            const player = gameState.players[pid];
+            const zones = [
+                player.hand || [],
+                player.library || [],
+                player.graveyard || [],
+                player.exile || [],
+                player.command || []
+            ];
+            
+            for (const zone of zones) {
+                const card = zone.find(c => c.id === cardId);
+                if (card) return { card, playerId: pid };
+            }
+            
+            // Also check their play zone
+            if (gameState.playZones && gameState.playZones[pid]) {
+                const card = gameState.playZones[pid].find(c => c.id === cardId);
+                if (card) return { card, playerId: pid };
+            }
+        }
     }
     
     return null;
