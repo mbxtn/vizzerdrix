@@ -1408,12 +1408,14 @@ function updateSnapToGridStatusUI() {
 function updateSpacingSliderVisibilityUI() {
     if (isSpacingSliderVisible) {
         cardSpacingSliderContainer.classList.remove('hidden');
-        spacingSliderStatusEl.textContent = 'Visible';
-        toggleSpacingSliderBtn.querySelector('span').textContent = 'Hide Hand Spacing Slider';
+        spacingSliderStatusEl.textContent = 'On';
+        spacingSliderStatusEl.classList.remove('bg-red-600');
+        spacingSliderStatusEl.classList.add('bg-green-600');
     } else {
         cardSpacingSliderContainer.classList.add('hidden');
-        spacingSliderStatusEl.textContent = 'Hidden';
-        toggleSpacingSliderBtn.querySelector('span').textContent = 'Show Hand Spacing Slider';
+        spacingSliderStatusEl.textContent = 'Off';
+        spacingSliderStatusEl.classList.remove('bg-green-600');
+        spacingSliderStatusEl.classList.add('bg-red-600');
     }
 }
 
@@ -1441,6 +1443,7 @@ magnifyToggleBtn.addEventListener('click', () => {
     updateMagnifyStatusUI();
     applyMagnifyEffectToAllCards();
     savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 autoFocusToggleBtn.addEventListener('click', () => {
@@ -1455,6 +1458,7 @@ ghostModeToggleBtn.addEventListener('click', () => {
     // Re-render to apply ghost mode changes
     debouncedRender();
     savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 reverseGhostModeToggleBtn.addEventListener('click', () => {
@@ -1463,6 +1467,7 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
     // Re-render to apply reverse ghost mode changes
     debouncedRender();
     savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 autoUntapToggleBtn.addEventListener('click', () => {
@@ -1489,6 +1494,7 @@ snapToGridToggleBtn.addEventListener('click', () => {
     updateGridVisuals();
     
     savePersistentSettings(); // Save settings when changed
+    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 // Toggle spacing slider visibility
