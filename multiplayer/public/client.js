@@ -273,34 +273,26 @@ function snapToGrid(x, y, playZoneElement = null) {
         return { x, y };
     }
     
-    // Account for the play zones container padding (p-3 = 12px in Tailwind)
-    const containerPadding = 12;
+    // Calculate position in the container's coordinate system
+    // The grid background starts at 0,0 within the container
+    let containerX = x + playZonesContainer.scrollLeft;
+    let containerY = y + playZonesContainer.scrollTop;
     
-    // Calculate the absolute position within the container's coordinate system
-    let absoluteX = x + containerPadding;
-    let absoluteY = y + containerPadding;
-    
-    // If we have a play zone element, we need to add its offset within the container
+    // If we have a play zone element, add its offset within the container
     if (playZoneElement) {
         const containerRect = playZonesContainer.getBoundingClientRect();
         const zoneRect = playZoneElement.getBoundingClientRect();
-        
-        // Add the zone's offset relative to the container
-        absoluteX += (zoneRect.left - containerRect.left);
-        absoluteY += (zoneRect.top - containerRect.top);
+        containerX += (zoneRect.left - containerRect.left);
+        containerY += (zoneRect.top - containerRect.top);
     }
     
-    // Add the container's scroll position to align with the grid background
-    absoluteX += playZonesContainer.scrollLeft;
-    absoluteY += playZonesContainer.scrollTop;
+    // Snap to grid (grid starts at 0,0 in container coordinates)
+    const snappedX = Math.round(containerX / scaledGridSize) * scaledGridSize;
+    const snappedY = Math.round(containerY / scaledGridSize) * scaledGridSize;
     
-    // Snap to grid
-    const snappedX = Math.round(absoluteX / scaledGridSize) * scaledGridSize;
-    const snappedY = Math.round(absoluteY / scaledGridSize) * scaledGridSize;
-    
-    // Convert back to play zone coordinates by subtracting all the offsets
-    let finalX = snappedX - containerPadding - playZonesContainer.scrollLeft;
-    let finalY = snappedY - containerPadding - playZonesContainer.scrollTop;
+    // Convert back to play zone coordinates
+    let finalX = snappedX - playZonesContainer.scrollLeft;
+    let finalY = snappedY - playZonesContainer.scrollTop;
     
     if (playZoneElement) {
         const containerRect = playZonesContainer.getBoundingClientRect();
