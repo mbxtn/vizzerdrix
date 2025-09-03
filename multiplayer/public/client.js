@@ -4623,14 +4623,6 @@ function setCountersForSelectedCards() {
         
         // Re-render the game to show the counters
         render();
-        
-        // Show feedback message
-        if (counterValue === 0) {
-            showMessage(`Removed counters from ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
-        } else {
-            const counterType = counterValue > 0 ? `+${counterValue}` : counterValue.toString();
-            showMessage(`Set counters to ${counterType} on ${cardsUpdated} card${cardsUpdated > 1 ? 's' : ''}.`);
-        }
     }
 }
 
