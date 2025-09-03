@@ -17,6 +17,8 @@ This folder contains all test files for the ScryfallCache functionality used in 
 - **`fixValidation.html`** - Validates the image fix for adventure cards
 - **`imageDebug.html`** - Debug image URL extraction
 - **`directImageTest.html`** - Direct image URL testing
+- **`canvasScalingDemo.html`** - Canvas-based high-quality image scaling demo
+- **`imageSizeSelectionDemo.html`** - Dynamic image size selection based on card width
 
 ### Legacy Tests
 - **`testScryfallCache.js`** - Node.js test script (use `node testScryfallCache.js`)
@@ -70,6 +72,26 @@ This folder contains all test files for the ScryfallCache functionality used in 
 - Adventure cards are no longer treated as having back faces
 - Proper layout-based logic for different card types
 - Improved fuzzy search for partial names
+
+## Image Size Selection Feature
+
+### Benefits
+- **High-quality downscaling** - Uses canvas with `imageSmoothingQuality: 'high'`
+- **Better performance** - Cached scaled images reduce repeated scaling operations
+- **Automatic scaling detection** - Only scales when beneficial (cards < 300px width)
+- **Memory management** - LRU cache with size limits to prevent memory leaks
+- **Backward compatibility** - Gradual migration path from standard image scaling
+- **Optimal image sizing** - Automatically selects small/normal/large Scryfall images based on card width
+
+### Image Size Selection
+
+The system automatically chooses the most appropriate Scryfall image size based on the card's display width:
+
+- **Small (146×204px)** - For cards ≤100px width (mobile, small displays)
+- **Normal (488×680px)** - For cards 101-200px width (standard desktop)
+- **Large (672×936px)** - For cards >200px width (magnified previews, high DPI)
+
+This ensures optimal balance between image quality and loading performance.
 
 ## File Structure After Organization
 

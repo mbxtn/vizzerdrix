@@ -1,15 +1,53 @@
 import ScryfallCache from './scryfallCache.js';
 
+// Helper function to get optimal image size based on card width
+function getOptimalImageSize(cardWidth) {
+    // Define thresholds for different image sizes
+    // small: 146x204, normal: 488x680, large: 672x936, png: 745x1040
+    if (cardWidth <= 200) {
+        return 'small';  // For very small cards (80px default, mobile, etc.)
+    } else if (cardWidth <= 488) {
+        return 'normal'; // For medium cards (magnified previews, larger displays)
+    } else {
+        return 'large';  // For large cards (full-size previews, high DPI displays)
+    }
+}
+
+// Helper function to get current card width from CSS or default
+function getCurrentCardWidth() {
+    const computedStyle = getComputedStyle(document.documentElement);
+    return parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+}
+
+// Helper function to get image URI with optimal size
+function getImageUriWithOptimalSize(imageUris, targetSize = 'normal') {
+    if (!imageUris) return null;
+    
+    // Try to get the requested size, fallback to available sizes
+    return imageUris[targetSize] || 
+           imageUris.normal || 
+           imageUris.large || 
+           imageUris.small || 
+           imageUris.png || 
+           null;
+}
+
 // Helper function to find the correct face of a double-faced card
-function findMatchingFace(scryfallData, requestedName) {
+function findMatchingFace(scryfallData, requestedName, targetImageSize = 'normal') {
     // If it's not a multi-faced card, return the main card data
     if (!scryfallData.card_faces || scryfallData.card_faces.length <= 1) {
-        return { imageUri: scryfallData.image_uris?.normal, faceName: scryfallData.name };
+        return { 
+            imageUri: getImageUriWithOptimalSize(scryfallData.image_uris, targetImageSize), 
+            faceName: scryfallData.name 
+        };
     }
     
     // For adventure cards, always use the top-level image (they only have one image for both parts)
     if (scryfallData.layout === 'adventure') {
-        return { imageUri: scryfallData.image_uris?.normal, faceName: scryfallData.name };
+        return { 
+            imageUri: getImageUriWithOptimalSize(scryfallData.image_uris, targetImageSize), 
+            faceName: scryfallData.name 
+        };
     }
     
     // For true double-faced cards, try to match the requested name to a specific face
@@ -19,7 +57,7 @@ function findMatchingFace(scryfallData, requestedName) {
     for (const face of scryfallData.card_faces) {
         if (face.name.toLowerCase() === requestedLower) {
             return { 
-                imageUri: face.image_uris?.normal, 
+                imageUri: getImageUriWithOptimalSize(face.image_uris, targetImageSize), 
                 faceName: face.name,
                 isSpecificFace: true 
             };
@@ -31,7 +69,7 @@ function findMatchingFace(scryfallData, requestedName) {
         const faceLower = face.name.toLowerCase();
         if (requestedLower.includes(faceLower) || faceLower.includes(requestedLower)) {
             return { 
-                imageUri: face.image_uris?.normal, 
+                imageUri: getImageUriWithOptimalSize(face.image_uris, targetImageSize), 
                 faceName: face.name,
                 isSpecificFace: true 
             };
@@ -40,7 +78,7 @@ function findMatchingFace(scryfallData, requestedName) {
     
     // If no specific face matches, default to the first face
     return { 
-        imageUri: scryfallData.card_faces[0].image_uris?.normal, 
+        imageUri: getImageUriWithOptimalSize(scryfallData.card_faces[0].image_uris, targetImageSize), 
         faceName: scryfallData.card_faces[0].name,
         isSpecificFace: false 
     };
@@ -51,6 +89,18 @@ export function createCardElement(card, location, options) {
 
     const cardEl = document.createElement('div');
     cardEl.className = 'card flex-shrink-0 cursor-grab';
+    
+    // Determine optimal image size based on context and card width
+    let targetCardWidth = getCurrentCardWidth();
+    
+    // Adjust target width based on location context
+    if (location === 'magnified') {
+        targetCardWidth = 320; // Preview size is typically larger
+    } else if (isMagnifyEnabled && location !== 'hand') {
+        targetCardWidth = Math.max(targetCardWidth, 120); // Slightly larger for hover-enabled cards
+    }
+    
+    const optimalImageSize = getOptimalImageSize(targetCardWidth);
     
     // Determine which image to show
     if (showBack) {
@@ -71,7 +121,7 @@ export function createCardElement(card, location, options) {
             const scryfallData = ScryfallCache.get(card.name);
             if (scryfallData) {
                 // Placeholder has Scryfall data, find the correct face to display
-                const faceData = findMatchingFace(scryfallData, card.name);
+                const faceData = findMatchingFace(scryfallData, card.name, optimalImageSize);
                 
                 if (faceData.imageUri) {
                     const img = document.createElement('img');
@@ -121,15 +171,16 @@ export function createCardElement(card, location, options) {
             // Show card front (existing logic)
             const scryfallData = ScryfallCache.get(card.name);
             if (scryfallData) {
+                // Use the optimal image size based on card width
                 let imageUri = null;
                 
-                // Get the correct image URI based on card type
+                // Get the correct image URI based on card type with optimal sizing
                 if (scryfallData.image_uris) {
                     // Single-faced cards and adventure cards have top-level image_uris
-                    imageUri = scryfallData.image_uris.normal;
+                    imageUri = getImageUriWithOptimalSize(scryfallData.image_uris, optimalImageSize);
                 } else if (scryfallData.card_faces && scryfallData.card_faces.length > 0 && scryfallData.card_faces[0].image_uris) {
                     // True double-faced cards have image_uris in each face
-                    imageUri = scryfallData.card_faces[0].image_uris.normal;
+                    imageUri = getImageUriWithOptimalSize(scryfallData.card_faces[0].image_uris, optimalImageSize);
                 }
                 
                 if (imageUri) {
@@ -516,15 +567,18 @@ export function flipCard(cardEl) {
         // Flip to front
         const scryfallData = ScryfallCache.get(cardName);
         if (scryfallData) {
+            // Determine optimal image size for the current card
+            const targetCardWidth = getCurrentCardWidth();
+            const optimalImageSize = getOptimalImageSize(targetCardWidth);
             let frontImageUri = null;
             
-            // Get the correct front image URI based on card type
+            // Get the correct front image URI based on card type with optimal sizing
             if (scryfallData.image_uris) {
                 // Single-faced cards and adventure cards have top-level image_uris
-                frontImageUri = scryfallData.image_uris.normal;
+                frontImageUri = getImageUriWithOptimalSize(scryfallData.image_uris, optimalImageSize);
             } else if (scryfallData.card_faces && scryfallData.card_faces.length > 0 && scryfallData.card_faces[0].image_uris) {
                 // True double-faced cards have image_uris in each face
-                frontImageUri = scryfallData.card_faces[0].image_uris.normal;
+                frontImageUri = getImageUriWithOptimalSize(scryfallData.card_faces[0].image_uris, optimalImageSize);
             }
             
             if (frontImageUri) {
@@ -540,4 +594,26 @@ export function flipCard(cardEl) {
     }
     
     return true;
+}
+
+// Export helper functions for external use and debugging
+export { getOptimalImageSize, getCurrentCardWidth, getImageUriWithOptimalSize };
+
+// Utility function for debugging - shows what image size would be selected
+export function analyzeImageSelection(cardWidth) {
+    const size = getOptimalImageSize(cardWidth);
+    const resolutions = {
+        small: '146×204',
+        normal: '488×680', 
+        large: '672×936'
+    };
+    
+    return {
+        cardWidth,
+        selectedSize: size,
+        resolution: resolutions[size],
+        reasoning: cardWidth <= 100 ? 'Small cards need less detail' :
+                  cardWidth <= 200 ? 'Medium cards benefit from normal resolution' :
+                  'Large cards need high resolution for crisp display'
+    };
 }
