@@ -1,12 +1,26 @@
 import ScryfallCache from './scryfallCache.js';
 
+var smallCutoff = 146; // Cards <= 146px wide use 'small' images
+var mediumCutoff = 488; // Cards <= 488px wide use 'normal' images
+
+// Function to update the cutoffs (called from client.js when settings change)
+export function updateImageQualityCutoffs(enhanced = false) {
+    if (enhanced) {
+        smallCutoff = 488; // Use normal quality images more aggressively
+        mediumCutoff = 672; // Use large quality images more aggressively
+    } else {
+        smallCutoff = 146; // Default small cutoff
+        mediumCutoff = 488; // Default medium cutoff
+    }
+}
+
 // Helper function to get optimal image size based on card width
 function getOptimalImageSize(cardWidth) {
     // Define thresholds for different image sizes
     // small: 146x204, normal: 488x680, large: 672x936, png: 745x1040
-    if (cardWidth <= 146) {
+    if (cardWidth <= smallCutoff) {
         return 'small';  // For very small cards (80px default, mobile, etc.)
-    } else if (cardWidth <= 488) {
+    } else if (cardWidth <= mediumCutoff) {
         return 'normal'; // For medium cards (magnified previews, larger displays)
     } else {
         return 'large';  // For large cards (full-size previews, high DPI displays)
@@ -92,15 +106,19 @@ export function createCardElement(card, location, options) {
     
     // Determine optimal image size based on context and card width
     let targetCardWidth = getCurrentCardWidth();
+    let optimalImageSize;
     
     // Adjust target width based on location context
     if (location === 'magnified') {
-        targetCardWidth = 320; // Preview size is typically larger
-    } else if (isMagnifyEnabled && location !== 'hand') {
-        targetCardWidth = Math.max(targetCardWidth, 120); // Slightly larger for hover-enabled cards
+        // For magnified hover previews, always use large image for best quality
+        // This ensures the hover zoom always shows the highest resolution available
+        optimalImageSize = 'large';
+    } else {
+        if (isMagnifyEnabled && location !== 'hand') {
+            targetCardWidth = Math.max(targetCardWidth, 120); // Slightly larger for hover-enabled cards
+        }
+        optimalImageSize = getOptimalImageSize(targetCardWidth);
     }
-    
-    const optimalImageSize = getOptimalImageSize(targetCardWidth);
     
     // Determine which image to show
     if (showBack) {

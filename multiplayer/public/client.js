@@ -1,5 +1,5 @@
 import ScryfallCache from './scryfallCache.js';
-import { createCardElement } from './cardFactory.js';
+import { createCardElement, updateImageQualityCutoffs } from './cardFactory.js';
 import { CardZone } from './cardZone.js';
 
 // Cache for heart SVG content
@@ -54,6 +54,7 @@ let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active 
 let isAutoUntapEnabled = false; // Auto untap all cards when your turn begins (disabled by default)
 let isSnapToGridEnabled = false; // Snap to grid for card movement in play zone (disabled by default)
 let isTabHoverPreviewEnabled = false; // Tab hover preview for showing player zones on tab hover (disabled by default)
+let isEnhancedImageQualityEnabled = false; // Enhanced image quality for better clarity on certain browser/OS combinations (disabled by default)
 let magnifyPreviewWidth = 320; // Default magnify preview width
 
 // Load persistent settings from localStorage
@@ -69,6 +70,7 @@ function loadPersistentSettings() {
             isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
             isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
             isTabHoverPreviewEnabled = settings.isTabHoverPreviewEnabled ?? false;
+            isEnhancedImageQualityEnabled = settings.isEnhancedImageQualityEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             currentCardSpacing = settings.currentCardSpacing ?? 0;
             isSpacingSliderVisible = settings.isSpacingSliderVisible ?? true;
@@ -90,6 +92,7 @@ function savePersistentSettings() {
             isAutoUntapEnabled,
             isSnapToGridEnabled,
             isTabHoverPreviewEnabled,
+            isEnhancedImageQualityEnabled,
             magnifyPreviewWidth,
             currentCardSpacing,
             isSpacingSliderVisible
@@ -113,6 +116,8 @@ const reverseGhostModeToggleBtn = document.getElementById('reverse-ghost-mode-to
 const reverseGhostModeStatusEl = document.getElementById('reverse-ghost-mode-status');
 const autoUntapToggleBtn = document.getElementById('auto-untap-toggle-btn');
 const autoUntapStatusEl = document.getElementById('auto-untap-status');
+const enhancedImageQualityToggleBtn = document.getElementById('enhanced-image-quality-toggle-btn');
+const enhancedImageQualityStatusEl = document.getElementById('enhanced-image-quality-status');
 const snapToGridToggleBtn = document.getElementById('snap-to-grid-toggle-btn');
 const snapToGridStatusEl = document.getElementById('snap-to-grid-status');
 const tabHoverPreviewToggleBtn = document.getElementById('tab-hover-preview-toggle-btn');
@@ -1442,6 +1447,22 @@ function updateAutoUntapStatusUI() {
     }
 }
 
+function updateEnhancedImageQualityStatusUI() {
+    if (isEnhancedImageQualityEnabled) {
+        enhancedImageQualityStatusEl.textContent = 'On';
+        enhancedImageQualityStatusEl.classList.remove('bg-red-600');
+        enhancedImageQualityStatusEl.classList.add('bg-green-600');
+        enhancedImageQualityToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        enhancedImageQualityToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        enhancedImageQualityStatusEl.textContent = 'Off';
+        enhancedImageQualityStatusEl.classList.remove('bg-green-600');
+        enhancedImageQualityStatusEl.classList.add('bg-red-600');
+        enhancedImageQualityToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        enhancedImageQualityToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function updateSnapToGridStatusUI() {
     if (isSnapToGridEnabled) {
         snapToGridStatusEl.textContent = 'On';
@@ -1552,6 +1573,16 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
 autoUntapToggleBtn.addEventListener('click', () => {
     isAutoUntapEnabled = !isAutoUntapEnabled;
     updateAutoUntapStatusUI();
+    savePersistentSettings(); // Save settings when changed
+});
+
+enhancedImageQualityToggleBtn.addEventListener('click', () => {
+    isEnhancedImageQualityEnabled = !isEnhancedImageQualityEnabled;
+    updateEnhancedImageQualityStatusUI();
+    
+    // Update the cutoffs in cardFactory
+    updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
+    
     savePersistentSettings(); // Save settings when changed
 });
 
@@ -3428,6 +3459,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load persistent settings first
     loadPersistentSettings();
     
+    // Apply loaded image quality settings to cardFactory
+    updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
+    
     // Initialize Scryfall cache from localStorage
     console.log('Initializing Scryfall cache...');
     const cacheStats = ScryfallCache.getCacheStats();
@@ -3438,6 +3472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGhostModeStatusUI(); // Set initial ghost mode status
     updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
     updateAutoUntapStatusUI(); // Set initial auto-untap status
+    updateEnhancedImageQualityStatusUI(); // Set initial enhanced image quality status
     updateSnapToGridStatusUI(); // Set initial snap to grid status
     updateTabHoverPreviewStatusUI(); // Set initial tab hover preview status
     updateSpacingSliderVisibilityUI(); // Set initial spacing slider visibility
