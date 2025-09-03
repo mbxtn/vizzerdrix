@@ -1546,7 +1546,6 @@ magnifyToggleBtn.addEventListener('click', () => {
     updateMagnifyStatusUI();
     applyMagnifyEffectToAllCards();
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 autoFocusToggleBtn.addEventListener('click', () => {
@@ -1561,7 +1560,6 @@ ghostModeToggleBtn.addEventListener('click', () => {
     // Re-render to apply ghost mode changes
     debouncedRender();
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 reverseGhostModeToggleBtn.addEventListener('click', () => {
@@ -1570,7 +1568,6 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
     // Re-render to apply reverse ghost mode changes
     debouncedRender();
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 autoUntapToggleBtn.addEventListener('click', () => {
@@ -1608,7 +1605,6 @@ snapToGridToggleBtn.addEventListener('click', () => {
     updateGridVisuals();
     
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 // Tab hover preview toggle
@@ -1616,7 +1612,6 @@ tabHoverPreviewToggleBtn.addEventListener('click', () => {
     isTabHoverPreviewEnabled = !isTabHoverPreviewEnabled;
     updateTabHoverPreviewStatusUI();
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 // Toggle spacing slider visibility
@@ -1624,7 +1619,6 @@ toggleSpacingSliderBtn.addEventListener('click', () => {
     isSpacingSliderVisible = !isSpacingSliderVisible;
     updateSpacingSliderVisibilityUI();
     savePersistentSettings(); // Save settings when changed
-    hideBottomBarContextMenu(); // Hide context menu after selection
 });
 
 // Bottom bar settings gear button
@@ -3001,10 +2995,12 @@ document.addEventListener('click', (e) => {
         debouncedSendSelectionUpdate();
     }
     // Hide context menus on any click (unless they were just shown)
-    if (!contextMenuJustShown) {
+    // Only hide card context menu if not clicking inside it and it wasn't just shown
+    if (!contextMenuJustShown && !e.target.closest('.card-context-menu')) {
         hideCardContextMenu();
     }
-    if (!bottomBarContextMenuJustShown) {
+    // Only hide bottom bar context menu if not clicking inside it and it wasn't just shown
+    if (!bottomBarContextMenuJustShown && !e.target.closest('#bottom-bar-context-menu')) {
         hideBottomBarContextMenu();
     }
 });
@@ -3272,6 +3268,10 @@ let shuffledLibraryCache = new Map();
 // Card interaction callbacks for the cardFactory
 function handleCardClick(e, card, cardEl, location) {
     e.stopPropagation();
+    
+    // Close both context menus when clicking on any card
+    hideCardContextMenu();
+    hideBottomBarContextMenu();
     
     // Allow selection of any card, but only allow full interaction with own cards
     const isOwnCard = (location === 'hand') || (location === 'play' && activePlayZonePlayerId === playerId);
@@ -4398,6 +4398,10 @@ function hideBottomBarContextMenu() {
     }
     bottomBarContextMenuJustShown = false;
 }
+
+// Make context menu functions globally accessible for CardZone
+window.hideCardContextMenu = hideCardContextMenu;
+window.hideBottomBarContextMenu = hideBottomBarContextMenu;
 
 // Helper function to find card object by ID across all zones
 function findCardObjectById(cardId) {

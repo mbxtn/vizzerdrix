@@ -434,11 +434,19 @@ export class CardZone {
                 isMagnifyEnabled: this.isMagnifyEnabled,
                 isInteractable: this.interactionEnabled, // Only interactive if zone interactions are enabled
                 onCardClick: this.interactionEnabled ? (e, card, cardEl, location) => {
+                    // Close both context menus when clicking on any card zone card
+                    if (window.hideCardContextMenu) window.hideCardContextMenu();
+                    if (window.hideBottomBarContextMenu) window.hideBottomBarContextMenu();
+                    
                     // Only handle clicks if not in peek mode
                     if (!this.isPopping && !this.rightClickInProgress && !this.contextMenuJustShown) {
                         this.drawCard();
                     }
                 } : (e) => {
+                    // Close context menus even when disabled
+                    if (window.hideCardContextMenu) window.hideCardContextMenu();
+                    if (window.hideBottomBarContextMenu) window.hideBottomBarContextMenu();
+                    
                     // Prevent clicks when disabled but allow magnify hover to work
                     e.preventDefault();
                     e.stopPropagation();
