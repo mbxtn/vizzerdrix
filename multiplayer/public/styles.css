@@ -158,11 +158,10 @@ body {
     left: 20px;
     font-size: 48px;
     font-weight: 900;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.2);
     pointer-events: none;
     z-index: 0;
     white-space: nowrap;
-    text-transform: uppercase;
     letter-spacing: 2px;
 }
 
