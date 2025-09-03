@@ -73,6 +73,7 @@ function loadPersistentSettings() {
             isEnhancedImageQualityEnabled = settings.isEnhancedImageQualityEnabled ?? false;
             magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
             currentCardSpacing = settings.currentCardSpacing ?? 0;
+            currentCardWidth = settings.currentCardWidth ?? 80;
             isSpacingSliderVisible = settings.isSpacingSliderVisible ?? true;
             console.log('Loaded persistent settings:', settings);
         }
@@ -95,6 +96,7 @@ function savePersistentSettings() {
             isEnhancedImageQualityEnabled,
             magnifyPreviewWidth,
             currentCardSpacing,
+            currentCardWidth,
             isSpacingSliderVisible
         };
         localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
@@ -3459,6 +3461,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load persistent settings first
     loadPersistentSettings();
     
+    // Apply loaded card width
+    updateCardSize();
+    updateCardSpacing();
+    
     // Apply loaded image quality settings to cardFactory
     updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
     
@@ -3862,6 +3868,9 @@ function updateCardSize() {
     
     // Update grid visuals to match new card size
     updateGridVisuals();
+    
+    // Save the new card width to persistent settings
+    savePersistentSettings();
     
     // Re-render to apply new size
     render();
