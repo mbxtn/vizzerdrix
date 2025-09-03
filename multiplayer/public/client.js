@@ -48,6 +48,7 @@ let gameState = null;
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
+let isAutoFitEnabled = false; // Auto-fit hand spacing for 7 cards
 let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
 let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
 let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
@@ -64,6 +65,7 @@ function loadPersistentSettings() {
         if (savedSettings) {
             const settings = JSON.parse(savedSettings);
             isMagnifyEnabled = settings.isMagnifyEnabled ?? false;
+            isAutoFitEnabled = settings.isAutoFitEnabled ?? false;
             isAutoFocusEnabled = settings.isAutoFocusEnabled ?? true;
             isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
             isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
@@ -87,6 +89,7 @@ function savePersistentSettings() {
     try {
         const settings = {
             isMagnifyEnabled,
+            isAutoFitEnabled,
             isAutoFocusEnabled,
             isGhostModeEnabled,
             isReverseGhostModeEnabled,
@@ -355,6 +358,7 @@ const bottomBarEl = document.getElementById('bottom-bar');
 const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
 const toggleSpacingSliderBtn = document.getElementById('toggle-spacing-slider');
 const autoFitSevenCardsBtn = document.getElementById('auto-fit-seven-cards-btn');
+const autoFitStatus = document.getElementById('auto-fit-status');
 const spacingSliderStatusEl = document.getElementById('spacing-slider-status');
 const cardSpacingSliderContainer = document.getElementById('card-spacing-slider-container');
 const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
@@ -1523,6 +1527,22 @@ function updateSpacingSliderVisibilityUI() {
     }
 }
 
+function updateAutoFitStatusUI() {
+    if (isAutoFitEnabled) {
+        autoFitStatus.textContent = 'On';
+        autoFitStatus.classList.remove('bg-red-600');
+        autoFitStatus.classList.add('bg-green-600');
+        autoFitSevenCardsBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        autoFitSevenCardsBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+    } else {
+        autoFitStatus.textContent = 'Off';
+        autoFitStatus.classList.remove('bg-green-600');
+        autoFitStatus.classList.add('bg-red-600');
+        autoFitSevenCardsBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+        autoFitSevenCardsBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
@@ -1624,7 +1644,12 @@ toggleSpacingSliderBtn.addEventListener('click', () => {
 
 // Auto-fit 7 cards functionality
 autoFitSevenCardsBtn.addEventListener('click', () => {
-    autoFitSevenCards();
+    isAutoFitEnabled = !isAutoFitEnabled;
+    updateAutoFitStatusUI();
+    if (isAutoFitEnabled) {
+        autoFitSevenCards(false); // Show notification when manually enabled
+    }
+    savePersistentSettings();
     hideBottomBarContextMenu(); // Close the context menu after action
 });
 
@@ -3516,6 +3541,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSnapToGridStatusUI(); // Set initial snap to grid status
     updateTabHoverPreviewStatusUI(); // Set initial tab hover preview status
     updateSpacingSliderVisibilityUI(); // Set initial spacing slider visibility
+    updateAutoFitStatusUI(); // Set initial auto-fit status
     
     // Initialize card spacing slider with loaded settings
     if (cardSpacingSlider) {
@@ -3582,6 +3608,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Other initializations can go here
+});
+
+// Window resize event listener for auto-fit functionality
+let resizeTimeout = null;
+window.addEventListener('resize', () => {
+    // Debounce resize events to avoid excessive auto-fit calls
+    if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+    }
+    resizeTimeout = setTimeout(() => {
+        if (isAutoFitEnabled) {
+            autoFitSevenCards();
+        }
+    }, 250); // Wait 250ms after resize stops before auto-fitting
 });
 
 document.addEventListener('keydown', (e) => {
@@ -3907,6 +3947,11 @@ function updateCardSize() {
     // Save the new card width to persistent settings
     savePersistentSettings();
     
+    // Auto-fit if enabled
+    if (isAutoFitEnabled) {
+        autoFitSevenCards();
+    }
+    
     // Re-render to apply new size
     render();
 }
@@ -3941,7 +3986,7 @@ function updateCardSpacing() {
     }
 }
 
-function autoFitSevenCards() {
+function autoFitSevenCards(showNotification = false) {
     const handZone = document.getElementById('hand-zone');
     if (!handZone) return;
     
@@ -4016,18 +4061,19 @@ function autoFitSevenCards() {
     if (cardSpacingSlider) {
         cardSpacingSlider.value = currentCardSpacing;
     }
-    
-    // Apply the new spacing
+     // Apply the new spacing
     updateCardSpacing();
     
     // Save the new setting
     savePersistentSettings();
     
-    // Show a message to the user
-    const fitMessage = currentCardSpacing === 0 ? 
-        'Hand spacing set to fit 7 cards without overlap' :
-        `Hand spacing adjusted to fit 7 cards (overlap: ${Math.abs(currentCardSpacing).toFixed(1)})`;
-    showMessage(fitMessage);
+    // Show a message to the user if requested
+    if (showNotification) {
+        const fitMessage = currentCardSpacing === 0 ? 
+            'Hand spacing set to fit 7 cards without overlap' :
+            `Hand spacing adjusted to fit 7 cards (overlap: ${Math.abs(currentCardSpacing).toFixed(1)})`;
+        showMessage(fitMessage);
+    }
 }
 
 function increaseCardSize() {
