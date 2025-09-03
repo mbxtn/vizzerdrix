@@ -246,6 +246,11 @@ export function createCardElement(card, location, options) {
                 e.stopPropagation();
                 options.onCounterClick(e, card, e.shiftKey);
             });
+            // Prevent double-click events from bubbling up to the card
+            counterEl.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
         } else {
             counterEl.style.pointerEvents = 'none';
         }
@@ -441,6 +446,12 @@ export function createCardElement(card, location, options) {
         cardEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             e.preventDefault();
+            
+            // Check if the double-click originated from a counter element
+            if (e.target.classList.contains('card-counter') || 
+                e.target.closest('.card-counter')) {
+                return; // Ignore double-clicks on counters
+            }
             
             // Mark that double-click was detected to prevent drag
             doubleClickDetected = true;
