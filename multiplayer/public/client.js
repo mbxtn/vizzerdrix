@@ -1644,6 +1644,11 @@ magnifySizeSlider.addEventListener('input', (e) => {
     magnifyPreviewWidth = width;
     // Calculate height maintaining card aspect ratio (80:107, which is standard Magic card ratio)
     magnifyPreviewHeight = Math.round(width * (107 / 80));
+    // Update the global variable that cardFactory.js will use immediately
+    window.magnifyPreviewSize = {
+        width: magnifyPreviewWidth,
+        height: magnifyPreviewHeight
+    };
 });
 
 magnifySizeSlider.addEventListener('change', (e) => {
@@ -3515,6 +3520,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize magnify size slider and global variable with loaded settings
     magnifySizeSlider.value = magnifyPreviewWidth; // Set slider to saved value
+    magnifyPreviewHeight = Math.round(magnifyPreviewWidth * (107 / 80)); // Recalculate height based on loaded width
     window.magnifyPreviewSize = {
         width: magnifyPreviewWidth,
         height: magnifyPreviewHeight
