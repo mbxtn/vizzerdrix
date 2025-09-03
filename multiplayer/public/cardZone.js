@@ -443,16 +443,7 @@ export class CardZone {
                     e.preventDefault();
                     e.stopPropagation();
                 },
-                onCardDblClick: this.interactionEnabled ? (e, card, location) => {
-                    // Double-click to draw card
-                    if (!this.isPopping && !this.rightClickInProgress) {
-                        this.drawCard();
-                    }
-                } : (e) => {
-                    // Prevent double-clicks when disabled
-                    e.preventDefault();
-                    e.stopPropagation();
-                },
+                onCardDblClick: null, // No double-click support
                 onCardDragStart: this.interactionEnabled ? (e, card, location) => {
                     // Handle drag start for the top card
                     e.dataTransfer.setData('text/plain', card.id);
