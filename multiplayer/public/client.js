@@ -4106,15 +4106,234 @@ function showCardContextMenu(e) {
         cardContextMenu.appendChild(removeCounterOption);
     }
     
+    // Check if any selected card has related cards
+    const relatedCards = getRelatedCardsFromSelection();
+    if (relatedCards.length > 0) {
+        // Add separator before related cards section
+        const relatedSeparator = document.createElement('div');
+        relatedSeparator.className = 'border-t border-gray-600 my-1';
+        cardContextMenu.appendChild(relatedSeparator);
+        
+        // Add header for related cards section
+        const relatedHeader = document.createElement('div');
+        relatedHeader.className = 'px-4 py-1 text-gray-400 text-xs font-semibold uppercase';
+        relatedHeader.textContent = `Create Related Cards (${relatedCards.length})`;
+        cardContextMenu.appendChild(relatedHeader);
+        
+        // Create a scrollable container for related cards if there are more than 3
+        if (relatedCards.length > 3) {
+            const scrollContainer = document.createElement('div');
+            scrollContainer.className = 'max-h-32 overflow-y-auto border border-gray-600 rounded mx-2 mb-1';
+            scrollContainer.style.maxHeight = '8rem'; // Roughly 3 items worth of height
+            
+            // Add option for each related card inside the scroll container
+            relatedCards.forEach(relatedCard => {
+                const relatedOption = document.createElement('button');
+                relatedOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors text-sm border-b border-gray-700 last:border-b-0';
+                
+                // Format the display text based on card type
+                let displayText = `Create "${relatedCard.name}"`;
+                if (relatedCard.type && relatedCard.type !== 'related') {
+                    const typeLabel = relatedCard.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    displayText += ` (${typeLabel})`;
+                }
+                
+                relatedOption.textContent = displayText;
+                relatedOption.addEventListener('click', () => {
+                    createRelatedCardPlaceholder(relatedCard);
+                    hideCardContextMenu();
+                });
+                scrollContainer.appendChild(relatedOption);
+            });
+            
+            cardContextMenu.appendChild(scrollContainer);
+        } else {
+            // For 3 or fewer cards, show them normally without scroll container
+            relatedCards.forEach(relatedCard => {
+                const relatedOption = document.createElement('button');
+                relatedOption.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors text-sm';
+                
+                // Format the display text based on card type
+                let displayText = `Create "${relatedCard.name}"`;
+                if (relatedCard.type && relatedCard.type !== 'related') {
+                    const typeLabel = relatedCard.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    displayText += ` (${typeLabel})`;
+                }
+                
+                relatedOption.textContent = displayText;
+                relatedOption.addEventListener('click', () => {
+                    createRelatedCardPlaceholder(relatedCard);
+                    hideCardContextMenu();
+                });
+                cardContextMenu.appendChild(relatedOption);
+            });
+        }
+    }
+    
     // Ensure context menu stays within viewport
     document.body.appendChild(cardContextMenu);
+    
+    // Force a layout calculation to get accurate dimensions
+    cardContextMenu.style.visibility = 'hidden';
+    cardContextMenu.style.display = 'block';
     const rect = cardContextMenu.getBoundingClientRect();
+    cardContextMenu.style.visibility = 'visible';
+    
+    // Adjust horizontal position if needed
     if (rect.right > window.innerWidth) {
         cardContextMenu.style.left = `${e.clientX - rect.width}px`;
     }
+    
+    // Adjust vertical position if needed
     if (rect.bottom > window.innerHeight) {
-        cardContextMenu.style.top = `${e.clientY - rect.height}px`;
+        // First try moving it up
+        const newTop = e.clientY - rect.height;
+        if (newTop >= 0) {
+            cardContextMenu.style.top = `${newTop}px`;
+        } else {
+            // If it still doesn't fit, position it at the top of the viewport
+            cardContextMenu.style.top = '10px';
+            // Also ensure we don't exceed viewport height
+            const maxHeight = window.innerHeight - 20; // 10px margin on top and bottom
+            if (rect.height > maxHeight) {
+                cardContextMenu.style.maxHeight = `${maxHeight}px`;
+                cardContextMenu.style.overflowY = 'auto';
+            }
+        }
     }
+}
+
+// Helper function to get related cards from selected cards
+function getRelatedCardsFromSelection() {
+    const allRelatedCards = []; // Use array instead of Set for objects
+    const seenCardIds = new Set(); // Use Set to track unique card IDs
+    
+    console.log('=== SEARCHING FOR RELATED CARDS ===');
+    console.log('Selected cards:', selectedCards.length);
+    
+    // Go through each selected card and find its related cards
+    selectedCards.forEach(cardEl => {
+        const cardId = cardEl.dataset.id;
+        const cardObj = findCardObjectById(cardId);
+        if (!cardObj) return;
+        
+        console.log(`Checking card: ${cardObj.name}`);
+        
+        // Get Scryfall data for this card
+        const scryfallData = ScryfallCache.get(cardObj.name);
+        if (!scryfallData) {
+            console.log(`No Scryfall data found for: ${cardObj.name}`);
+            return;
+        }
+        
+        console.log(`Scryfall data found for: ${cardObj.name}`);
+        console.log('All parts:', scryfallData.all_parts);
+        
+        if (!scryfallData.all_parts) {
+            console.log(`No all_parts field for: ${cardObj.name}`);
+            return;
+        }
+        
+        // Process each related card
+        scryfallData.all_parts.forEach(part => {
+            // Skip the card itself
+            if (part.name === scryfallData.name) {
+                console.log(`Skipping self: ${part.name}`);
+                return;
+            }
+            
+            console.log(`Found related card: ${part.name} (${part.component || 'no component'}) URI: ${part.uri}`);
+            
+            // Extract card ID from URI for unique identification
+            const cardId = part.uri.split('/').pop();
+            
+            // Skip if we've already seen this card ID
+            if (seenCardIds.has(cardId)) {
+                console.log(`Already found this card ID: ${cardId}`);
+                return;
+            }
+            
+            seenCardIds.add(cardId);
+            
+            // Show all related cards (tokens, meld results, combo pieces, etc.)
+            // Common component types: 'token', 'meld_result', 'meld_part', 'combo_piece'
+            // Some cards might not have a component field, so we'll include them too
+            allRelatedCards.push({
+                name: part.name,
+                type: part.component || 'related',
+                uri: part.uri,
+                cardId: cardId // Store the unique card ID
+            });
+        });
+    });
+    
+    console.log('Final related cards found:', allRelatedCards);
+    console.log('=== END RELATED CARDS SEARCH ===');
+    
+    return allRelatedCards;
+}
+
+// Helper function to create a placeholder for a related card
+async function createRelatedCardPlaceholder(relatedCard) {
+    console.log('=== CREATING RELATED CARD PLACEHOLDER ===');
+    console.log('Related card:', relatedCard);
+    
+    // Switch to our own playzone before creating the placeholder
+    if (activePlayZonePlayerId !== playerId) {
+        activePlayZonePlayerId = playerId;
+        currentlyViewedPlayerId = playerId;
+        // Re-render to switch the view immediately
+        render();
+    }
+    
+    // Get the current player's play zone for snapping
+    const currentPlayZone = document.getElementById(`play-zone-${activePlayZonePlayerId}`);
+    
+    // Apply snap to grid for default position if enabled
+    const defaultPos = snapToGrid(50, 50, currentPlayZone);
+    
+    const placeholderCard = {
+        id: generateCardId(),
+        name: relatedCard.name,
+        displayName: relatedCard.name,
+        isPlaceholder: true, // Mark this as a placeholder card
+        isRelatedCard: true, // Mark this as a related card
+        scryfallId: relatedCard.cardId, // Store the Scryfall ID for precise loading
+        x: defaultPos.x, // Use snapped position
+        y: defaultPos.y,
+        rotation: 0
+    };
+    
+    console.log('Created related card placeholder:', placeholderCard);
+    
+    // Mark this as a client action to preserve optimistic updates
+    markClientAction('createRelatedPlaceholder', placeholderCard.id);
+    
+    // Add to play zone immediately
+    playZone.push(placeholderCard);
+    
+    // Re-render to show the placeholder card
+    render();
+    
+    // Send update to server
+    sendMove();
+    
+    // Try to load Scryfall data for this specific card using its ID
+    try {
+        console.log(`Loading specific card by ID: ${relatedCard.cardId} for ${relatedCard.name}`);
+        const scryfallData = await ScryfallCache.loadById(relatedCard.uri, relatedCard.name);
+        if (scryfallData) {
+            console.log(`Successfully loaded card data for ${relatedCard.name}:`, scryfallData);
+            // Re-render to show the actual card image
+            render();
+        } else {
+            console.warn(`Failed to load card data for ${relatedCard.name} (ID: ${relatedCard.cardId})`);
+        }
+    } catch (error) {
+        console.error('Error loading Scryfall data for related card:', error);
+    }
+    
+    console.log('=== END RELATED CARD PLACEHOLDER CREATION ===');
 }
 
 function hideCardContextMenu() {

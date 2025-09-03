@@ -160,7 +160,7 @@ const ScryfallCache = {
                     // Load card back asynchronously if it's a true double-faced card (not adventure)
                     if (data.card_faces && data.card_faces.length > 1 && data.layout !== 'adventure') {
                         // Don't await - let it load in background
-                        this._loadCardBack(data.id, name).catch(err => 
+                        this._loadCardBack(data.id, data.name).catch(err => 
                             console.error('Background card back load failed:', err)
                         );
                         if (finalName !== name) {
@@ -388,6 +388,78 @@ const ScryfallCache = {
                 console.log(`❌ Not found: "${cardName}"`);
             }
         }
+    },
+
+    // Load cards by their Scryfall ID (extracted from URI)
+    async loadById(cardUri, cardName = null) {
+        // Initialize cache from localStorage if not already done
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
+
+        // Extract the card ID from the URI
+        // URI format: https://api.scryfall.com/cards/{id}
+        const cardId = cardUri.split('/').pop();
+        
+        console.log(`Loading card by ID: ${cardId} (name: ${cardName || 'unknown'})`);
+        
+        // Check if we already have this card cached by ID
+        const cacheKey = `id:${cardId}`;
+        if (this._cache[cacheKey]) {
+            console.log(`Card with ID ${cardId} already cached`);
+            return this._cache[cacheKey];
+        }
+        
+        try {
+            // Fetch the card by ID directly
+            const resp = await fetch(`https://api.scryfall.com/cards/${cardId}`);
+            if (!resp.ok) {
+                throw new Error(`Scryfall fetch failed for ID ${cardId}: ${resp.status}`);
+            }
+            
+            const data = await resp.json();
+            
+            // Cache under both the ID key and the name key (if provided)
+            this._cache[cacheKey] = data;
+            if (cardName) {
+                this._cache[cardName] = data;
+            }
+            // Also cache under the card's actual name from the API response
+            if (data.name && data.name !== cardName) {
+                this._cache[data.name] = data;
+            }
+            
+            console.log(`Successfully loaded and cached card: ${data.name} (ID: ${cardId})`);
+            
+            // Load card back asynchronously if it's a true double-faced card (not adventure)
+            if (data.card_faces && data.card_faces.length > 1 && data.layout !== 'adventure') {
+                this._loadCardBack(data.id, data.name).catch(err => 
+                    console.error('Background card back load failed:', err)
+                );
+            }
+            
+            // Save cache
+            this._saveCache();
+            
+            return data;
+        } catch (error) {
+            console.error('Error loading card by ID:', cardId, error);
+            this._cache[cacheKey] = null;
+            if (cardName) {
+                this._cache[cardName] = null;
+            }
+            return null;
+        }
+    },
+
+    // Get card data by Scryfall ID
+    getById(cardId) {
+        // Initialize cache from localStorage if not already done
+        if (Object.keys(this._cache).length === 0) {
+            this._initCache();
+        }
+        const cacheKey = `id:${cardId}`;
+        return this._cache[cacheKey] || null;
     },
 };
 

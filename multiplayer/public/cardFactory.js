@@ -139,7 +139,20 @@ export function createCardElement(card, location, options) {
         // Show card front
         if (card.isPlaceholder) {
             // Handle placeholder cards specially - try to show Scryfall image if available
-            const scryfallData = ScryfallCache.get(card.name);
+            // For related cards, prefer lookup by Scryfall ID for precise matching
+            let scryfallData = null;
+            if (card.scryfallId) {
+                // Try to get by specific Scryfall ID first (for related cards)
+                scryfallData = ScryfallCache.getById(card.scryfallId);
+                console.log(`Looking up related card by ID ${card.scryfallId}:`, scryfallData);
+            }
+            
+            // Fallback to name-based lookup
+            if (!scryfallData) {
+                scryfallData = ScryfallCache.get(card.name);
+                console.log(`Fallback lookup by name ${card.name}:`, scryfallData);
+            }
+            
             if (scryfallData) {
                 // Placeholder has Scryfall data, find the correct face to display
                 const faceData = findMatchingFace(scryfallData, card.name, optimalImageSize);
@@ -166,7 +179,7 @@ export function createCardElement(card, location, options) {
                         cardEl.classList.add('placeholder-card');
                         const indicator = document.createElement('div');
                         indicator.className = 'absolute top-1 right-1 bg-orange-500 text-white text-xs px-1 rounded opacity-75';
-                        indicator.textContent = 'TEMP';
+                        indicator.textContent = card.isRelatedCard ? 'RELATED' : 'TEMP';
                         cardEl.appendChild(indicator);
                     }
                 } else {
@@ -193,7 +206,18 @@ export function createCardElement(card, location, options) {
             }
         } else {
             // Show card front (existing logic)
-            const scryfallData = ScryfallCache.get(card.name);
+            // For related cards, prefer lookup by Scryfall ID for precise matching
+            let scryfallData = null;
+            if (card.scryfallId) {
+                // Try to get by specific Scryfall ID first (for related cards)
+                scryfallData = ScryfallCache.getById(card.scryfallId);
+            }
+            
+            // Fallback to name-based lookup
+            if (!scryfallData) {
+                scryfallData = ScryfallCache.get(card.name);
+            }
+            
             if (scryfallData) {
                 // Use the optimal image size based on card width
                 let imageUri = null;
