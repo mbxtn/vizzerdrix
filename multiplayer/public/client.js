@@ -1141,6 +1141,22 @@ socket.on('state', async (state) => {
     console.log('Forcing render for debugging');
     debouncedRender();
     updateCascadedHandCardsInAreaCount(); // Call it here to update after server state
+    
+    // Apply auto-fit after the game starts and UI is visible (only once)
+    if (isAutoFitEnabled && !window.autoFitAppliedOnGameStart) {
+        console.log('Game UI is now visible - applying auto-fit');
+        // Use a small delay to ensure the render is complete
+        setTimeout(() => {
+            const handZone = document.getElementById('hand-zone');
+            if (handZone && handZone.getBoundingClientRect().width > 0) {
+                console.log('Applying auto-fit after game start');
+                autoFitSevenCards();
+                window.autoFitAppliedOnGameStart = true; // Prevent reapplying on subsequent state updates
+            } else {
+                console.warn('Hand zone still not ready after game start');
+            }
+        }, 100);
+    }
 });
 
 // Handle real-time selection updates
@@ -3995,6 +4011,13 @@ function autoFitSevenCards(showNotification = false) {
     
     // Get the actual available width of the hand zone
     const handZoneRect = handZone.getBoundingClientRect();
+    
+    // Check if we have valid dimensions
+    if (handZoneRect.width <= 0) {
+        console.warn('Hand zone has no width, cannot calculate auto-fit');
+        return;
+    }
+    
     const handZoneStyles = window.getComputedStyle(handZone);
     const paddingLeft = parseFloat(handZoneStyles.paddingLeft) || 0;
     const paddingRight = parseFloat(handZoneStyles.paddingRight) || 0;
@@ -4003,6 +4026,12 @@ function autoFitSevenCards(showNotification = false) {
     
     // Calculate the actual usable width
     const handZoneWidth = handZoneRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+    
+    // Additional check for valid usable width
+    if (handZoneWidth <= 0) {
+        console.warn('Hand zone has no usable width after accounting for padding/borders');
+        return;
+    }
     
     console.log('Hand zone measurements:', {
         totalWidth: handZoneRect.width,
