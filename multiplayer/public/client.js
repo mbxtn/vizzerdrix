@@ -3024,6 +3024,21 @@ document.addEventListener('contextmenu', (e) => {
         const isViewingOwnZones = currentlyViewedPlayerId === playerId;
         const isInOwnPlayZone = activePlayZonePlayerId === playerId;
         
+        // If right-clicking on a card but no cards are selected, select the card being clicked
+        if (isOnCard && selectedCards.length === 0 && (isViewingOwnZones || isInOwnPlayZone)) {
+            const cardEl = e.target.closest('.card');
+            if (cardEl) {
+                const cardId = cardEl.dataset.id;
+                // Clear any existing selections and select this card
+                selectedCards.forEach(c => c.classList.remove('selected-card'));
+                selectedCards = [cardEl];
+                selectedCardIds = [cardId];
+                cardEl.classList.add('selected-card');
+                // Send selection update to server
+                debouncedSendSelectionUpdate();
+            }
+        }
+        
         if (selectedCards.length > 0 && 
             (isOnPlayZone || isOnHandZone || isOnCard) &&
             (isViewingOwnZones || isInOwnPlayZone)) {
