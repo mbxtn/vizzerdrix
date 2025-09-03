@@ -880,7 +880,8 @@ socket.on('state', async (state) => {
         JSON.stringify(gameState.turnOrder) !== JSON.stringify(state.turnOrder);
     
     // Handle auto-focus on turn change
-    const currentTurnChanged = gameState && gameState.currentTurn !== state.currentTurn;
+    const currentTurnChanged = gameState && (gameState.currentTurn !== state.currentTurn|| gameState.turnCounter !== state.turnCounter);
+
     if (currentTurnChanged && isAutoFocusEnabled && state.turnOrderSet && state.turnOrder && state.currentTurn !== undefined) {
         const newCurrentTurnPlayerId = state.turnOrder[state.currentTurn];
         if (newCurrentTurnPlayerId && state.players[newCurrentTurnPlayerId]) {
