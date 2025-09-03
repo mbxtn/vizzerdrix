@@ -172,6 +172,7 @@ const cancelCommanderSelectionBtn = document.getElementById('cancel-commander-se
 const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container'); // Magnify size slider container
 const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Magnify size slider
 const lifeTotalEl = document.getElementById('life-total'); // Life total display
+const handCountEl = document.getElementById('hand-count'); // Hand count display
 const increaseLifeBtn = document.getElementById('increase-life-btn'); // Increase life button
 const decreaseLifeBtn = document.getElementById('decrease-life-btn'); // Decrease life button
 const loadingModal = document.getElementById('loading-modal'); // Loading progress modal
@@ -3522,6 +3523,10 @@ function updateCounts() {
     // Library always shows count
     libraryCountEl.textContent = player?.library?.length || 0;
     
+    // Hand count (always show)
+    const handCount = player?.hand?.length || 0;
+    handCountEl.textContent = handCount;
+    
     // Graveyard, exile, and command only show count if not empty
     const graveyardCount = player?.graveyard?.length || 0;
     const exileCount = player?.exile?.length || 0;
@@ -4134,12 +4139,16 @@ cardSpacingSlider.addEventListener('input', (e) => {
 increaseLifeBtn.addEventListener('click', () => {
     currentLife++;
     lifeTotalEl.textContent = currentLife;
+    // Update hand count immediately for responsiveness
+    handCountEl.textContent = hand.length;
     sendMove();
 });
 
 decreaseLifeBtn.addEventListener('click', () => {
     currentLife--;
     lifeTotalEl.textContent = currentLife;
+    // Update hand count immediately for responsiveness
+    handCountEl.textContent = hand.length;
     sendMove();
 });
 
