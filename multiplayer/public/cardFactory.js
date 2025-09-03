@@ -4,7 +4,7 @@ import ScryfallCache from './scryfallCache.js';
 function getOptimalImageSize(cardWidth) {
     // Define thresholds for different image sizes
     // small: 146x204, normal: 488x680, large: 672x936, png: 745x1040
-    if (cardWidth <= 200) {
+    if (cardWidth <= 146) {
         return 'small';  // For very small cards (80px default, mobile, etc.)
     } else if (cardWidth <= 488) {
         return 'normal'; // For medium cards (magnified previews, larger displays)
@@ -111,6 +111,9 @@ export function createCardElement(card, location, options) {
         img.src = backImageSrc;
         img.alt = `${card.displayName || card.name} (back)`;
         img.className = 'w-full h-full object-cover';
+        // Improve loading performance
+        img.loading = 'lazy';
+        img.decoding = 'async';
         cardEl.appendChild(img);
         cardEl.classList.add('has-image'); // Add black border for card backs
         cardEl.dataset.faceShown = 'back';
@@ -128,6 +131,9 @@ export function createCardElement(card, location, options) {
                     img.src = faceData.imageUri;
                     img.alt = card.displayName || card.name;
                     img.className = 'w-full h-full object-cover';
+                    // Improve loading performance
+                    img.loading = 'lazy';
+                    img.decoding = 'async';
                     cardEl.appendChild(img);
                     cardEl.classList.add('has-image');
                     
@@ -188,6 +194,9 @@ export function createCardElement(card, location, options) {
                     img.src = imageUri;
                     img.alt = card.displayName || card.name;
                     img.className = 'w-full h-full object-cover';
+                    // Improve loading performance
+                    img.loading = 'lazy';
+                    img.decoding = 'async';
                     cardEl.appendChild(img);
                     cardEl.classList.add('has-image'); // Add black border for cards with images
                 } else {

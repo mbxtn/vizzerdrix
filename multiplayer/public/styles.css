@@ -227,11 +227,107 @@ body {
 /* Ensure card images fit perfectly within the card container */
 .card img {
     border-radius: 6px; /* Slightly smaller than container to account for border */
+    /* Improved image rendering for better downscaling */
+    image-rendering: -webkit-optimize-contrast; /* Webkit browsers */
+    image-rendering: crisp-edges; /* Fallback for other browsers */
+    image-rendering: auto; /* Modern browsers - best quality */
+    
+    /* Enhanced smoothing and antialiasing */
+    -webkit-backface-visibility: hidden; /* Prevent flickering during transforms */
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0); /* Force hardware acceleration */
+    transform: translateZ(0);
+    
+    /* Better subpixel rendering */
+    -webkit-font-smoothing: subpixel-antialiased;
+    
+    /* Ensure smooth scaling */
+    image-rendering: -moz-crisp-edges; /* Firefox */
 }
 
-/* Cards with loaded images get a black border to match the card art */
-.card.has-image {
-    border-color: #000000;
+/* For cards larger than 120px, use high-quality scaling */
+.card img {
+    image-rendering: auto; /* Override pixelated for larger cards */
+}
+
+/* Specific optimization for very small cards (under 60px width) */
+.card[style*="--card-width"][style*="60px"] img,
+.card[style*="--card-width"][style*="50px"] img,
+.card[style*="--card-width"][style*="40px"] img,
+:root[style*="--card-width: 60px"] .card img,
+:root[style*="--card-width: 50px"] .card img,
+:root[style*="--card-width: 40px"] .card img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    /* Slight sharpening filter for very small images */
+    filter: contrast(1.1) saturate(1.05);
+}
+
+/* Medium sized cards (60px-120px) - balanced approach */
+:root[style*="--card-width: 80px"] .card img,
+:root[style*="--card-width: 100px"] .card img,
+:root[style*="--card-width: 120px"] .card img {
+    image-rendering: auto;
+    /* Subtle enhancement for medium cards */
+    filter: contrast(1.02) saturate(1.01);
+}
+
+/* Large cards (over 120px) - prioritize smooth scaling */
+:root[style*="--card-width: 140px"] .card img,
+:root[style*="--card-width: 160px"] .card img,
+:root[style*="--card-width: 180px"] .card img,
+:root[style*="--card-width: 200px"] .card img {
+    image-rendering: auto;
+    image-rendering: high-quality; /* If supported */
+    /* No filter needed for large cards */
+    filter: none;
+}
+
+/* Special handling for magnified preview cards */
+#magnify-preview .card img {
+    image-rendering: auto;
+    image-rendering: high-quality;
+    /* Ensure smooth rendering for large preview */
+    filter: none;
+    /* Better antialiasing for preview */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .card img {
+        /* On high DPI displays, prefer smooth scaling */
+        image-rendering: auto;
+        image-rendering: high-quality;
+        /* Enhanced sharpening for high DPI */
+        filter: contrast(1.03) saturate(1.02);
+    }
+    
+    /* For very small cards on high DPI, still maintain some crispness */
+    :root[style*="--card-width: 60px"] .card img,
+    :root[style*="--card-width: 50px"] .card img,
+    :root[style*="--card-width: 40px"] .card img {
+        image-rendering: auto;
+        filter: contrast(1.05) saturate(1.03);
+    }
+}
+
+/* Animation-safe image handling */
+.card img {
+    /* Prevent image distortion during CSS transforms */
+    will-change: transform;
+    /* Optimize for animations */
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+}
+
+/* Ensure images maintain quality during drag operations */
+.card.dragging img {
+    image-rendering: auto;
+    /* Slightly reduce opacity but maintain sharpness */
+    filter: opacity(0.8);
 }
 
 /* Counter display on cards */
