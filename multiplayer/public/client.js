@@ -354,6 +354,7 @@ let bottomBarContextMenuJustShown = false;
 const bottomBarEl = document.getElementById('bottom-bar');
 const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
 const toggleSpacingSliderBtn = document.getElementById('toggle-spacing-slider');
+const autoFitSevenCardsBtn = document.getElementById('auto-fit-seven-cards-btn');
 const spacingSliderStatusEl = document.getElementById('spacing-slider-status');
 const cardSpacingSliderContainer = document.getElementById('card-spacing-slider-container');
 const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
@@ -1619,6 +1620,12 @@ toggleSpacingSliderBtn.addEventListener('click', () => {
     isSpacingSliderVisible = !isSpacingSliderVisible;
     updateSpacingSliderVisibilityUI();
     savePersistentSettings(); // Save settings when changed
+});
+
+// Auto-fit 7 cards functionality
+autoFitSevenCardsBtn.addEventListener('click', () => {
+    autoFitSevenCards();
+    hideBottomBarContextMenu(); // Close the context menu after action
 });
 
 // Bottom bar settings gear button
@@ -3932,6 +3939,95 @@ function updateCardSpacing() {
             });
         }
     }
+}
+
+function autoFitSevenCards() {
+    const handZone = document.getElementById('hand-zone');
+    if (!handZone) return;
+    
+    // Force a layout update to ensure we get accurate measurements
+    handZone.style.display = 'flex'; // Ensure it's displayed
+    
+    // Get the actual available width of the hand zone
+    const handZoneRect = handZone.getBoundingClientRect();
+    const handZoneStyles = window.getComputedStyle(handZone);
+    const paddingLeft = parseFloat(handZoneStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(handZoneStyles.paddingRight) || 0;
+    const borderLeft = parseFloat(handZoneStyles.borderLeftWidth) || 0;
+    const borderRight = parseFloat(handZoneStyles.borderRightWidth) || 0;
+    
+    // Calculate the actual usable width
+    const handZoneWidth = handZoneRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+    
+    console.log('Hand zone measurements:', {
+        totalWidth: handZoneRect.width,
+        paddingLeft,
+        paddingRight,
+        borderLeft,
+        borderRight,
+        usableWidth: handZoneWidth
+    });
+    
+    // Calculate the width needed for 7 cards
+    const cardWidth = currentCardWidth; // Current card width in pixels
+    const totalCardWidth = 7 * cardWidth;
+    
+    console.log('Card calculations:', {
+        cardWidth,
+        totalCardWidth,
+        handZoneWidth,
+        needsOverlap: totalCardWidth > handZoneWidth
+    });
+    
+    if (totalCardWidth <= handZoneWidth) {
+        // Cards fit without overlapping, set spacing to 0 (no gaps, no overlap)
+        currentCardSpacing = 0;
+        console.log('Cards fit without overlap, setting spacing to 0');
+    } else {
+        // Cards need to overlap, calculate negative spacing
+        const overlapNeeded = totalCardWidth - handZoneWidth;
+        const overlapPerGap = overlapNeeded / 6; // 6 gaps between 7 cards
+        
+        // Convert to spacing slider value 
+        // The overlap amount in CSS is calculated as: Math.abs(currentCardSpacing) * 0.75 rem
+        // So we need: overlapPerGap (in px) = Math.abs(currentCardSpacing) * 0.75 * 16 (px per rem)
+        // Therefore: currentCardSpacing = -(overlapPerGap / (0.75 * 16))
+        const calculatedSpacing = -(overlapPerGap / (0.75 * 16));
+        
+        // Allow much more overlap by increasing the minimum value from -6 to -15
+        const spacingValue = Math.max(-15, calculatedSpacing);
+        currentCardSpacing = spacingValue;
+        
+        console.log('Overlap calculations:', {
+            overlapNeeded,
+            overlapPerGap,
+            calculatedSpacing,
+            finalSpacingValue: spacingValue,
+            hitMinimumLimit: calculatedSpacing < -15
+        });
+        
+        // If we hit the minimum limit, warn the user
+        if (calculatedSpacing < -15) {
+            console.warn('Maximum overlap reached - cards may not fit perfectly');
+        }
+    }
+    
+    // Update the slider to reflect the new value
+    if (cardSpacingSlider) {
+        cardSpacingSlider.value = currentCardSpacing;
+    }
+    
+    // Apply the new spacing
+    updateCardSpacing();
+    
+    // Save the new setting
+    savePersistentSettings();
+    
+    // Show a message to the user
+    const fitMessage = currentCardSpacing === 0 ? 
+        'Hand spacing set to fit 7 cards without overlap' :
+        `Hand spacing adjusted to fit 7 cards (overlap: ${Math.abs(currentCardSpacing).toFixed(1)})`;
+    showMessage(fitMessage);
 }
 
 function increaseCardSize() {

@@ -182,7 +182,7 @@
                             <!-- Card Spacing Slider -->
                             <div id="card-spacing-slider-container" class="flex items-center gap-1 bg-gray-700 px-2 py-0.5 rounded border border-gray-600">
                                 <label for="card-spacing-slider" class="text-xs font-medium text-gray-300">Spacing:</label>
-                                <input type="range" id="card-spacing-slider" min="-6" max="0" value="0" step="0.5" class="w-16 h-1 bg-gray-600 rounded appearance-none cursor-pointer" title="Adjust card spacing (negative values overlap cards)">
+                                <input type="range" id="card-spacing-slider" min="-15" max="0" value="0" step="0.5" class="w-16 h-1 bg-gray-600 rounded appearance-none cursor-pointer" title="Adjust card spacing (negative values overlap cards, -15 is maximum overlap)">
                             </div>
                             <!-- Magnify Size Slider (only visible when magnify is enabled) -->
                             <div id="magnify-size-slider-container" class="hidden flex items-center gap-1 bg-gray-700 px-2 py-0.5 rounded border border-gray-600">
@@ -225,6 +225,9 @@
             <button id="toggle-spacing-slider" class="w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between">
                 <span>Hand Spacing Slider</span>
                 <span id="spacing-slider-status" class="px-2 py-1 rounded-full text-xs font-semibold">On</span>
+            </button>
+            <button id="auto-fit-seven-cards-btn" class="w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors" title="Automatically adjust hand spacing so 7 cards fill the hand zone">
+                <span>Auto-fit 7 Cards</span>
             </button>
             <button id="snap-to-grid-toggle-btn" class="w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between" title="When enabled, cards snap to a grid when moved in the play zone">
                 <span>Snap to Grid</span>
