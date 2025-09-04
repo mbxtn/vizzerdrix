@@ -1,7 +1,19 @@
 import ScryfallCache from './lib/scryfallCache.js';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
-import * as onChange from 'on-change';
+import onChange from 'on-change';
+import { io } from 'socket.io-client';
+
+// Test that on-change is working
+console.log('✅ Successfully imported on-change library!');
+
+// Example usage of on-change (you can use this pattern for your game state)
+const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
+    console.log(`🔄 Setting changed: ${property} = ${value} (was ${previousValue})`);
+});
+
+// You can now use gameSettings.cardSize = 100; to trigger the onChange callback
+window.gameSettings = gameSettings; // Expose for testing in console
 
 // Cache for heart SVG content
 let heartSVGContent = null;
@@ -45,7 +57,7 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
 const socket = io();
 let room = null;
 let playerId = null;
-let gameState = null;
+let gameState = onChange({}, () => {console.log('Game state updated');});
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
@@ -232,6 +244,14 @@ let pendingDecklistForCommander = [];
 let pendingRoomName = '';
 let pendingDisplayName = '';
 let selectedCommanderIndices = new Set();
+
+function stateUpdated(path, value, previousValue, applyData) {
+    console.log('Game state updated:', path, value, previousValue, applyData);
+    if(path.includes(playerId) && path.includes('hand')) {
+        console.log("Hand updated, checking auto-fit");
+        autoFitSevenCards(); // Pass the new hand size
+    }
+}
 
 // Player color generation for selection labels
 function generatePlayerColor(playerId, playerIndex) {
@@ -734,8 +754,8 @@ socket.on('connect', () => {
     console.log('Client connected. Player ID:', playerId);
     
     // Clear ALL stale local state from previous sessions
-    gameState = null;
-    hand = onChange([]);
+    gameState = onChange({}, stateUpdated); 
+    hand = [];
     library = [];
     graveyard = [];
     exile = [];
@@ -808,7 +828,7 @@ socket.on('rejoinSuccess', (data) => {
     }
     
     // Clear all local game state arrays and values
-    gameState = null;
+    gameState = onChange({}, stateUpdated);
     hand = [];
     library = [];
     graveyard = [];
@@ -969,7 +989,7 @@ socket.on('state', async (state) => {
         });
     }
 
-    gameState = state;
+    gameState = onChange(state, stateUpdated);
     window.gameState = gameState; // Expose gameState to window for cardFactory access
     
     // Handle auto-untap when it becomes the player's turn (after gameState is updated)
@@ -1610,6 +1630,8 @@ reverseGhostModeToggleBtn.addEventListener('click', () => {
 });
 
 autoUntapToggleBtn.addEventListener('click', () => {
+    
+    savePersistentSettings(); // Save settings when changed
     isAutoUntapEnabled = !isAutoUntapEnabled;
     updateAutoUntapStatusUI();
     savePersistentSettings(); // Save settings when changed
@@ -1621,8 +1643,6 @@ enhancedImageQualityToggleBtn.addEventListener('click', () => {
     
     // Update the cutoffs in cardFactory
     updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
-    
-    savePersistentSettings(); // Save settings when changed
 });
 
 snapToGridToggleBtn.addEventListener('click', () => {
@@ -1668,7 +1688,6 @@ autoFitSevenCardsBtn.addEventListener('click', () => {
         autoFitSevenCards(false); // Show notification when manually enabled
     }
     savePersistentSettings();
-    hideBottomBarContextMenu(); // Close the context menu after action
 });
 
 // Bottom bar settings gear button
@@ -2356,6 +2375,7 @@ async function render() {
         // Add hand size guideline
         const handGuideline = document.createElement('div');
         handGuideline.className = 'hand-limit-guide';
+        handGuideline.id = 'hand-limit-guide';
         handZoneEl.appendChild(handGuideline);
         
         hand.forEach(card => {
@@ -3986,6 +4006,7 @@ function updateCardSpacing() {
     // Update hand zone spacing to allow for card overlapping
     const handZone = document.getElementById('hand-zone');
     
+
     // Calculate the actual width that 7 cards would occupy
     let sevenCardWidth;
     if (currentCardSpacing >= 0) {
@@ -3997,7 +4018,36 @@ function updateCardSpacing() {
         const totalOverlap = 6 * overlapPerGap; // 6 gaps between 7 cards
         sevenCardWidth = (7 * currentCardWidth) - totalOverlap;
     }
+    // Get the actual available width of the hand zone
+    const handZoneRect = handZone.getBoundingClientRect();
     
+    // Check if we have valid dimensions
+    if (handZoneRect.width <= 0) {
+        console.warn('Hand zone has no width, cannot calculate auto-fit');
+        return;
+    }
+    
+    const handZoneStyles = window.getComputedStyle(handZone);
+    const paddingLeft = parseFloat(handZoneStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(handZoneStyles.paddingRight) || 0;
+    const borderLeft = parseFloat(handZoneStyles.borderLeftWidth) || 0;
+    const borderRight = parseFloat(handZoneStyles.borderRightWidth) || 0;
+    
+    // Calculate the actual usable width
+    const handZoneWidth = handZoneRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+    if(Math.abs(sevenCardWidth - handZoneWidth) < 10) {
+        console.log('Hand limit guide shown');
+        const handLimitGuide = document.getElementById('hand-limit-guide');
+        if(handLimitGuide) {
+            console.log('Hand limit guide 1');
+            handLimitGuide.style.visibility = 'hidden';
+        }
+    } else {
+        const handLimitGuide = document.getElementById('hand-limit-guide');
+        if(handLimitGuide) {
+            handLimitGuide.style.visibility = 'visible';
+        }
+    }
     document.documentElement.style.setProperty('--seven-card-width', `${sevenCardWidth + 12}px`);
 
     if (handZone) {
@@ -4028,6 +4078,7 @@ function updateCardSpacing() {
 }
 
 function autoFitSevenCards(showNotification = false) {
+    let numCards = Math.max(hand.length, 7);
     const handZone = document.getElementById('hand-zone');
     if (!handZone) return;
     
@@ -4069,7 +4120,7 @@ function autoFitSevenCards(showNotification = false) {
     
     // Calculate the width needed for 7 cards
     const cardWidth = currentCardWidth; // Current card width in pixels
-    const totalCardWidth = 7 * cardWidth;
+    const totalCardWidth = numCards * cardWidth;
     
     console.log('Card calculations:', {
         cardWidth,
@@ -4086,7 +4137,7 @@ function autoFitSevenCards(showNotification = false) {
     } else {
         // Cards need to overlap, calculate negative spacing
         const overlapNeeded = totalCardWidth - handZoneWidth;
-        const overlapPerGap = overlapNeeded / 6; // 6 gaps between 7 cards
+        const overlapPerGap = overlapNeeded / (numCards - 1); // Gaps between cards
         
         // Convert to spacing slider value 
         // The overlap amount in CSS is calculated as: Math.abs(currentCardSpacing) * 0.75 rem
