@@ -10,7 +10,7 @@ async function loadHeartSVG() {
     if (heartSVGContent) return heartSVGContent;
     
     try {
-        const response = await fetch('heart.svg');
+        const response = await fetch('./icons/heart.svg');
         const text = await response.text();
         heartSVGContent = text;
         return heartSVGContent;
@@ -38,7 +38,7 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
     }
     
     // Fallback
-    return `<img src="heart.svg" alt="♥" style="width: ${size}; height: ${size}; filter: hue-rotate(0deg) saturate(2) brightness(0.8);">`;
+    return `<img src="./icons/heart.svg" alt="♥" style="width: ${size}; height: ${size}; filter: hue-rotate(0deg) saturate(2) brightness(0.8);">`;
 }
 
 const socket = io();
@@ -2613,13 +2613,11 @@ async function render() {
             <span>${displayName}</span>
             <div class="flex items-center gap-2">
                 <div class="flex items-center gap-1">
-                    <img src="heart.svg" alt="♥" class="w-3.5 h-3.5" style="filter: hue-rotate(0deg) saturate(2) brightness(0.8);">
+                    <img src="./icons/heart.svg" alt="♥" class="w-3.5 h-3.5" style="filter: hue-rotate(0deg) saturate(2) brightness(0.8);">
                     <span class="text-xs font-bold">${lifeTotal}</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="14px" viewBox="0 -960 960 960" width="14px" fill="currentColor">
-                        <path d="m608-368 46-166-142-98-46 166 142 98ZM160-207l-33-16q-31-13-42-44.5t3-62.5l72-156v279Zm160 87q-33 0-56.5-24T240-201v-239l107 294q3 7 5 13.5t7 12.5h-39Zm206-5q-31 11-62-3t-42-45L245-662q-11-31 3-61.5t45-41.5l301-110q31-11 61.5 3t41.5 45l178 489q11 31-3 61.5T827-235L526-125Zm-28-75 302-110-179-490-301 110 178 490Zm62-300Z"/>
-                    </svg>
+                    <img src="./icons/playing_card.svg" alt="🖐️" class="w-3.5 h-3.5" style="filter: hue-rotate(200deg) saturate(1.5) brightness(0.7);">
                     <span class="text-xs">${handCount}</span>
                 </div>
             </div>
