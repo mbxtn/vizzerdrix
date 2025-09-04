@@ -3984,6 +3984,21 @@ function updateCardSize() {
 function updateCardSpacing() {
     // Update hand zone spacing to allow for card overlapping
     const handZone = document.getElementById('hand-zone');
+    
+    // Calculate the actual width that 7 cards would occupy
+    let sevenCardWidth;
+    if (currentCardSpacing >= 0) {
+        // Positive spacing: 7 cards + 6 gaps
+        sevenCardWidth = (7 * currentCardWidth) + (6 * currentCardSpacing * 4); // Convert rem to px (0.25rem * 16px/rem = 4px)
+    } else {
+        // Negative spacing (overlap): 7 cards - total overlap amount
+        const overlapPerGap = Math.abs(currentCardSpacing) * 0.75 * 16; // Convert to pixels (0.75rem * 16px/rem)
+        const totalOverlap = 6 * overlapPerGap; // 6 gaps between 7 cards
+        sevenCardWidth = (7 * currentCardWidth) - totalOverlap;
+    }
+    
+    document.documentElement.style.setProperty('--seven-card-width', `${sevenCardWidth + 12}px`);
+
     if (handZone) {
         const cards = handZone.querySelectorAll('.card');
         
