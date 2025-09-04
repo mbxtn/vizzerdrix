@@ -2351,6 +2351,12 @@ async function render() {
 
         // Render hand
         handZoneEl.innerHTML = '';
+        
+        // Add hand size guideline
+        const handGuideline = document.createElement('div');
+        handGuideline.className = 'hand-limit-guide';
+        handZoneEl.appendChild(handGuideline);
+        
         hand.forEach(card => {
             handZoneEl.appendChild(createCardElement(card, 'hand', {
                 isMagnifyEnabled: isMagnifyEnabled,
@@ -4059,6 +4065,7 @@ function autoFitSevenCards(showNotification = false) {
     if (totalCardWidth <= handZoneWidth) {
         // Cards fit without overlapping, set spacing to 0 (no gaps, no overlap)
         currentCardSpacing = 0;
+        // Also add a guide line for 7 cards so player can see if they're at hand-size
         console.log('Cards fit without overlap, setting spacing to 0');
     } else {
         // Cards need to overlap, calculate negative spacing
