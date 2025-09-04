@@ -1,6 +1,7 @@
 import ScryfallCache from './lib/scryfallCache.js';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
+import * as onChange from 'on-change';
 
 // Cache for heart SVG content
 let heartSVGContent = null;
@@ -734,7 +735,7 @@ socket.on('connect', () => {
     
     // Clear ALL stale local state from previous sessions
     gameState = null;
-    hand = [];
+    hand = onChange([]);
     library = [];
     graveyard = [];
     exile = [];
