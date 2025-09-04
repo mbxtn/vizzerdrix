@@ -448,12 +448,12 @@ export function createCardElement(card, location, options) {
             // Set the custom drag image
             e.dataTransfer.setDragImage(customDragImage, currentCardWidth / 2, (currentCardWidth * (107/80)) / 2);
             
-            // Clean up the temporary drag image after a short delay
+            // Clean up the temporary drag image after drag operation starts
             setTimeout(() => {
                 if (customDragImage && customDragImage.parentNode) {
                     customDragImage.parentNode.removeChild(customDragImage);
                 }
-            }, 0);
+            }, 10);
             
             if (onCardDragStart) {
                 onCardDragStart(e, card, location);

@@ -1,6 +1,6 @@
-import ScryfallCache from './scryfallCache.js';
-import { createCardElement, updateImageQualityCutoffs } from './cardFactory.js';
-import { CardZone } from './cardZone.js';
+import ScryfallCache from './lib/scryfallCache.js';
+import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
+import { CardZone } from './lib/cardZone.js';
 
 // Cache for heart SVG content
 let heartSVGContent = null;
@@ -3677,7 +3677,7 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         // Flip selected/hovered cards that have back faces
         targetCardElements.forEach(cardEl => {
-            import('./cardFactory.js').then(module => {
+            import('./lib/cardFactory.js').then(module => {
                 const flipped = module.flipCard(cardEl);
                 if (flipped) {
                     // Update the game state to track which face is shown
