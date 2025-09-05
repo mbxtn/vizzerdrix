@@ -4,6 +4,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,12 +18,29 @@ const io = new Server(server, {
     }
 });
 
+// In production, serve the built files from dist directory
+// In development, serve from public directory
+const isProduction = process.env.NODE_ENV === 'production';
+const staticPath = isProduction && existsSync(join(__dirname, 'dist')) 
+    ? join(__dirname, 'dist') 
+    : join(__dirname, 'public');
+
+console.log(`Serving static files from: ${staticPath}`);
+app.use(express.static(staticPath));
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
+
 // Serve static files - use dist in production, public in development
 const isProduction = process.env.NODE_ENV === 'production';
 const staticPath = isProduction ? join(__dirname, 'dist') : join(__dirname, 'public');
-
 app.use(express.static(staticPath));
-console.log(`${isProduction ? 'Production' : 'Development'} mode: serving static files from ${staticPath}`);
+
+console.log(`Serving static files from: ${staticPath}`);
+console.log(`Running in ${isProduction ? 'production' : 'development'} mode`);
 
 // Game state for each room
 const games = {};

@@ -5,8 +5,12 @@
     "watch-css": "tailwindcss -i ./src/input.css -o ./public/tailwind.css --watch",
     "dev": "vite",
     "build": "vite build",
+    "copy-assets": "cp -r public/icons dist/ && cp public/*.png dist/ && cp public/*.css dist/ 2>/dev/null || true",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "build:full": "npm run build-css && npm run build && npm run copy-assets",
+    "deploy": "npm run build:full && npm run start:prod"
   },
   "dependencies": {
     "express": "^5.1.0",
