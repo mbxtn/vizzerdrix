@@ -15,6 +15,7 @@
   "dependencies": {
     "express": "^5.1.0",
     "on-change": "^5.0.1",
+    "pica": "^9.0.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
   },
