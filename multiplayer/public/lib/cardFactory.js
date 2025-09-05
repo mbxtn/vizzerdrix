@@ -100,15 +100,15 @@ function loadCardImage(card, imageUri, targetCardWidth) {
     img.src = imageUri;
     img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
     img.alt = card.displayName || card.name;
-    img.className = 'w-full h-full object-cover';
+    img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
     // Improve loading performance
     img.loading = 'lazy';
     img.decoding = 'async';
 
     // 4. Listen for the image to load
     img.onload = () => {
-        // Calculate the target height based on card aspect ratio (Magic cards are roughly 5:7)
-        const cardAspectRatio = 7 / 5; // height / width
+        // Calculate the target height based on card aspect ratio (Magic cards are 63:88 mm, height/width)
+        const cardAspectRatio = 88 / 63; // ≈ 1.397
         const newHeight = Math.round(targetCardWidth * cardAspectRatio);
         
         // 5. Create a source canvas and draw the image onto it
@@ -124,7 +124,7 @@ function loadCardImage(card, imageUri, targetCardWidth) {
         toCanvas.height = newHeight;
 
         // --- Ensure canvas fits container like the original image ---
-        toCanvas.className = img.className;
+        toCanvas.className = img.className; // includes rounded-lg
         toCanvas.style.width = '100%';
         toCanvas.style.height = '100%';
         toCanvas.setAttribute('alt', img.alt); // for accessibility, though not standard for canvas
@@ -137,7 +137,7 @@ function loadCardImage(card, imageUri, targetCardWidth) {
         // 7. Create Pica instance and resize the image
         const pica = new Pica();
         pica.resize(fromCanvas, toCanvas, {
-            unsharpAmount: 0, // Sharper for text
+            unsharpAmount: 25, // Sharper for text
             unsharpRadius: 0, // Slightly larger radius
             unsharpThreshold: 0.255 // Sharpen even faint edges
         }).then(result => {
@@ -293,7 +293,12 @@ export function createCardElement(card, location, options) {
                 }
 
                 if (imageUri) {
-                    const img = loadCardImage(card, imageUri, targetCardWidth);
+                    let width = targetCardWidth;
+                    // Use the preview width for magnified cards
+                    if (location === 'magnified' && window.magnifyPreviewSize && window.magnifyPreviewSize.width) {
+                        width = window.magnifyPreviewSize.width;
+                    }
+                    const img = loadCardImage(card, imageUri, width);
                     cardEl.appendChild(img);
                     cardEl.classList.add('has-image'); // Add black border for cards with images
                 } else {
