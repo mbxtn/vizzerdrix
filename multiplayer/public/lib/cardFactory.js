@@ -99,7 +99,7 @@ let resizedImagesCache = new Map(); // Cache for resized images
 function loadCardImage(card, imageUri, targetCardWidth) {
     
     // Use a unique cache key for each image/size
-    const cacheKey = card.name + '_' + targetCardWidth;
+    const cacheKey = imageUri + '_' + targetCardWidth;
     console.log('Loading image for', card.name, 'with cache key:', cacheKey);
     if (resizedImagesCache.has(cacheKey)) {
         console.log('Using cached image for: ', cacheKey);
@@ -190,6 +190,7 @@ export function createCardElement(card, location, options) {
     const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false, playerSelections = {}, playerColors = {} } = options;
 
     const cardEl = document.createElement('div');
+    cardEl.dataset.location = location;
     cardEl.className = 'card flex-shrink-0 cursor-grab';
 
     // Determine optimal image size based on context and card width
@@ -211,15 +212,15 @@ export function createCardElement(card, location, options) {
     // Determine which image to show
     if (showBack) {
         // Show card back - for library cards, always use default cardback.png
-        const forceDefault = location === 'library' || location === 'popped' || location === 'panel';
+        const forceDefault = location === 'library' || location === 'popped' || location === 'panel' || options.parentZone === 'library';
         const backImageSrc = ScryfallCache.getCardBack(card.name, forceDefault);
-        const img = document.createElement('img');
-        img.src = backImageSrc;
-        img.alt = `${card.displayName || card.name} (back)`;
+        let width = targetCardWidth;
+        // Use the preview width for magnified cards
+        if (location === 'magnified' && window.magnifyPreviewSize && window.magnifyPreviewSize.width) {
+            width = window.magnifyPreviewSize.width;
+        }
+        const img = loadCardImage(card, backImageSrc, width);
         img.className = 'w-full h-full object-cover';
-        // Improve loading performance
-        img.loading = 'lazy';
-        img.decoding = 'async';
         cardEl.appendChild(img);
         cardEl.classList.add('has-image'); // Add black border for card backs
         cardEl.dataset.faceShown = 'back';
@@ -293,45 +294,39 @@ export function createCardElement(card, location, options) {
             }
         } else {
             // Show card front (existing logic)
-            // For related cards, prefer lookup by Scryfall ID for precise matching
             let scryfallData = null;
             if (card.scryfallId) {
-                // Try to get by specific Scryfall ID first (for related cards)
                 scryfallData = ScryfallCache.getById(card.scryfallId);
             }
-
-            // Fallback to name-based lookup
             if (!scryfallData) {
                 scryfallData = ScryfallCache.get(card.name);
             }
-
             if (scryfallData) {
-                // Use the optimal image size based on card width
                 let imageUri = null;
-
-                // Get the correct image URI based on card type with optimal sizing
                 if (scryfallData.image_uris) {
-                    // Single-faced cards and adventure cards have top-level image_uris
                     imageUri = getImageUriWithOptimalSize(scryfallData.image_uris, optimalImageSize);
                 } else if (scryfallData.card_faces && scryfallData.card_faces.length > 0 && scryfallData.card_faces[0].image_uris) {
-                    // True double-faced cards have image_uris in each face
                     imageUri = getImageUriWithOptimalSize(scryfallData.card_faces[0].image_uris, optimalImageSize);
                 }
-
                 if (imageUri) {
                     let width = targetCardWidth;
-                    // Use the preview width for magnified cards
                     if (location === 'magnified' && window.magnifyPreviewSize && window.magnifyPreviewSize.width) {
                         width = window.magnifyPreviewSize.width;
                     }
                     const img = loadCardImage(card, imageUri, width);
                     cardEl.appendChild(img);
-                    cardEl.classList.add('has-image'); // Add black border for cards with images
+                    cardEl.classList.add('has-image');
                 } else {
-                    cardEl.textContent = card.displayName || card.name;
+                    // Only show text if not in library
+                    if (location !== 'library') {
+                        cardEl.textContent = card.displayName || card.name;
+                    }
                 }
             } else {
-                cardEl.textContent = card.displayName || card.name;
+                // Only show text if not in library
+                if (location !== 'library') {
+                    cardEl.textContent = card.displayName || card.name;
+                }
             }
         }
         cardEl.dataset.faceShown = 'front';
@@ -462,7 +457,8 @@ export function createCardElement(card, location, options) {
             onCardClick: null,
             onCardDblClick: null,
             onCardDragStart: null,
-            showBack: shouldShowBack // Show the same face as the original card
+            showBack: shouldShowBack, // Show the same face as the original card
+            parentZone: location // Pass the parent zone for context if needed
         });
 
         // Style the magnified card to fill the preview
@@ -697,7 +693,10 @@ export function flipCard(cardEl) {
         console.log('Placeholder cards cannot be flipped');
         return false;
     }
-
+    if(cardEl.dataset.location === 'library') {
+        console.log('Cards in the library cannot be flipped');
+        return false;
+    }
     const cardName = cardEl.dataset.name;
     const currentFace = cardEl.dataset.faceShown;
 
