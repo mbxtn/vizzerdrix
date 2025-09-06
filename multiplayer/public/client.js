@@ -3332,7 +3332,7 @@ let playZone = [];
 let currentLife = 40; // Track current life total
 let currentCardWidth = 80;
 const minCardWidth = 60;
-const maxCardWidth = 200; // Increased from 120 to allow much larger cards
+const maxCardWidth = 400; // Increased from 120 to allow much larger cards
 const cardSizeStep = 10;
 let currentCardSpacing = 0; // Default spacing (0 = no gap, negative = overlap)
 
@@ -3353,7 +3353,7 @@ function handleCardClick(e, card, cardEl, location) {
     const cardId = cardEl.dataset.id;
     const isSelected = selectedCardIds.includes(cardId);
     
-    if (!e.ctrlKey && !e.metaKey) {
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
         // For single clicks without modifiers, if the card is already selected (and it's the only selected card),
         // deselect it. Otherwise, clear all selections and select only this card.
         if (isSelected && selectedCardIds.length === 1) {

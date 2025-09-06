@@ -94,7 +94,29 @@ function findMatchingFace(scryfallData, requestedName, targetImageSize = 'normal
     };
 }
 
+let resizedImagesCache = new Map(); // Cache for resized images
+
 function loadCardImage(card, imageUri, targetCardWidth) {
+    
+    // Use a unique cache key for each image/size
+    const cacheKey = card.name + '_' + targetCardWidth;
+    console.log('Loading image for', card.name, 'with cache key:', cacheKey);
+    if (resizedImagesCache.has(cacheKey)) {
+        console.log('Using cached image for: ', cacheKey);
+        // 1. Create a new Image object
+        const img = document.createElement('img');
+        img.src = resizedImagesCache.get(cacheKey);
+        img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
+        img.alt = card.displayName || card.name;
+        img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
+        // Improve loading performance
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        return img;
+    } else {
+        console.log('No cached image found for', cacheKey, '- loading and resizing.');
+    }
+
     // 1. Create a new Image object
     const img = document.createElement('img');
     img.src = imageUri;
@@ -142,11 +164,16 @@ function loadCardImage(card, imageUri, targetCardWidth) {
             unsharpThreshold: 0.255 // Sharpen even faint edges
         }).then(result => {
             console.log('Resize complete!');
-            // Replace the original img element with the resized canvas
+            // Replace the original img element with a clone of the cached canvas
             const parent = img.parentNode;
             if (parent) {
                 parent.replaceChild(result, img);
             }
+            result.toBlob((blob) => {
+                console.log('Caching resized image:', cacheKey);
+                // Cache the resized canvas for future use
+                resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
+            });  // Free memory
         }).catch(error => {
             console.error('Pica resize failed:', error);
             // Keep the original image if resize fails
@@ -219,13 +246,12 @@ export function createCardElement(card, location, options) {
                 const faceData = findMatchingFace(scryfallData, card.name, optimalImageSize);
 
                 if (faceData.imageUri) {
-                    const img = document.createElement('img');
-                    img.src = faceData.imageUri;
-                    img.alt = card.displayName || card.name;
-                    img.className = 'w-full h-full object-cover';
-                    // Improve loading performance
-                    img.loading = 'lazy';
-                    img.decoding = 'async';
+                    let width = targetCardWidth;
+                    // Use the preview width for magnified cards
+                    if (location === 'magnified' && window.magnifyPreviewSize && window.magnifyPreviewSize.width) {
+                        width = window.magnifyPreviewSize.width;
+                    }
+                    const img = loadCardImage(card, faceData.imageUri, width);
                     cardEl.appendChild(img);
                     cardEl.classList.add('has-image');
 

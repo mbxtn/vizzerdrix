@@ -30,7 +30,7 @@ body {
     text-align: center;
     cursor: grab;
     user-select: none;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: box-shadow 0.2s;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     position: relative;
     transform: rotate(0deg);
@@ -40,7 +40,7 @@ body {
 #hand-zone .card {
     width: var(--hand-card-width, 80px);
     position: relative;
-    transition: z-index 0s, transform 0.2s ease;
+    transition: z-index 0s;
 }
 
 #hand-zone .card:hover {
