@@ -96,6 +96,37 @@ function findMatchingFace(scryfallData, requestedName, targetImageSize = 'normal
 
 let resizedImagesCache = new Map(); // Cache for resized images
 
+// Limit concurrent Pica resizes to avoid UI jank
+const MAX_CONCURRENT_RESIZES = 3;
+let currentResizes = 0;
+const resizeQueue = [];
+
+function runNextResize() {
+    if (resizeQueue.length > 0 && currentResizes < MAX_CONCURRENT_RESIZES) {
+        const next = resizeQueue.shift();
+        currentResizes++;
+        next(() => {
+            currentResizes--;
+            runNextResize();
+        });
+    }
+}
+
+function queuePicaResize(fromCanvas, toCanvas, options, onDone, onError) {
+    resizeQueue.push((done) => {
+        pica.resize(fromCanvas, toCanvas, options)
+            .then(result => {
+                onDone(result);
+                done();
+            })
+            .catch(error => {
+                if (onError) onError(error);
+                done();
+            });
+    });
+    runNextResize();
+}
+
 function loadCardImage(card, imageUri, targetCardWidth) {
     
     // Use a unique cache key for each image/size
@@ -107,7 +138,6 @@ function loadCardImage(card, imageUri, targetCardWidth) {
         const img = document.createElement('img');
         img.src = resizedImagesCache.get(cacheKey);
         img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
-        img.alt = card.displayName || card.name;
         img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
         // Improve loading performance
         img.loading = 'lazy';
@@ -121,7 +151,6 @@ function loadCardImage(card, imageUri, targetCardWidth) {
     const img = document.createElement('img');
     img.src = imageUri;
     img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
-    img.alt = card.displayName || card.name;
     img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
     // Improve loading performance
     img.loading = 'lazy';
@@ -156,27 +185,23 @@ function loadCardImage(card, imageUri, targetCardWidth) {
         toCanvas.setAttribute('data-decoding', img.decoding);
         // -----------------------------------------------------------
 
-        // 7. Create Pica instance and resize the image
-        const pica = new Pica();
-        pica.resize(fromCanvas, toCanvas, {
-            unsharpAmount: 25, // Sharper for text
-            unsharpRadius: 0, // Slightly larger radius
-            unsharpThreshold: 0.255 // Sharpen even faint edges
-        }).then(result => {
+        // 7. Use queuePicaResize instead of direct pica.resize
+        queuePicaResize(fromCanvas, toCanvas, {
+            unsharpAmount: 0,
+            unsharpRadius: 0,
+            unsharpThreshold: 0.255
+        }, (result) => {
             console.log('Resize complete!');
-            // Replace the original img element with a clone of the cached canvas
             const parent = img.parentNode;
             if (parent) {
                 parent.replaceChild(result, img);
             }
             result.toBlob((blob) => {
                 console.log('Caching resized image:', cacheKey);
-                // Cache the resized canvas for future use
                 resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
-            });  // Free memory
-        }).catch(error => {
+            });
+        }, (error) => {
             console.error('Pica resize failed:', error);
-            // Keep the original image if resize fails
         });
     };
 
@@ -708,7 +733,7 @@ export function flipCard(cardEl) {
         // Flip to back - all cards can show a back face
         const backImageSrc = ScryfallCache.getCardBack(cardName);
         img.src = backImageSrc;
-        img.alt = `${cardName} (back)`;
+        //img.alt = `${cardName} (back)`;
         cardEl.dataset.faceShown = 'back';
     } else {
         // Flip to front
@@ -730,7 +755,7 @@ export function flipCard(cardEl) {
 
             if (frontImageUri) {
                 img.src = frontImageUri;
-                img.alt = cardName;
+                //img.alt = cardName;
                 cardEl.dataset.faceShown = 'front';
             }
         } else {
