@@ -3,6 +3,7 @@ import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.
 import { CardZone } from './lib/cardZone.js';
 import onChange from 'on-change';
 import { io } from 'socket.io-client';
+import { GameState } from './lib/gameState.js';
 
 // Test that on-change is working
 console.log('✅ Successfully imported on-change library!');
@@ -57,6 +58,7 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
 const socket = io();
 let room = null;
 let playerId = null;
+let newGameState = null;
 let gameState = onChange({}, () => {console.log('Game state updated');});
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
@@ -754,6 +756,11 @@ socket.on('connect', () => {
     console.log('Client connected. Player ID:', playerId);
     
     // Clear ALL stale local state from previous sessions
+    newGameState = new GameState(playerId, socket); // Reset newGameState instance
+    newGameState.addListener('update', () => {
+        console.log('GameState updated event fired');
+    });
+
     gameState = onChange({}, stateUpdated); 
     hand = [];
     library = [];
@@ -887,15 +894,9 @@ socket.on('disconnect', (reason) => {
     }
 });
 
-socket.on('state', async (state) => {
-    console.log('RAW STATE RECEIVED:', new Date().toISOString(), {
-        currentTurn: state.currentTurn,
-        turnOrderSet: state.turnOrderSet,
-        turnOrder: state.turnOrder,
-        turnCounter: state.turnCounter,
-        isRejoin: isRejoinState // Use the global flag
-    });
-    
+socket.on('state', async (state) => {    
+    newGameState.updateFromServer(state);
+
     // Check if state has actually changed
     const stateChanged = !gameState || JSON.stringify(gameState) !== JSON.stringify(state);
     
@@ -1295,6 +1296,8 @@ resetBtnModal.addEventListener('click', () => {
     // Collect all non-commander cards from hand, playZone, graveyard, and exile
     let allNonCommanderCards = [];
     let commanderCards = [];
+
+    newGameState.resetGame();
 
     // Process cards from hand
     hand.forEach(card => {

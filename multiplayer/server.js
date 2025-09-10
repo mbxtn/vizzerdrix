@@ -558,6 +558,42 @@ io.on('connection', (socket) => {
 
 });
 
+// The emitted state object has the following structure:
+// {
+//   players: {
+//     [playerId]: {
+//       hand: [CardObject],
+//       library: [CardObject],
+//       graveyard: [CardObject],
+//       exile: [CardObject],
+//       command: [CardObject],
+//       displayName: string,
+//       decklist: [string],
+//       commanders: [string],
+//       life: number
+//     },
+//     ...
+//   },
+//   playZones: {
+//     [playerId]: [CardObject],
+//     ...
+//   },
+//   turnOrder: [playerId],
+//   currentTurn: number, // index in turnOrder
+//   turnOrderSet: boolean,
+//   turnCounter: number,
+//   playerSelections: {
+//     [playerId]: [cardId],
+//     ...
+//   }
+// }
+// CardObject: {
+//   id: string,
+//   name: string,
+//   displayName: string,
+//   isCommander?: boolean,
+//   ...
+// }
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Multiplayer server running on port ${PORT}`);
