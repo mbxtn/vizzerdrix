@@ -5,3 +5,4 @@
 /multiplayer/node_modules/
 /multiplayer/dist/
 .nvmrc
+node_modules/

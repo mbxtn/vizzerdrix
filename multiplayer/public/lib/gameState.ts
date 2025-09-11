@@ -1,50 +1,20 @@
+
 // Game state management class and functions
 // This state will use optmistic concurrency control to manage updates
 // and ensure all clients have a consistent view of the game state while
 // prioritizing low latency for user actions.
 export class GameState {
-    // The emitted state object has the following structure:
-    // {
-    //   players: {
-    //     [playerId]: {
-    //       hand: [CardObject],
-    //       library: [CardObject],
-    //       graveyard: [CardObject],
-    //       exile: [CardObject],
-    //       command: [CardObject],
-    //       displayName: string,
-    //       decklist: [string],
-    //       commanders: [string],
-    //       life: number
-    //     },
-    //     ...
-    //   },
-    //   playZones: {
-    //     [playerId]: [CardObject],
-    //     ...
-    //   },
-    //   turnOrder: [playerId],
-    //   currentTurn: number, // index in turnOrder
-    //   turnOrderSet: boolean,
-    //   turnCounter: number,
-    //   playerSelections: {
-    //     [playerId]: [cardId],
-    //     ...
-    //   }
-    // }
-    // CardObject: {
-    //   id: string,
-    //   name: string,
-    //   displayName: string,
-    //   isCommander?: boolean,
-    //   faceup: boolean,
-    //   ...
-    // }
+    playerId : string;
+    listeners: Array<[name: string, callback: (state: any) => void]>;
+    serverState: any;
+    clientState: any;
+    playZone: any;
+    lastUpdate: number;
 
-    constructor(playerId, socket) {
+
+    constructor(playerId : string) {
         // Initialize things to empty so we can add to them later
         this.playerId = playerId; // The local player's ID
-        this.socket = socket;
 
         // Initialize everything else to null/empty/0
         // and provide light descriptions of what everything is.
@@ -63,14 +33,15 @@ export class GameState {
         this.lastUpdate = Date.now(); 
     }
 
-    addListener(name, callback) {
-        this.listeners.push({ name, callback });
-    }
-    removeListeners(name) {
-        this.listeners = this.listeners.filter(listener => listener.name !== name);
+    addListener(name : string, callback : (state: any) => void) {
+        this.listeners.push([name, callback]);
     }
 
-    getCardsFromZone(zone, commanders = [], others = []) {
+    removeListeners(name : string) {
+        this.listeners = this.listeners.filter(listener => listener[0] !== name);
+    }
+
+    getCardsFromZone(zone : any[], commanders :any[], others : any[]) {
         console.log("Attempting to get cards from this zone", {zone: zone});
         zone.forEach(card => {
             if(card.isCommander) {
@@ -80,13 +51,13 @@ export class GameState {
             }
         });
         // I personally prefer = [] but that doesn't work in a function
-        zone.length = 0;
+        zone = [];
     }
     // This is a basic function, it'll just put all of a players own cards
     // into their hand/command zone
     resetGame() {
-        let commanderCards = [];
-        let library = [];
+        let commanderCards : any[] = [];
+        let library : any[] = [];
 
         this.getCardsFromZone(this.clientState.hand, commanderCards, library);
         this.getCardsFromZone(this.clientState.library, commanderCards, library);
@@ -108,16 +79,16 @@ export class GameState {
         } )
     }
 
-    moveCard(cardId, fromZone, toZone, x = 0, y = 0) {
+    moveCard(cardId : string, fromZone : string, toZone : string, x = 0, y = 0) {
         this.lastUpdate = Date.now();
         // Find the card in the fromZone   
     }
 
-    moveCards(cardIds, fromZone, toZone, x = 0, y = 0) {
+    moveCards(cardIds : string[], fromZone : string, toZone : string, x = 0, y = 0) {
         // Find the cards in the fromZone
     }
 
-    updateFromServer(state) {
+    updateFromServer(state : any) {
         // Basic logging, should help for getting a sense of the schema
         console.log('RAW STATE RECEIVED:', new Date().toISOString(), {
             serverState: JSON.stringify(state)
@@ -158,7 +129,7 @@ export class GameState {
         }
 
         // Notify all listeners of the updated state
-        this.listeners.forEach(listener => listener.callback(state));
+        this.listeners.forEach(listener => listener[1](state));
     }
 
 }

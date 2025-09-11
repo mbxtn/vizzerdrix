@@ -22,7 +22,10 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.1",
     "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.2",
     "vite": "^7.1.4"
   }
 }
