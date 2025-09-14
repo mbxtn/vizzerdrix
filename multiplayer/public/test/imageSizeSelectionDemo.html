@@ -97,8 +97,26 @@
         <label>
             Card Width: 
             <input type="range" id="cardWidthSlider" min="40" max="400" value="80" 
-                   onchange="updateCardSize(this.value)">
+                   onchange="updateCardSize()">
             <span id="cardWidthValue">80px</span>
+        </label>
+        <label>
+            UnsharpAmount: 
+            <input type="range" id="unsharpAmountSlider" min="0" max="100" value="0" 
+                   onchange="updateCardSize()">
+            <span id="unsharpAmount">0</span>
+        </label>
+        <label>
+            UnsharpRadius: 
+            <input type="range" id="unsharpRadiusSlider" min="0" max="100" value="0" 
+                   onchange="updateCardSize()">
+            <span id="unsharpRadius">0</span>
+        </label>
+        <label>
+            UnsharpThreshold: 
+            <input type="range" id="unsharpThresholdSlider" min="0" max="1000" value="255" 
+                   onchange="updateCardSize()">
+            <span id="unsharpThreshold">0.255</span>
         </label>
     </div>
     
@@ -120,46 +138,52 @@
         </div>
     </div>
     
-    <script type="module">
-        // Sample high-quality card for testing
-        const testCardData = {
-            name: 'Lightning Bolt',
-            id: 'test-card-' + Date.now(),
-            displayName: 'Lightning Bolt'
-        };
-        
-        // Mock Scryfall data with all image sizes
-        const mockScryfallData = {
-            name: 'Lightning Bolt',
-            image_uris: {
-                small: 'https://cards.scryfall.io/small/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
-                normal: 'https://cards.scryfall.io/normal/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
-                large: 'https://cards.scryfall.io/large/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
-                png: 'https://cards.scryfall.io/png/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.png?1562906514'
-            }
-        };
-        
-        // Mock the ScryfallCache for testing
-        window.ScryfallCache = {
-            get: (name) => name === 'Lightning Bolt' ? mockScryfallData : null,
-            getCardBack: (name) => './cardback.png'
-        };
-        
-        let currentCardWidth = 80;
-        
-        // Import our functions from cardFactory
-        import { createCardElement } from './cardFactory.js';
-        
-        window.loadTestCard = async function() {
-            const autoContainer = document.getElementById('auto-cards');
-            const comparisonContainer = document.getElementById('size-comparison');
-            
-            autoContainer.innerHTML = '';
-            comparisonContainer.innerHTML = '';
-            
-            // Set CSS variable for current card width
-            document.documentElement.style.setProperty('--card-width', currentCardWidth + 'px');
-            
+<script type="module">
+// Sample high-quality card for testing
+const testCardData = {
+    name: 'Lightning Bolt',
+    id: 'test-card-' + Date.now(),
+    displayName: 'Lightning Bolt'
+};
+
+// Mock Scryfall data with all image sizes
+const mockScryfallData = {
+    name: 'Lightning Bolt',
+    image_uris: {
+        small: 'https://cards.scryfall.io/small/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
+        normal: 'https://cards.scryfall.io/normal/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
+        large: 'https://cards.scryfall.io/large/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.jpg?1562906514',
+        png: 'https://cards.scryfall.io/png/front/3/1/310a43c4-4e7e-44de-b69a-e4ac129221dd.png?1562906514'
+    }
+};
+
+// Mock the ScryfallCache for testing
+window.ScryfallCache = {
+    get: (name) => name === 'Lightning Bolt' ? mockScryfallData : null,
+    getCardBack: (name) => './cardback.png'
+};
+
+let currentCardWidth = 80;
+let currentSharpnessSettings = {
+    unsharpAmount: 0,
+    unsharpRadius: 0,
+    unsharpThreshold: 0.255
+}
+
+// Import our functions from cardFactory
+import { createCardElement } from '../lib/cardFactory.js';
+import { loadCardImage } from '../lib/cardFactory.js';
+
+window.loadTestCard = async function() {
+    const autoContainer = document.getElementById('auto-cards');
+    const comparisonContainer = document.getElementById('size-comparison');
+
+    autoContainer.innerHTML = '';
+    comparisonContainer.innerHTML = '';
+
+    // Set CSS variable for current card width
+    document.documentElement.style.setProperty('--card-width', currentCardWidth + 'px');
+
             try {
                 // Create auto-sized card
                 const autoCard = await createCardElement(testCardData, 'test', {
@@ -175,70 +199,77 @@
                 autoCardContainer.appendChild(autoCard);
                 autoContainer.appendChild(autoCardContainer);
                 
-                // Create comparison cards for each size
-                const sizes = ['small', 'normal', 'large'];
-                for (const size of sizes) {
-                    const img = document.createElement('img');
-                    img.src = mockScryfallData.image_uris[size];
-                    img.alt = `Lightning Bolt (${size})`;
-                    
-                    const cardContainer = document.createElement('div');
-                    cardContainer.className = 'card-demo';
-                    cardContainer.style.width = currentCardWidth + 'px';
-                    cardContainer.style.height = Math.round(currentCardWidth * (107/80)) + 'px';
-                    
-                    const label = document.createElement('div');
-                    label.className = 'size-label';
-                    label.textContent = size.toUpperCase();
-                    
-                    cardContainer.appendChild(img);
-                    cardContainer.appendChild(label);
-                    comparisonContainer.appendChild(cardContainer);
-                }
-                
-            } catch (error) {
-                console.error('Error loading test card:', error);
-                autoContainer.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
-            }
-        };
-        
-        window.updateCardSize = function(width) {
-            currentCardWidth = parseInt(width);
-            document.getElementById('cardWidthValue').textContent = width + 'px';
-            
-            // Update current settings display
-            let selectedSize = 'small';
-            if (currentCardWidth > 200) {
-                selectedSize = 'large';
-            } else if (currentCardWidth > 100) {
-                selectedSize = 'normal';
-            }
-            
-            const resolutions = {
-                small: '146×204',
-                normal: '488×680',
-                large: '672×936'
-            };
-            
-            document.getElementById('currentSettings').textContent = 
-                `Current Width: ${width}px → Using: ${selectedSize} images (${resolutions[selectedSize]})`;
-            
-            // Update CSS custom property
-            document.documentElement.style.setProperty('--card-width', width + 'px');
-            
-            // Reload card with new sizing
-            if (document.getElementById('auto-cards').children.length > 0) {
-                loadTestCard();
-            }
-        };
-        
-        window.clearAll = function() {
-            document.getElementById('auto-cards').innerHTML = '';
-            document.getElementById('size-comparison').innerHTML = '';
-        };
-        
-        // Initialize with default settings
-        updateCardSize(80);
-    </script>
+        // Create comparison cards for each size
+        const sizes = ['large'];
+        let earthRumblePath = "./tla-174-earth-rumble.jpg"
+        for (const size of sizes) {
+            // loadCardImage(card, imageUri, targetCardWidth)
+            const img = loadCardImage(testCardData, earthRumblePath, currentCardWidth, currentSharpnessSettings, false);
+            img.alt = `Earth Rumble (${size})`;
+
+            const cardContainer = document.createElement('div');
+            cardContainer.className = 'card-demo';
+            cardContainer.style.width = currentCardWidth + 'px';
+            cardContainer.style.height = Math.round(currentCardWidth * (107/80)) + 'px';
+
+            cardContainer.appendChild(img);
+            comparisonContainer.appendChild(cardContainer);
+        }
+
+    } catch (error) {
+        console.error('Error loading test card:', error);
+        autoContainer.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+    }
+};
+
+window.updateCardSize = function() {
+    let width = document.getElementById("cardWidthSlider").value;
+    let unsharpAmount = document.getElementById("unsharpAmountSlider").value;
+    let unsharpRadius = document.getElementById("unsharpRadiusSlider").value;
+    let unsharpThreshold = document.getElementById("unsharpThresholdSlider").value / 1000;
+
+
+    currentCardWidth = parseInt(width);
+    currentSharpnessSettings = {
+        unsharpAmount: unsharpAmount,
+        unsharpRadius: unsharpRadius,
+        unsharpThreshold: unsharpThreshold
+    };
+    document.getElementById('cardWidthValue').textContent = width + 'px';
+    
+    // Update current settings display
+    let selectedSize = 'small';
+    if (currentCardWidth > 200) {
+        selectedSize = 'large';
+    } else if (currentCardWidth > 100) {
+        selectedSize = 'normal';
+    }
+    
+    const resolutions = {
+        small: '146×204',
+        normal: '488×680',
+        large: '672×936'
+    };
+    
+    document.getElementById('currentSettings').textContent = 
+        `Current Width: ${width}px → Using: ${selectedSize} images (${resolutions[selectedSize]})`;
+    
+    // Update CSS custom property
+    document.documentElement.style.setProperty('--card-width', width + 'px');
+    
+    // Reload card with new sizing
+    if (document.getElementById('auto-cards').children.length > 0) {
+        loadTestCard();
+    }
+};
+
+window.clearAll = function() {
+    document.getElementById('auto-cards').innerHTML = '';
+    document.getElementById('size-comparison').innerHTML = '';
+};
+
+// Initialize with default settings
+updateCardSize(80);
+</script>
 </body>
 </html>

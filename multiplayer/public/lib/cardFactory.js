@@ -127,12 +127,13 @@ function queuePicaResize(fromCanvas, toCanvas, options, onDone, onError) {
     runNextResize();
 }
 
-function loadCardImage(card, imageUri, targetCardWidth) {
+const defaultSharpnessSettings = {unsharpAmount: 0, unsharpRadius: 0, unsharpThreshold: 0.255};
+export function loadCardImage(card, imageUri, targetCardWidth, settings = defaultSharpnessSettings, useCache = true) {
     
     // Use a unique cache key for each image/size
     const cacheKey = imageUri + '_' + targetCardWidth;
     console.log('Loading image for', card.name, 'with cache key:', cacheKey);
-    if (resizedImagesCache.has(cacheKey)) {
+    if (resizedImagesCache.has(cacheKey) && useCache) {
         console.log('Using cached image for: ', cacheKey);
         // 1. Create a new Image object
         const img = document.createElement('img');
@@ -187,9 +188,9 @@ function loadCardImage(card, imageUri, targetCardWidth) {
 
         // 7. Use queuePicaResize instead of direct pica.resize
         queuePicaResize(fromCanvas, toCanvas, {
-            unsharpAmount: 0,
-            unsharpRadius: 0,
-            unsharpThreshold: 0.255
+            unsharpAmount: settings.unsharpAmount,
+            unsharpRadius: settings.unsharpRadius,
+            unsharpThreshold: settings.unsharpThreshold
         }, (result) => {
             console.log('Resize complete!');
             const parent = img.parentNode;
