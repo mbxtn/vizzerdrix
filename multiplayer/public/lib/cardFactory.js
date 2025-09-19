@@ -694,8 +694,8 @@ function createCustomDragImage(originalCard, currentCardWidth) {
     dragImage.style.top = '-9999px'; // Hide it off-screen
     dragImage.style.left = '-9999px';
     dragImage.style.pointerEvents = 'none';
-    dragImage.style.opacity = '0.8'; // Make it slightly transparent
-    dragImage.style.transform = 'none'; // Remove any transforms
+    dragImage.style.opacity = '0.9'; // Make it slightly transparent
+    // dragImage.style.transform = 'none'; // Remove any transforms
     dragImage.style.zIndex = '999999';
 
     // Override CSS variables for this specific element
