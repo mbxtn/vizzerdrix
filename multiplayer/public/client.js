@@ -2994,16 +2994,96 @@ function addSelectionListeners() {
             isSelecting = true;
             startX = e.clientX;
             startY = e.clientY;
-            
             selectedCards.forEach(c => c.classList.remove('selected-card'));
             selectedCards = [];
             selectedCardIds = [];
-
             selectionBox = document.createElement('div');
             selectionBox.className = 'selection-box';
             selectionBox.style.left = `${e.clientX}px`;
             selectionBox.style.top = `${e.clientY}px`;
             activeZone.appendChild(selectionBox);
+        }
+    });
+
+    // Touch bounding box selection (long tap)
+    let touchSelectTimeout = null;
+    let touchStartX = null;
+    let touchStartY = null;
+    activeZone.addEventListener('touchstart', (e) => {
+        // Prevent scrolling if no overflow
+        if (document.body.scrollHeight <= window.innerHeight) {
+            document.body.style.overflow = 'hidden';
+        }
+        if (e.touches.length === 1 && e.target === activeZone) {
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchSelectTimeout = setTimeout(() => {
+                isSelecting = true;
+                startX = touchStartX;
+                startY = touchStartY;
+                selectedCards.forEach(c => c.classList.remove('selected-card'));
+                selectedCards = [];
+                selectedCardIds = [];
+                selectionBox = document.createElement('div');
+                selectionBox.className = 'selection-box';
+                selectionBox.style.left = `${touchStartX}px`;
+                selectionBox.style.top = `${touchStartY}px`;
+                activeZone.appendChild(selectionBox);
+            }, 400); // 400ms long tap
+        }
+    });
+    activeZone.addEventListener('touchmove', (e) => {
+        if (isSelecting && selectionBox && e.touches.length === 1) {
+            // Prevent page scrolling during drag selection
+            e.preventDefault();
+            const touch = e.touches[0];
+            const currentX = touch.clientX;
+            const currentY = touch.clientY;
+            const left = Math.min(startX, currentX);
+            const top = Math.min(startY, currentY);
+            const width = Math.abs(startX - currentX);
+            const height = Math.abs(startY - currentY);
+            selectionBox.style.left = `${left}px`;
+            selectionBox.style.top = `${top}px`;
+            selectionBox.style.width = `${width}px`;
+            selectionBox.style.height = `${height}px`;
+            const selectionRect = selectionBox.getBoundingClientRect();
+            const allCards = activeZone.querySelectorAll('.card');
+            selectedCards = [];
+            selectedCardIds = [];
+            allCards.forEach(cardEl => {
+                const cardRect = cardEl.getBoundingClientRect();
+                if (checkIntersection(selectionRect, cardRect)) {
+                    const cardId = cardEl.dataset.id;
+                    if (!selectedCardIds.includes(cardId)) {
+                        selectedCardIds.push(cardId);
+                        selectedCards.push(cardEl);
+                    }
+                    cardEl.classList.add('selected-card');
+                } else {
+                    cardEl.classList.remove('selected-card');
+                }
+            });
+            debouncedSendSelectionUpdate();
+        }
+    }, { passive: false });
+    activeZone.addEventListener('touchend', (e) => {
+        // Restore scrolling
+        document.body.style.overflow = '';
+        if (touchSelectTimeout) {
+            clearTimeout(touchSelectTimeout);
+            touchSelectTimeout = null;
+        }
+        if (isSelecting) {
+            isSelecting = false;
+            if (selectedCards.length > 0) {
+                justSelectedByDrag = true;
+            }
+            if (selectionBox) {
+                selectionBox.remove();
+                selectionBox = null;
+            }
         }
     });
 }

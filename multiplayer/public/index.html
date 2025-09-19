@@ -12,6 +12,16 @@
     <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="cardZoneStyles.css">
+<script>
+// Set --vh custom property for mobile viewport height
+function setVh() {
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+document.addEventListener('DOMContentLoaded', setVh);
+window.addEventListener('resize', setVh);
+window.addEventListener('orientationchange', setVh);
+</script>
 </head>
 <body class="bg-gray-900 text-gray-200">
     <!-- Join Room UI -->
