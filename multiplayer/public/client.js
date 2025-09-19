@@ -3084,6 +3084,7 @@ document.addEventListener('click', (e) => {
 
 // Context menu event handlers
 document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
     // Check if right-clicking on specific card areas first (higher priority)
     const isOnCard = e.target.closest('.card');
     const isOnHandZone = e.target.closest('#hand-zone');

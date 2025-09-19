@@ -4,8 +4,6 @@ import Pica from 'pica';
 // Initialize Pica instance
 const pica = new Pica();
 
-var smallCutoff = 146; // Cards <= 146px wide use 'small' images
-var mediumCutoff = 488; // Cards <= 488px wide use 'normal' images
 var picaEnabled = false;
 // Function to update the cutoffs (called from client.js when settings change)
 export function updateImageQualityCutoffs(enhanced = false) {
@@ -127,19 +125,21 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
     // Use a unique cache key for each image/size
     const cacheKey = imageUri + '_' + targetCardWidth;
     console.log('Loading image for', card.name, 'with cache key:', cacheKey);
-    if (resizedImagesCache.has(cacheKey) && useCache) {
-        console.log('Using cached image for: ', cacheKey);
-        // 1. Create a new Image object
-        const img = document.createElement('img');
-        img.src = resizedImagesCache.get(cacheKey);
-        img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
-        img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
-        // Improve loading performance
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        return img;
-    } else {
-        console.log('No cached image found for', cacheKey, '- loading and resizing.');
+    if(picaEnabled) {
+        if (resizedImagesCache.has(cacheKey) && useCache) {
+            console.log('Using cached image for: ', cacheKey);
+            // 1. Create a new Image object
+            const img = document.createElement('img');
+            img.src = resizedImagesCache.get(cacheKey);
+            img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
+            img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
+            // Improve loading performance
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            return img;
+        } else {
+            console.log('No cached image found for', cacheKey, '- loading and resizing.');
+        }
     }
 
     // 1. Create a new Image object
