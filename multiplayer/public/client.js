@@ -3082,29 +3082,25 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Context menu event handlers
-document.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    // Check if right-clicking on specific card areas first (higher priority)
+
+function handleContextMenuTrigger(e) {
+    // Check if triggering on specific card areas first (higher priority)
     const isOnCard = e.target.closest('.card');
     const isOnHandZone = e.target.closest('#hand-zone');
     const isOnPlayZone = e.target.closest('.play-zone');
     const isOnLibrary = e.target.closest('#library');
     const isOnCardPile = e.target.closest('#graveyard-pile') || e.target.closest('#exile-pile') || e.target.closest('#command-pile');
-    
-    // If right-clicking on card-related areas, handle card context menu
+    // If triggering on card-related areas, handle card context menu
     if (isOnCard || isOnHandZone || isOnPlayZone || isOnLibrary || isOnCardPile) {
-        // Only show card context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
+        // Only show card context menu if we have selected cards, triggering in a valid area, AND viewing our own zones
         const isViewingOwnZones = currentlyViewedPlayerId === playerId;
         const isInOwnPlayZone = activePlayZonePlayerId === playerId;
-        
-        // If right-clicking on a card, handle selection logic
+        // If triggering on a card, handle selection logic
         if (isOnCard && (isViewingOwnZones || isInOwnPlayZone)) {
             const cardEl = e.target.closest('.card');
             if (cardEl) {
                 const cardId = cardEl.dataset.id;
                 const isCurrentlySelected = selectedCardIds.includes(cardId);
-                
                 // If no cards are selected, or only one card is selected and it's a different card
                 if (selectedCards.length === 0 || (selectedCards.length === 1 && !isCurrentlySelected)) {
                     // Clear any existing selections and select this card
@@ -3115,10 +3111,9 @@ document.addEventListener('contextmenu', (e) => {
                     // Send selection update to server
                     debouncedSendSelectionUpdate();
                 }
-                // If multiple cards are selected or the right-clicked card is already selected, keep current selection
+                // If multiple cards are selected or the triggered card is already selected, keep current selection
             }
         }
-        
         if (selectedCards.length > 0 && 
             (isOnPlayZone || isOnHandZone || isOnCard) &&
             (isViewingOwnZones || isInOwnPlayZone)) {
@@ -3126,11 +3121,47 @@ document.addEventListener('contextmenu', (e) => {
         }
         return; // Don't show bottom bar context menu
     }
-    
-    // Check if right-clicking on the bottom bar (but not on card areas)
+    // Check if triggering on the bottom bar (but not on card areas)
     if (e.target.closest('#bottom-bar')) {
         showBottomBarContextMenu(e);
         return;
+    }
+}
+
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    handleContextMenuTrigger(e);
+});
+
+// Two-finger tap support for touch devices
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+        // Debounce to prevent multiple triggers
+        if (window._twoFingerContextMenuTimeout) {
+            clearTimeout(window._twoFingerContextMenuTimeout);
+        }
+        window._twoFingerContextMenuTimeout = setTimeout(() => {
+            // Prevent default to avoid zoom
+            e.preventDefault();
+            e.stopPropagation();
+            // Use the midpoint between the two touches for menu placement
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const clientX = Math.round((touch1.clientX + touch2.clientX) / 2);
+            const clientY = Math.round((touch1.clientY + touch2.clientY) / 2);
+            // Create a synthetic event object with needed properties
+            const syntheticEvent = {
+                clientX,
+                clientY,
+                preventDefault: () => e.preventDefault(),
+                stopPropagation: () => e.stopPropagation(),
+                target: document.elementFromPoint(clientX, clientY),
+                touches: e.touches,
+                type: 'touchstart',
+                // Add any other properties your context menu logic needs
+            };
+            handleContextMenuTrigger(syntheticEvent);
+        }, 150); // 150ms debounce
     }
 });
 
