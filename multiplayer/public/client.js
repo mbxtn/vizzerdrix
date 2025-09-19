@@ -3677,6 +3677,39 @@ function updateCounts() {
     commandCountEl.textContent = commandCount > 0 ? commandCount : '';
 }
 
+function flipCards(targetCardElements) {
+    // Flip selected/hovered cards that have back faces
+    targetCardElements.forEach(cardEl => {
+        import('./lib/cardFactory.js').then(module => {
+            const flipped = module.flipCard(cardEl);
+            if (flipped) {
+                // Update the game state to track which face is shown
+                const cardId = cardEl.dataset.id;
+                const currentFace = cardEl.dataset.faceShown;
+
+                // Find and update card in appropriate zone
+                const updateCardFace = (cards) => {
+                    const cardIndex = cards.findIndex(c => c.id === cardId);
+                    if (cardIndex > -1) {
+                        cards[cardIndex].faceShown = currentFace;
+                        return true;
+                    }
+                    return false;
+                };
+
+                // Update in hand, playZone, or other zones as needed
+                if (!updateCardFace(hand)) {
+                    if (!updateCardFace(playZone)) {
+                        updateCardFace(graveyard);
+                    }
+                }
+
+                sendMove();
+            }
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Load persistent settings first
     loadPersistentSettings();
@@ -4438,7 +4471,7 @@ function showCardContextMenu(e) {
     exileOption.textContent = 'Send to Exile';
     exileOption.addEventListener('click', () => {
         moveSelectedCardsToZone('exile');
-        hideCardContextMenu();
+        hideCardContextMenu(selectedCards);
     });
     cardContextMenu.appendChild(exileOption);
     
@@ -4456,6 +4489,30 @@ function showCardContextMenu(e) {
     const separator = document.createElement('div');
     separator.className = 'border-t border-gray-600 my-1';
     cardContextMenu.appendChild(separator);
+
+    // Copy Selected Cards option
+    const copySelectedCards = document.createElement('button');
+    copySelectedCards.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    copySelectedCards.textContent = 'Copy Card(s)';
+    copySelectedCards.addEventListener('click', () => {
+        // Create copies of our own selected/hovered cards
+        createCopiesOfTargetCards().catch(error => {
+            console.error('Error creating copies:', error);
+        });
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(copySelectedCards);
+
+    // Flip Selected Cards option
+    const flipSelectedCards = document.createElement('button');
+    flipSelectedCards.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    flipSelectedCards.textContent = 'Flip Card(s)';
+    flipSelectedCards.addEventListener('click', () => {
+        flipCards(ownedSelectedCards);
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(flipSelectedCards);
+    
     
     // Add Counter option
     const addCounterOption = document.createElement('button');
