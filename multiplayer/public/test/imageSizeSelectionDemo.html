@@ -104,19 +104,19 @@
             UnsharpAmount: 
             <input type="range" id="unsharpAmountSlider" min="0" max="100" value="0" 
                    onchange="updateCardSize()">
-            <span id="unsharpAmount">0</span>
+            <span id="unsharpAmountValue">0</span>
         </label>
         <label>
             UnsharpRadius: 
             <input type="range" id="unsharpRadiusSlider" min="0" max="100" value="0" 
                    onchange="updateCardSize()">
-            <span id="unsharpRadius">0</span>
+            <span id="unsharpRadiusValue">0</span>
         </label>
         <label>
             UnsharpThreshold: 
             <input type="range" id="unsharpThresholdSlider" min="0" max="1000" value="255" 
                    onchange="updateCardSize()">
-            <span id="unsharpThreshold">0.255</span>
+            <span id="unsharpThresholdValue">0.255</span>
         </label>
     </div>
     
@@ -236,6 +236,10 @@ window.updateCardSize = function() {
         unsharpThreshold: unsharpThreshold
     };
     document.getElementById('cardWidthValue').textContent = width + 'px';
+    document.getElementById('unsharpAmountValue').textContent = unsharpAmount;
+    document.getElementById('unsharpRadiusValue').textContent = unsharpRadius;
+    document.getElementById('unsharpThresholdValue').textContent = unsharpThreshold;
+
     
     // Update current settings display
     let selectedSize = 'small';

@@ -6,16 +6,10 @@ const pica = new Pica();
 
 var smallCutoff = 146; // Cards <= 146px wide use 'small' images
 var mediumCutoff = 488; // Cards <= 488px wide use 'normal' images
-
+var picaEnabled = false;
 // Function to update the cutoffs (called from client.js when settings change)
 export function updateImageQualityCutoffs(enhanced = false) {
-    if (enhanced) {
-        smallCutoff = 488; // Use normal quality images more aggressively
-        mediumCutoff = 672; // Use large quality images more aggressively
-    } else {
-        smallCutoff = 146; // Default small cutoff
-        mediumCutoff = 488; // Default medium cutoff
-    }
+    picaEnabled = enhanced;
 }
 
 // Helper function to get optimal image size based on card width
@@ -157,58 +151,61 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
     img.loading = 'lazy';
     img.decoding = 'async';
 
-    // 4. Listen for the image to load
-    img.onload = () => {
-        // Calculate the target height based on card aspect ratio (Magic cards are 63:88 mm, height/width)
-        const cardAspectRatio = 88 / 63; // ≈ 1.397
-        const newHeight = Math.round(targetCardWidth * cardAspectRatio);
-        
-        // 5. Create a source canvas and draw the image onto it
-        const fromCanvas = document.createElement('canvas');
-        fromCanvas.width = img.naturalWidth;
-        fromCanvas.height = img.naturalHeight;
-        const fromCtx = fromCanvas.getContext('2d');
-        fromCtx.drawImage(img, 0, 0);
+    if (picaEnabled) {
+        // 4. Listen for the image to load
+        img.onload = () => {
+            // Calculate the target height based on card aspect ratio (Magic cards are 63:88 mm, height/width)
+            const cardAspectRatio = 88 / 63; // ≈ 1.397
+            const newHeight = Math.round(targetCardWidth * cardAspectRatio);
 
-        // 6. Create a destination canvas for the resized image
-        const toCanvas = document.createElement('canvas');
-        toCanvas.width = targetCardWidth;
-        toCanvas.height = newHeight;
+            // 5. Create a source canvas and draw the image onto it
+            const fromCanvas = document.createElement('canvas');
+            fromCanvas.width = img.naturalWidth;
+            fromCanvas.height = img.naturalHeight;
+            const fromCtx = fromCanvas.getContext('2d');
+            fromCtx.drawImage(img, 0, 0);
 
-        // --- Ensure canvas fits container like the original image ---
-        toCanvas.className = img.className; // includes rounded-lg
-        toCanvas.style.width = '100%';
-        toCanvas.style.height = '100%';
-        toCanvas.setAttribute('alt', img.alt); // for accessibility, though not standard for canvas
-        toCanvas.setAttribute('role', 'img');
-        // Optionally, add loading/decoding as data attributes for debugging
-        toCanvas.setAttribute('data-loading', img.loading);
-        toCanvas.setAttribute('data-decoding', img.decoding);
-        // -----------------------------------------------------------
+            // 6. Create a destination canvas for the resized image
+            const toCanvas = document.createElement('canvas');
+            toCanvas.width = targetCardWidth;
+            toCanvas.height = newHeight;
 
-        // 7. Use queuePicaResize instead of direct pica.resize
-        queuePicaResize(fromCanvas, toCanvas, {
-            unsharpAmount: settings.unsharpAmount,
-            unsharpRadius: settings.unsharpRadius,
-            unsharpThreshold: settings.unsharpThreshold
-        }, (result) => {
-            console.log('Resize complete!');
-            const parent = img.parentNode;
-            if (parent) {
-                parent.replaceChild(result, img);
-            }
-            result.toBlob((blob) => {
-                console.log('Caching resized image:', cacheKey);
-                resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
+            // --- Ensure canvas fits container like the original image ---
+            toCanvas.className = img.className; // includes rounded-lg
+            toCanvas.style.width = '100%';
+            toCanvas.style.height = '100%';
+            toCanvas.setAttribute('alt', img.alt); // for accessibility, though not standard for canvas
+            toCanvas.setAttribute('role', 'img');
+            // Optionally, add loading/decoding as data attributes for debugging
+            toCanvas.setAttribute('data-loading', img.loading);
+            toCanvas.setAttribute('data-decoding', img.decoding);
+            // -----------------------------------------------------------
+
+            // 7. Use queuePicaResize instead of direct pica.resize
+            queuePicaResize(fromCanvas, toCanvas, {
+                unsharpAmount: settings.unsharpAmount,
+                unsharpRadius: settings.unsharpRadius,
+                unsharpThreshold: settings.unsharpThreshold
+            }, (result) => {
+                console.log('Resize complete!');
+                const parent = img.parentNode;
+                if (parent) {
+                    parent.replaceChild(result, img);
+                }
+                result.toBlob((blob) => {
+                    console.log('Caching resized image:', cacheKey);
+                    resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
+                });
+            }, (error) => {
+                console.error('Pica resize failed:', error);
             });
-        }, (error) => {
-            console.error('Pica resize failed:', error);
-        });
-    };
+        };
 
-    img.onerror = (ev) => {
-        console.error("Failed to load image. Check the server's CORS configuration.", ev);
-    };
+        img.onerror = (ev) => {
+            console.error("Failed to load image. Check the server's CORS configuration.", ev);
+        };
+    }
+
     return img;
 }
 
