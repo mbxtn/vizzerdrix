@@ -1,0 +1,19 @@
+.card-demo-container {
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.card-list {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.card-item {
+  width: 220px;
+  cursor: grab;
+}
+
+mat-card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
