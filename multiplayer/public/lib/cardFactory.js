@@ -131,7 +131,6 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
             // 1. Create a new Image object
             const img = document.createElement('img');
             img.src = resizedImagesCache.get(cacheKey);
-            img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
             img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
             // Improve loading performance
             img.loading = 'lazy';
@@ -144,8 +143,8 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
 
     // 1. Create a new Image object
     const img = document.createElement('img');
-    img.src = imageUri;
     img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
+    img.src = imageUri;
     img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
     // Improve loading performance
     img.loading = 'lazy';
