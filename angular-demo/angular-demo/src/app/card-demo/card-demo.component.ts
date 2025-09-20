@@ -47,7 +47,7 @@ export class CardDemoComponent {
   }
 
   onCardClick(card: any, e: PointerEvent) {
-    console.log("tapping,", e);
+    console.log("tapping");
     // nothing to do if the card is dragging
     if(card.dragging) {
       return;
@@ -57,20 +57,20 @@ export class CardDemoComponent {
   }
 
   drag(card: any, e: CdkDragStart<any>, index: number) {
-    console.log("drag start:", e);
+    console.log("drag start");
     card.dragging = true;
     card.zIndex = this.nextZIndex++;
     this.activeCardIndex = index;
   }
 
   drop(card: any, e: CdkDragEnd<any>) {
-    console.log("drag end:", e);
+    console.log("drag end");
     setTimeout(() => {card.dragging = false;}, 10);
     //e.event.stopPropagation();
   }
 
   released(e: CdkDragRelease) {
-    console.log("release: ", e);
+    console.log("release");
     //e.event.stopPropagation();
   }
 }
