@@ -546,6 +546,25 @@ export class CardZone {
     setupContextMenu() {
         this.element.addEventListener('contextmenu', this.boundContextMenu);
         document.addEventListener('click', this.boundHideContextMenu);
+
+        // Add two-finger tap support for context menu (iPad/touch devices)
+        this.element.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches.length === 2) {
+                // Prevent default to avoid zoom or scroll
+                e.preventDefault();
+                // Synthesize a contextmenu event at the midpoint of the two touches
+                const x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const syntheticEvent = new MouseEvent('contextmenu', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: x,
+                    clientY: y
+                });
+                this.element.dispatchEvent(syntheticEvent);
+            }
+        }, { passive: false });
     }
     
     handleContextMenu(e) {
