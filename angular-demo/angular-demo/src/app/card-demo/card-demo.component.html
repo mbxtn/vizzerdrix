@@ -1,11 +1,16 @@
 <div class="card-demo-container">
   <h2>Drag and Drop Scryfall Cards</h2>
-  <div cdkDropList class="card-list" (cdkDropListDropped)="drop($event)">
-    <div class="card-item" *ngFor="let card of cards" cdkDrag>
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>{{ card.name }}</mat-card-title>
-        </mat-card-header>
+  <div class="battle-field">
+    <div class="card-handle"
+         cdkDragBoundary=".battle-field"
+         *ngFor="let card of cards; let i = index"
+         [ngStyle]="{ 'z-index': card.zIndex }"
+         (cdkDragReleased)="released($event)"
+         (cdkDragStarted)="drag(card, $event, i)"
+         (cdkDragEnded)="drop(card, $event)"
+         (click)="onCardClick(card, $event)"
+         cdkDrag>
+      <mat-card class="card-item" [class.tapped]="card.tapped" >
         <img mat-card-image [src]="card.image" [alt]="card.name" />
       </mat-card>
     </div>

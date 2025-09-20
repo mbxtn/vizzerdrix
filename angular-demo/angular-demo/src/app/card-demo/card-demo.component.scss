@@ -1,3 +1,13 @@
+* {
+
+        user-select: none;
+        -moz-user-select: none;
+        -khtml-user-select: none;
+        -webkit-user-select: none;
+        -o-user-select: none;
+
+}
+
 .card-demo-container {
   max-width: 800px;
   margin: 2rem auto;
@@ -9,11 +19,40 @@
   flex-wrap: wrap;
 }
 
+.card-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width:fit-content;
+  height: fit-content;
+  /* The transform from cdkDrag will set the actual position */
+  z-index: 1;
+  transition: box-shadow 0.2s;
+}
+
+.card-handle[style*='z-index: 100'] {
+  z-index: 100 !important;
+}
+
 .card-item {
   width: 220px;
   cursor: grab;
 }
 
+.card-item img{
+  pointer-events: none;
+}
+
+.tapped {
+  transform: rotate(90deg);
+}
+
+
 mat-card {
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.battle-field {
+  position: relative;
+  min-height: 500px;
 }
