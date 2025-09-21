@@ -6,3 +6,4 @@
 /multiplayer/dist/
 .nvmrc
 node_modules/
+/platform-tools/

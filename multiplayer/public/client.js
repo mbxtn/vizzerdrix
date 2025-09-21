@@ -2389,6 +2389,7 @@ async function render() {
                 onCardDblClick: allowInteractions ? handleCardDoubleClick : null, // Only allow double-click on own cards
                 onCardDragStart: allowInteractions ? handleCardDragStart : null, // Only allow dragging own cards
                 onCounterClick: allowInteractions ? handleCounterClick : null, // Only allow counter interactions on own cards
+                onTouchRelease: allowInteractions ? handleTouchRelease : null,
                 showBack: card.faceShown === 'back',
                 playerSelections: allPlayerSelections,
                 playerColors: playerColors
@@ -2479,6 +2480,7 @@ async function render() {
                 onCardDblClick: isOwnCard ? handleCardDoubleClick : null, // Only allow double-click on own cards
                 onCardDragStart: isOwnCard ? handleCardDragStart : null, // Only allow dragging own cards
                 onCounterClick: isOwnCard ? handleCounterClick : null, // Only allow counter interactions on own cards
+                onTouchRelease: allowInteractions ? handleTouchRelease : null,
                 showBack: cardData.faceShown === 'back',
                 playerSelections: allPlayerSelections,
                 playerColors: playerColors
@@ -4916,6 +4918,10 @@ function findCardObjectByIdGlobal(cardId) {
     }
     
     return null;
+}
+
+function handleTouchRelease(e) {
+
 }
 
 // Counter click handler

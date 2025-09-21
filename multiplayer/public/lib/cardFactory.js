@@ -209,7 +209,7 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
 }
 
 export function createCardElement(card, location, options) {
-    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false, playerSelections = {}, playerColors = {} } = options;
+    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, onTouchRelease, showBack = false, playerSelections = {}, playerColors = {} } = options;
 
     const cardEl = document.createElement('div');
     cardEl.dataset.location = location;
@@ -479,6 +479,7 @@ export function createCardElement(card, location, options) {
             onCardClick: null,
             onCardDblClick: null,
             onCardDragStart: null,
+            onTouchRelease: null,
             showBack: shouldShowBack, // Show the same face as the original card
             parentZone: location // Pass the parent zone for context if needed
         });
@@ -534,13 +535,13 @@ export function createCardElement(card, location, options) {
                 }
             }, 200); // 200ms delay to allow for double-click
         });
-
+        
         cardEl.addEventListener('dragstart', (e) => {
             if (doubleClickDetected) {
                 e.preventDefault();
                 return;
             }
-            isDragging = true;
+            isDragging = true;            
 
             // Create custom drag image with current card size
             // Get the current card width from CSS variable or default
@@ -601,6 +602,90 @@ export function createCardElement(card, location, options) {
                 doubleClickDetected = false;
             }, 300);
         });
+
+        // Touch Input event handlers
+        let touchHeld = false;
+        let touchDragging = false;
+        let longPressTimer = null;
+        cardEl.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            console.log("touch event start");
+            touchHeld = true;
+            longPressTimer = setTimeout(() => {
+                if(!touchDragging) {
+                    console.log("long press, no move");
+                    touchHeld = true;
+                }
+                longPressTimer = null;
+            }, 500);
+        });
+
+        let dragImage = null;
+        cardEl.addEventListener("touchmove", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log("touch event move");
+            if(!touchHeld && !touchDragging) {
+                //let's act like we're clicking it the first time
+                onCardClick(e, card, cardEl, location);
+                touchDragging = true;
+            }
+            if(!dragImage) {
+                // Create custom drag image with current card size
+                // Get the current card width from CSS variable or default
+                const computedStyle = getComputedStyle(document.documentElement);
+                const currentCardWidth = parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+                dragImage = createCustomDragImage(cardEl, currentCardWidth);
+            }
+            let left = e.touches[0].pageX;
+            let top = e.touches[0].pageY;
+            dragImage.style.position = 'absolute'
+            dragImage.style.left = left + 'px';
+            dragImage.style.top = top + 'px';
+            dragImage.style.opacity = 0.5;
+
+        });
+
+        let clickTimer = null;
+        cardEl.addEventListener("touchend", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            console.log("touch event end");
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+            }
+            if (!touchHeld && !touchDragging) {
+                console.log("simple tap");
+                if (clickTimer) {
+                    clearTimeout(clickTimer)
+                    clickTimer = null;
+                    console.log("Doing double click function");
+                    if(onCardDblClick) {
+                        onCardDblClick(e, card, location);
+                    }
+                } else {
+                    clickTimer = setTimeout(() => {
+                        console.log("Doing single click function");
+                        onCardClick(e, card, cardEl, location);
+                        clickTimer = null;
+                    }, 150);
+                }
+            }
+            if(dragImage) {
+                dragImage.remove();
+                dragImage = null;
+                if(onTouchRelease) {
+                    onTouchRelease(e);
+                }
+            }
+            touchHeld = false;
+            touchDragging = false;
+            isDragging = false;
+        });
+
     } else {
         cardEl.setAttribute('draggable', 'false');
     }
