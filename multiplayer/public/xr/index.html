@@ -42,13 +42,13 @@
     <!-- Rig for stuff that should be player relative. -->
     <a-box id="testbox" depth="0.441" width="0.441" height="0.441" position="0 3 -2" color="red"></a-box>
     <a-entity id="cardhandrig">
-      <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 90 0">
-        <a-image src="#card-image" width="0.063" height="0.088"></a-image>
+      <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 90 180" position="0 -.02 0.125">
+        <a-box src="#card-image" depth="0.001" width="0.063" height="0.088"></a-image>
       </a-box>
     </a-entity>
     <a-entity id="rig" position="0 0.2 -0.9">
       <a-camera position="0 3 0"></a-camera>
-      <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.1;"
+      <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.01;"
         pinchtohand="bound:#cardhandrig; rig:#rig"></a-entity>
       <a-entity id="righthandtracking" hand-tracking-controls="hand: right;"></a-entity>
     </a-entity>

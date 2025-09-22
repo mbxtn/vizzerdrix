@@ -36,22 +36,26 @@ AFRAME.registerComponent('pinchtohand',
         tick: function(time: any, timeDelta: any) {
             var handtrackingcontrols = this.el.components['hand-tracking-controls'];
             if(this.enabled) {
-                var fingerBone = handtrackingcontrols.getBone('index-finger-tip');
+                var fingerTip = handtrackingcontrols.getBone('index-finger-tip');
                 var fingerBase = handtrackingcontrols.getBone('index-finger-phalanx-proximal');
+                var wrist = handtrackingcontrols.getBone('wrist');
+                console.log(wrist);
+                
+                var midPoint = new THREE.Vector3().lerpVectors(fingerBase.position, fingerTip.position, 0.5);
+                this.data.bound.object3D.position.copy(midPoint);
 
-                // idea the hand should positioned on your hand. 
+                this.data.bound.object3D.lookAt(fingerTip.position);
 
+                // 5. Apply the roll from the first joint to the box
+                const direction = new THREE.Vector3().subVectors(fingerTip.position, fingerBase.position).normalize();
+                const jointUp = new THREE.Vector3(0, 1, 0).applyQuaternion(fingerBase.quaternion);
+                const boxUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.data.bound.object3D.quaternion);
 
-                console.log(fingerBase);
-                var indexTipPosition = new THREE.Vector3();
-                indexTipPosition.copy(fingerBase.position);
-                indexTipPosition.add(this.data.rig.object3D.position);
-                this.data.bound.object3D.position.set(indexTipPosition.x, indexTipPosition.y , indexTipPosition.z);
+                const rollAxis = new THREE.Vector3().crossVectors(boxUp, jointUp).dot(direction);
+                const rollAngle = Math.atan2(rollAxis, boxUp.dot(jointUp));
 
-                var indexTipRotation = new THREE.Vector3();
-                indexTipRotation.copy(fingerBone.rotation);
-                this.data.bound.object3D.lookAt(fingerBone.position);
-
+                this.data.bound.object3D.rotateZ(rollAngle); // Apply the roll to the box
+                this.data.bound.object3D.position.add(this.data.rig.object3D.position);
             }
             else {
                this.data.bound.object3D.position.set(0, 3, -2);
