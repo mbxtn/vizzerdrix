@@ -19,7 +19,7 @@
     "src/**/*.js",
     "lib/**/*.ts",
     "lib/**/*.js",
-    "server.js",
+    "server.ts",
     "**/*.ts",
     "**/*.js"
   ],

@@ -5,6 +5,21 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+interface ServerToClientEvents {
+    noArg: () => void;
+    basicEmit: (a: number) => void;
+
+    
+}
+
+interface ClientToServerEvents {
+
+}
+
+interface InterServerEvents {
+
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
