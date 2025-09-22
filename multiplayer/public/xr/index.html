@@ -39,14 +39,14 @@
     <a-entity id="rig" position="0 0.2 -0.9">
       <a-camera position="0 3 0"></a-camera>
       <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.25;"
-        pinchtohand="parent:#lefthandtracking; bound:#cardbox"></a-entity>
+        pinchtohand="bound:#cardbox"></a-entity>
       <a-entity id="righthandtracking" hand-tracking-controls="hand: right;"></a-entity>
       <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 90 0">
         <a-image src="#card-image" width="0.063" height="0.088"></a-image>
       </a-box>
     </a-entity>
   </a-scene>
-  <script src="xrclient.js"></script>
+  <script type="module" src="xrclient.js"></script>
 </body>
 
 </html>

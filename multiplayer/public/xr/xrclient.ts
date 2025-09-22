@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 declare var AFRAME: any;
 
 // Basic entry point
@@ -11,7 +12,7 @@ if (enterVrButton) {
     });
 }
 
-var INDEX_METACARPAL_INDEX = 4;
+var INDEX_TIP_INDEX  = 4;
 
 // TODO add a deck selection
 AFRAME.registerComponent('pinchtohand',
@@ -35,8 +36,12 @@ AFRAME.registerComponent('pinchtohand',
         tick: function(time: any, timeDelta: any) {
             var handtrackingcontrols = this.el.components['hand-tracking-controls'];
             if(this.enabled) {
-                var indexTipPosition = handtrackingcontrols.indexTipPosition;
-                console.log(indexTipPosition);
+                // var indexTipPose = new THREE.Vector4();
+                // indexTipPose.fromArray(handtrackingcontrols.jointPoses, INDEX_TIP_INDEX * 16);
+                // console.log(indexTipPose);
+                console.log(handtrackingcontrols.getBone('index-finger-tip'));
+                this.boundEl.object3D.rotation.set(handtrackingcontrols.getBone('index-finger-tip').quarternion);
+                this.boundEl.object3D.position.set(0, 1, 1);
             }
         },
     }
