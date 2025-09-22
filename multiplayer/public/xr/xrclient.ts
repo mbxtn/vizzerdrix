@@ -18,14 +18,14 @@ var INDEX_TIP_INDEX  = 4;
 AFRAME.registerComponent('pinchtohand',
     {
         schema: {
-            bound: {type:'string'}
+            bound: {type:'selector'},
+            rig: {type: 'selector'}
         },
 
         init: function () {
-            this.boundEl = this.el.sceneEl.querySelector(this.data.bound);
             this.enabled = false;
             console.log(this.handEl);
-            if(this.boundEl) {
+            if(this.data.bound) {
                 this.el.addEventListener('pinchstarted', (e : any)=> {
                     this.enabled = !this.enabled;
                     console.log(e);
@@ -36,12 +36,25 @@ AFRAME.registerComponent('pinchtohand',
         tick: function(time: any, timeDelta: any) {
             var handtrackingcontrols = this.el.components['hand-tracking-controls'];
             if(this.enabled) {
-                // var indexTipPose = new THREE.Vector4();
-                // indexTipPose.fromArray(handtrackingcontrols.jointPoses, INDEX_TIP_INDEX * 16);
-                // console.log(indexTipPose);
-                console.log(handtrackingcontrols.getBone('index-finger-tip'));
-                this.boundEl.object3D.rotation.set(handtrackingcontrols.getBone('index-finger-tip').quarternion);
-                this.boundEl.object3D.position.set(0, 1, 1);
+                var fingerBone = handtrackingcontrols.getBone('index-finger-tip');
+                var fingerBase = handtrackingcontrols.getBone('index-finger-phalanx-proximal');
+
+                // idea the hand should positioned on your hand. 
+
+
+                console.log(fingerBase);
+                var indexTipPosition = new THREE.Vector3();
+                indexTipPosition.copy(fingerBase.position);
+                indexTipPosition.add(this.data.rig.object3D.position);
+                this.data.bound.object3D.position.set(indexTipPosition.x, indexTipPosition.y , indexTipPosition.z);
+
+                var indexTipRotation = new THREE.Vector3();
+                indexTipRotation.copy(fingerBone.rotation);
+                this.data.bound.object3D.lookAt(fingerBone.position);
+
+            }
+            else {
+               this.data.bound.object3D.position.set(0, 3, -2);
             }
         },
     }

@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebXR Prototype with A-Frame</title>
   <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
   <style>
-    body { margin: 0; }
+    body {
+      margin: 0;
+    }
+
     #enter-vr-button {
       position: absolute;
       top: 20px;
@@ -36,14 +40,17 @@
     <a-gltf-model src="#table" position="0 0 -2">
     </a-gltf-model>
     <!-- Rig for stuff that should be player relative. -->
-    <a-entity id="rig" position="0 0.2 -0.9">
-      <a-camera position="0 3 0"></a-camera>
-      <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.25;"
-        pinchtohand="bound:#cardbox"></a-entity>
-      <a-entity id="righthandtracking" hand-tracking-controls="hand: right;"></a-entity>
+    <a-box id="testbox" depth="0.441" width="0.441" height="0.441" position="0 3 -2" color="red"></a-box>
+    <a-entity id="cardhandrig">
       <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 90 0">
         <a-image src="#card-image" width="0.063" height="0.088"></a-image>
       </a-box>
+    </a-entity>
+    <a-entity id="rig" position="0 0.2 -0.9">
+      <a-camera position="0 3 0"></a-camera>
+      <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.1;"
+        pinchtohand="bound:#cardhandrig; rig:#rig"></a-entity>
+      <a-entity id="righthandtracking" hand-tracking-controls="hand: right;"></a-entity>
     </a-entity>
   </a-scene>
   <script type="module" src="xrclient.js"></script>
