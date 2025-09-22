@@ -11,31 +11,32 @@ if (enterVrButton) {
     });
 }
 
+var INDEX_METACARPAL_INDEX = 4;
+
 // TODO add a deck selection
 AFRAME.registerComponent('pinchtohand',
     {
         schema: {
-            parent: {type:'string'},
             bound: {type:'string'}
         },
+
         init: function () {
-            let sceneEl = document.querySelector('a-scene');
-            this.handEl = sceneEl?.querySelector(this.data.parent);
-            this.boundEl = sceneEl?.querySelector(this.data.bound);
+            this.boundEl = this.el.sceneEl.querySelector(this.data.bound);
+            this.enabled = false;
             console.log(this.handEl);
-            if(this.handEl && this.boundEl) {
-                this.handEl.addEventListener('pinchstarted', (e : any)=> {
-                    console.log("we starting pinching, we should maybe do something");
-                });
-                this.handEl.addEventListener('pinchended', (e : any)=> {
-                    console.log("we stopped pinching, we should maybe do something");
-                });
-                this.handEl.addEventListener('pinchmoved', (e : any)=> {
-                    console.log("we're moving while pinching, update the hand position");
+            if(this.boundEl) {
+                this.el.addEventListener('pinchstarted', (e : any)=> {
+                    this.enabled = !this.enabled;
                     console.log(e);
-                    this.boundEl.setAttribute('position', {x: e.detail.position.x, y: e.detail.position.y, z: e.detail.position.z});
-                    this.boundEl.setAttribute('rotation', {x: e.detail.wristRotation.x, y: e.detail.wristRotation.y, z: e.detail.wristRotation.z});
                 });
+            }
+        },
+
+        tick: function(time: any, timeDelta: any) {
+            var handtrackingcontrols = this.el.components['hand-tracking-controls'];
+            if(this.enabled) {
+                var indexTipPosition = handtrackingcontrols.indexTipPosition;
+                console.log(indexTipPosition);
             }
         },
     }
