@@ -4,18 +4,10 @@ import Pica from 'pica';
 // Initialize Pica instance
 const pica = new Pica();
 
-var smallCutoff = 146; // Cards <= 146px wide use 'small' images
-var mediumCutoff = 488; // Cards <= 488px wide use 'normal' images
-
+var picaEnabled = false;
 // Function to update the cutoffs (called from client.js when settings change)
 export function updateImageQualityCutoffs(enhanced = false) {
-    if (enhanced) {
-        smallCutoff = 488; // Use normal quality images more aggressively
-        mediumCutoff = 672; // Use large quality images more aggressively
-    } else {
-        smallCutoff = 146; // Default small cutoff
-        mediumCutoff = 488; // Default medium cutoff
-    }
+    picaEnabled = enhanced;
 }
 
 // Helper function to get optimal image size based on card width
@@ -133,87 +125,91 @@ export function loadCardImage(card, imageUri, targetCardWidth, settings = defaul
     // Use a unique cache key for each image/size
     const cacheKey = imageUri + '_' + targetCardWidth;
     console.log('Loading image for', card.name, 'with cache key:', cacheKey);
-    if (resizedImagesCache.has(cacheKey) && useCache) {
-        console.log('Using cached image for: ', cacheKey);
-        // 1. Create a new Image object
-        const img = document.createElement('img');
-        img.src = resizedImagesCache.get(cacheKey);
-        img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
-        img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
-        // Improve loading performance
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        return img;
-    } else {
-        console.log('No cached image found for', cacheKey, '- loading and resizing.');
+    if(picaEnabled) {
+        if (resizedImagesCache.has(cacheKey) && useCache) {
+            console.log('Using cached image for: ', cacheKey);
+            // 1. Create a new Image object
+            const img = document.createElement('img');
+            img.src = resizedImagesCache.get(cacheKey);
+            img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
+            // Improve loading performance
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            return img;
+        } else {
+            console.log('No cached image found for', cacheKey, '- loading and resizing.');
+        }
     }
 
     // 1. Create a new Image object
     const img = document.createElement('img');
-    img.src = imageUri;
     img.crossOrigin = 'anonymous'; // Handle CORS for Scryfall images
+    img.src = imageUri;
     img.className = 'w-full h-full object-cover rounded-lg'; // Add rounded corners
     // Improve loading performance
     img.loading = 'lazy';
     img.decoding = 'async';
 
-    // 4. Listen for the image to load
-    img.onload = () => {
-        // Calculate the target height based on card aspect ratio (Magic cards are 63:88 mm, height/width)
-        const cardAspectRatio = 88 / 63; // ≈ 1.397
-        const newHeight = Math.round(targetCardWidth * cardAspectRatio);
-        
-        // 5. Create a source canvas and draw the image onto it
-        const fromCanvas = document.createElement('canvas');
-        fromCanvas.width = img.naturalWidth;
-        fromCanvas.height = img.naturalHeight;
-        const fromCtx = fromCanvas.getContext('2d');
-        fromCtx.drawImage(img, 0, 0);
+    if (picaEnabled) {
+        // 4. Listen for the image to load
+        img.onload = () => {
+            // Calculate the target height based on card aspect ratio (Magic cards are 63:88 mm, height/width)
+            const cardAspectRatio = 88 / 63; // ≈ 1.397
+            const newHeight = Math.round(targetCardWidth * cardAspectRatio);
 
-        // 6. Create a destination canvas for the resized image
-        const toCanvas = document.createElement('canvas');
-        toCanvas.width = targetCardWidth;
-        toCanvas.height = newHeight;
+            // 5. Create a source canvas and draw the image onto it
+            const fromCanvas = document.createElement('canvas');
+            fromCanvas.width = img.naturalWidth;
+            fromCanvas.height = img.naturalHeight;
+            const fromCtx = fromCanvas.getContext('2d');
+            fromCtx.drawImage(img, 0, 0);
 
-        // --- Ensure canvas fits container like the original image ---
-        toCanvas.className = img.className; // includes rounded-lg
-        toCanvas.style.width = '100%';
-        toCanvas.style.height = '100%';
-        toCanvas.setAttribute('alt', img.alt); // for accessibility, though not standard for canvas
-        toCanvas.setAttribute('role', 'img');
-        // Optionally, add loading/decoding as data attributes for debugging
-        toCanvas.setAttribute('data-loading', img.loading);
-        toCanvas.setAttribute('data-decoding', img.decoding);
-        // -----------------------------------------------------------
+            // 6. Create a destination canvas for the resized image
+            const toCanvas = document.createElement('canvas');
+            toCanvas.width = targetCardWidth;
+            toCanvas.height = newHeight;
 
-        // 7. Use queuePicaResize instead of direct pica.resize
-        queuePicaResize(fromCanvas, toCanvas, {
-            unsharpAmount: settings.unsharpAmount,
-            unsharpRadius: settings.unsharpRadius,
-            unsharpThreshold: settings.unsharpThreshold
-        }, (result) => {
-            console.log('Resize complete!');
-            const parent = img.parentNode;
-            if (parent) {
-                parent.replaceChild(result, img);
-            }
-            result.toBlob((blob) => {
-                console.log('Caching resized image:', cacheKey);
-                resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
+            // --- Ensure canvas fits container like the original image ---
+            toCanvas.className = img.className; // includes rounded-lg
+            toCanvas.style.width = '100%';
+            toCanvas.style.height = '100%';
+            toCanvas.setAttribute('alt', img.alt); // for accessibility, though not standard for canvas
+            toCanvas.setAttribute('role', 'img');
+            // Optionally, add loading/decoding as data attributes for debugging
+            toCanvas.setAttribute('data-loading', img.loading);
+            toCanvas.setAttribute('data-decoding', img.decoding);
+            // -----------------------------------------------------------
+
+            // 7. Use queuePicaResize instead of direct pica.resize
+            queuePicaResize(fromCanvas, toCanvas, {
+                unsharpAmount: settings.unsharpAmount,
+                unsharpRadius: settings.unsharpRadius,
+                unsharpThreshold: settings.unsharpThreshold
+            }, (result) => {
+                console.log('Resize complete!');
+                const parent = img.parentNode;
+                if (parent) {
+                    parent.replaceChild(result, img);
+                }
+                result.toBlob((blob) => {
+                    console.log('Caching resized image:', cacheKey);
+                    resizedImagesCache.set(cacheKey, URL.createObjectURL(blob));
+                });
+            }, (error) => {
+                console.error('Pica resize failed:', error);
             });
-        }, (error) => {
-            console.error('Pica resize failed:', error);
-        });
-    };
+        };
 
-    img.onerror = (ev) => {
-        console.error("Failed to load image. Check the server's CORS configuration.", ev);
-    };
+        img.onerror = (ev) => {
+            console.error("Failed to load image. Check the server's CORS configuration.", ev);
+        };
+    }
+
     return img;
 }
 
 export function createCardElement(card, location, options) {
-    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, showBack = false, playerSelections = {}, playerColors = {} } = options;
+    const { isMagnifyEnabled, isInteractable, onCardClick, onCardDblClick, onCardDragStart, onTouchRelease, showBack = false, playerSelections = {}, playerColors = {} } = options;
 
     const cardEl = document.createElement('div');
     cardEl.dataset.location = location;
@@ -483,6 +479,7 @@ export function createCardElement(card, location, options) {
             onCardClick: null,
             onCardDblClick: null,
             onCardDragStart: null,
+            onTouchRelease: null,
             showBack: shouldShowBack, // Show the same face as the original card
             parentZone: location // Pass the parent zone for context if needed
         });
@@ -538,13 +535,13 @@ export function createCardElement(card, location, options) {
                 }
             }, 200); // 200ms delay to allow for double-click
         });
-
+        
         cardEl.addEventListener('dragstart', (e) => {
             if (doubleClickDetected) {
                 e.preventDefault();
                 return;
             }
-            isDragging = true;
+            isDragging = true;            
 
             // Create custom drag image with current card size
             // Get the current card width from CSS variable or default
@@ -605,6 +602,90 @@ export function createCardElement(card, location, options) {
                 doubleClickDetected = false;
             }, 300);
         });
+
+        // Touch Input event handlers
+        let touchHeld = false;
+        let touchDragging = false;
+        let longPressTimer = null;
+        cardEl.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            console.log("touch event start");
+            touchHeld = true;
+            longPressTimer = setTimeout(() => {
+                if(!touchDragging) {
+                    console.log("long press, no move");
+                    touchHeld = true;
+                }
+                longPressTimer = null;
+            }, 500);
+        });
+
+        let dragImage = null;
+        cardEl.addEventListener("touchmove", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log("touch event move");
+            if(!touchHeld && !touchDragging) {
+                //let's act like we're clicking it the first time
+                onCardClick(e, card, cardEl, location);
+                touchDragging = true;
+            }
+            if(!dragImage) {
+                // Create custom drag image with current card size
+                // Get the current card width from CSS variable or default
+                const computedStyle = getComputedStyle(document.documentElement);
+                const currentCardWidth = parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+                dragImage = createCustomDragImage(cardEl, currentCardWidth);
+            }
+            let left = e.touches[0].pageX;
+            let top = e.touches[0].pageY;
+            dragImage.style.position = 'absolute'
+            dragImage.style.left = left + 'px';
+            dragImage.style.top = top + 'px';
+            dragImage.style.opacity = 0.5;
+
+        });
+
+        let clickTimer = null;
+        cardEl.addEventListener("touchend", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            console.log("touch event end");
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+            }
+            if (!touchHeld && !touchDragging) {
+                console.log("simple tap");
+                if (clickTimer) {
+                    clearTimeout(clickTimer)
+                    clickTimer = null;
+                    console.log("Doing double click function");
+                    if(onCardDblClick) {
+                        onCardDblClick(e, card, location);
+                    }
+                } else {
+                    clickTimer = setTimeout(() => {
+                        console.log("Doing single click function");
+                        onCardClick(e, card, cardEl, location);
+                        clickTimer = null;
+                    }, 150);
+                }
+            }
+            if(dragImage) {
+                dragImage.remove();
+                dragImage = null;
+                if(onTouchRelease) {
+                    onTouchRelease(e);
+                }
+            }
+            touchHeld = false;
+            touchDragging = false;
+            isDragging = false;
+        });
+
     } else {
         cardEl.setAttribute('draggable', 'false');
     }
@@ -697,8 +778,8 @@ function createCustomDragImage(originalCard, currentCardWidth) {
     dragImage.style.top = '-9999px'; // Hide it off-screen
     dragImage.style.left = '-9999px';
     dragImage.style.pointerEvents = 'none';
-    dragImage.style.opacity = '0.8'; // Make it slightly transparent
-    dragImage.style.transform = 'none'; // Remove any transforms
+    dragImage.style.opacity = '0.9'; // Make it slightly transparent
+    // dragImage.style.transform = 'none'; // Remove any transforms
     dragImage.style.zIndex = '999999';
 
     // Override CSS variables for this specific element

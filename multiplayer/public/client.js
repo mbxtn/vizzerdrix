@@ -2389,6 +2389,7 @@ async function render() {
                 onCardDblClick: allowInteractions ? handleCardDoubleClick : null, // Only allow double-click on own cards
                 onCardDragStart: allowInteractions ? handleCardDragStart : null, // Only allow dragging own cards
                 onCounterClick: allowInteractions ? handleCounterClick : null, // Only allow counter interactions on own cards
+                onTouchRelease: allowInteractions ? handleTouchRelease : null,
                 showBack: card.faceShown === 'back',
                 playerSelections: allPlayerSelections,
                 playerColors: playerColors
@@ -2479,6 +2480,7 @@ async function render() {
                 onCardDblClick: isOwnCard ? handleCardDoubleClick : null, // Only allow double-click on own cards
                 onCardDragStart: isOwnCard ? handleCardDragStart : null, // Only allow dragging own cards
                 onCounterClick: isOwnCard ? handleCounterClick : null, // Only allow counter interactions on own cards
+                onTouchRelease: allowInteractions ? handleTouchRelease : null,
                 showBack: cardData.faceShown === 'back',
                 playerSelections: allPlayerSelections,
                 playerColors: playerColors
@@ -2994,16 +2996,96 @@ function addSelectionListeners() {
             isSelecting = true;
             startX = e.clientX;
             startY = e.clientY;
-            
             selectedCards.forEach(c => c.classList.remove('selected-card'));
             selectedCards = [];
             selectedCardIds = [];
-
             selectionBox = document.createElement('div');
             selectionBox.className = 'selection-box';
             selectionBox.style.left = `${e.clientX}px`;
             selectionBox.style.top = `${e.clientY}px`;
             activeZone.appendChild(selectionBox);
+        }
+    });
+
+    // Touch bounding box selection (long tap)
+    let touchSelectTimeout = null;
+    let touchStartX = null;
+    let touchStartY = null;
+    activeZone.addEventListener('touchstart', (e) => {
+        // Prevent scrolling if no overflow
+        if (document.body.scrollHeight <= window.innerHeight) {
+            document.body.style.overflow = 'hidden';
+        }
+        if (e.touches.length === 1 && e.target === activeZone) {
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchSelectTimeout = setTimeout(() => {
+                isSelecting = true;
+                startX = touchStartX;
+                startY = touchStartY;
+                selectedCards.forEach(c => c.classList.remove('selected-card'));
+                selectedCards = [];
+                selectedCardIds = [];
+                selectionBox = document.createElement('div');
+                selectionBox.className = 'selection-box';
+                selectionBox.style.left = `${touchStartX}px`;
+                selectionBox.style.top = `${touchStartY}px`;
+                activeZone.appendChild(selectionBox);
+            }, 400); // 400ms long tap
+        }
+    });
+    activeZone.addEventListener('touchmove', (e) => {
+        if (isSelecting && selectionBox && e.touches.length === 1) {
+            // Prevent page scrolling during drag selection
+            e.preventDefault();
+            const touch = e.touches[0];
+            const currentX = touch.clientX;
+            const currentY = touch.clientY;
+            const left = Math.min(startX, currentX);
+            const top = Math.min(startY, currentY);
+            const width = Math.abs(startX - currentX);
+            const height = Math.abs(startY - currentY);
+            selectionBox.style.left = `${left}px`;
+            selectionBox.style.top = `${top}px`;
+            selectionBox.style.width = `${width}px`;
+            selectionBox.style.height = `${height}px`;
+            const selectionRect = selectionBox.getBoundingClientRect();
+            const allCards = activeZone.querySelectorAll('.card');
+            selectedCards = [];
+            selectedCardIds = [];
+            allCards.forEach(cardEl => {
+                const cardRect = cardEl.getBoundingClientRect();
+                if (checkIntersection(selectionRect, cardRect)) {
+                    const cardId = cardEl.dataset.id;
+                    if (!selectedCardIds.includes(cardId)) {
+                        selectedCardIds.push(cardId);
+                        selectedCards.push(cardEl);
+                    }
+                    cardEl.classList.add('selected-card');
+                } else {
+                    cardEl.classList.remove('selected-card');
+                }
+            });
+            debouncedSendSelectionUpdate();
+        }
+    }, { passive: false });
+    activeZone.addEventListener('touchend', (e) => {
+        // Restore scrolling
+        document.body.style.overflow = '';
+        if (touchSelectTimeout) {
+            clearTimeout(touchSelectTimeout);
+            touchSelectTimeout = null;
+        }
+        if (isSelecting) {
+            isSelecting = false;
+            if (selectedCards.length > 0) {
+                justSelectedByDrag = true;
+            }
+            if (selectionBox) {
+                selectionBox.remove();
+                selectionBox = null;
+            }
         }
     });
 }
@@ -3082,28 +3164,25 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Context menu event handlers
-document.addEventListener('contextmenu', (e) => {
-    // Check if right-clicking on specific card areas first (higher priority)
+
+function handleContextMenuTrigger(e) {
+    // Check if triggering on specific card areas first (higher priority)
     const isOnCard = e.target.closest('.card');
     const isOnHandZone = e.target.closest('#hand-zone');
     const isOnPlayZone = e.target.closest('.play-zone');
     const isOnLibrary = e.target.closest('#library');
     const isOnCardPile = e.target.closest('#graveyard-pile') || e.target.closest('#exile-pile') || e.target.closest('#command-pile');
-    
-    // If right-clicking on card-related areas, handle card context menu
+    // If triggering on card-related areas, handle card context menu
     if (isOnCard || isOnHandZone || isOnPlayZone || isOnLibrary || isOnCardPile) {
-        // Only show card context menu if we have selected cards, right-clicking in a valid area, AND viewing our own zones
+        // Only show card context menu if we have selected cards, triggering in a valid area, AND viewing our own zones
         const isViewingOwnZones = currentlyViewedPlayerId === playerId;
         const isInOwnPlayZone = activePlayZonePlayerId === playerId;
-        
-        // If right-clicking on a card, handle selection logic
+        // If triggering on a card, handle selection logic
         if (isOnCard && (isViewingOwnZones || isInOwnPlayZone)) {
             const cardEl = e.target.closest('.card');
             if (cardEl) {
                 const cardId = cardEl.dataset.id;
                 const isCurrentlySelected = selectedCardIds.includes(cardId);
-                
                 // If no cards are selected, or only one card is selected and it's a different card
                 if (selectedCards.length === 0 || (selectedCards.length === 1 && !isCurrentlySelected)) {
                     // Clear any existing selections and select this card
@@ -3114,10 +3193,9 @@ document.addEventListener('contextmenu', (e) => {
                     // Send selection update to server
                     debouncedSendSelectionUpdate();
                 }
-                // If multiple cards are selected or the right-clicked card is already selected, keep current selection
+                // If multiple cards are selected or the triggered card is already selected, keep current selection
             }
         }
-        
         if (selectedCards.length > 0 && 
             (isOnPlayZone || isOnHandZone || isOnCard) &&
             (isViewingOwnZones || isInOwnPlayZone)) {
@@ -3125,11 +3203,47 @@ document.addEventListener('contextmenu', (e) => {
         }
         return; // Don't show bottom bar context menu
     }
-    
-    // Check if right-clicking on the bottom bar (but not on card areas)
+    // Check if triggering on the bottom bar (but not on card areas)
     if (e.target.closest('#bottom-bar')) {
         showBottomBarContextMenu(e);
         return;
+    }
+}
+
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    handleContextMenuTrigger(e);
+});
+
+// Two-finger tap support for touch devices
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+        // Debounce to prevent multiple triggers
+        if (window._twoFingerContextMenuTimeout) {
+            clearTimeout(window._twoFingerContextMenuTimeout);
+        }
+        window._twoFingerContextMenuTimeout = setTimeout(() => {
+            // Prevent default to avoid zoom
+            e.preventDefault();
+            e.stopPropagation();
+            // Use the midpoint between the two touches for menu placement
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const clientX = Math.round((touch1.clientX + touch2.clientX) / 2);
+            const clientY = Math.round((touch1.clientY + touch2.clientY) / 2);
+            // Create a synthetic event object with needed properties
+            const syntheticEvent = {
+                clientX,
+                clientY,
+                preventDefault: () => e.preventDefault(),
+                stopPropagation: () => e.stopPropagation(),
+                target: document.elementFromPoint(clientX, clientY),
+                touches: e.touches,
+                type: 'touchstart',
+                // Add any other properties your context menu logic needs
+            };
+            handleContextMenuTrigger(syntheticEvent);
+        }, 150); // 150ms debounce
     }
 });
 
@@ -3563,6 +3677,39 @@ function updateCounts() {
     discardCountEl.textContent = graveyardCount > 0 ? graveyardCount : '';
     exileCountEl.textContent = exileCount > 0 ? exileCount : '';
     commandCountEl.textContent = commandCount > 0 ? commandCount : '';
+}
+
+function flipCards(targetCardElements) {
+    // Flip selected/hovered cards that have back faces
+    targetCardElements.forEach(cardEl => {
+        import('./lib/cardFactory.js').then(module => {
+            const flipped = module.flipCard(cardEl);
+            if (flipped) {
+                // Update the game state to track which face is shown
+                const cardId = cardEl.dataset.id;
+                const currentFace = cardEl.dataset.faceShown;
+
+                // Find and update card in appropriate zone
+                const updateCardFace = (cards) => {
+                    const cardIndex = cards.findIndex(c => c.id === cardId);
+                    if (cardIndex > -1) {
+                        cards[cardIndex].faceShown = currentFace;
+                        return true;
+                    }
+                    return false;
+                };
+
+                // Update in hand, playZone, or other zones as needed
+                if (!updateCardFace(hand)) {
+                    if (!updateCardFace(playZone)) {
+                        updateCardFace(graveyard);
+                    }
+                }
+
+                sendMove();
+            }
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -4326,7 +4473,7 @@ function showCardContextMenu(e) {
     exileOption.textContent = 'Send to Exile';
     exileOption.addEventListener('click', () => {
         moveSelectedCardsToZone('exile');
-        hideCardContextMenu();
+        hideCardContextMenu(selectedCards);
     });
     cardContextMenu.appendChild(exileOption);
     
@@ -4344,6 +4491,30 @@ function showCardContextMenu(e) {
     const separator = document.createElement('div');
     separator.className = 'border-t border-gray-600 my-1';
     cardContextMenu.appendChild(separator);
+
+    // Copy Selected Cards option
+    const copySelectedCards = document.createElement('button');
+    copySelectedCards.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    copySelectedCards.textContent = 'Copy Card(s)';
+    copySelectedCards.addEventListener('click', () => {
+        // Create copies of our own selected/hovered cards
+        createCopiesOfTargetCards().catch(error => {
+            console.error('Error creating copies:', error);
+        });
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(copySelectedCards);
+
+    // Flip Selected Cards option
+    const flipSelectedCards = document.createElement('button');
+    flipSelectedCards.className = 'w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors';
+    flipSelectedCards.textContent = 'Flip Card(s)';
+    flipSelectedCards.addEventListener('click', () => {
+        flipCards(ownedSelectedCards);
+        hideCardContextMenu();
+    });
+    cardContextMenu.appendChild(flipSelectedCards);
+    
     
     // Add Counter option
     const addCounterOption = document.createElement('button');
@@ -4747,6 +4918,10 @@ function findCardObjectByIdGlobal(cardId) {
     }
     
     return null;
+}
+
+function handleTouchRelease(e) {
+
 }
 
 // Counter click handler

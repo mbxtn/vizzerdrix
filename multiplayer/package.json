@@ -7,8 +7,8 @@
     "build": "vite build",
     "copy-assets": "cp -r public/icons dist/ && cp public/*.png dist/ && cp public/*.css dist/ 2>/dev/null || true",
     "preview": "vite preview",
-    "start": "node server.js",
-    "start:prod": "NODE_ENV=production node server.js",
+    "start": "node server.ts",
+    "start:prod": "NODE_ENV=production node server.ts",
     "build:full": "npm run build-css && npm run build && npm run copy-assets",
     "deploy": "npm run build:full && npm run start:prod"
   },
