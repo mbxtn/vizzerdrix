@@ -31,29 +31,46 @@
   <button id="enter-vr-button">Enter VR</button>
   <a-scene embedded>
     <a-assets>
-      <img id="card-image" src="tla-174-earth-rumble.png">
-      <a-asset-item id="table" src="assets/table_medium.gltf"></a-asset-item>
+      <img id="card-image" src="assets/tla-174-earth-rumble.png" >
+      <a-asset-item id="table" src="assets/table_medium_long.gltf"></a-asset-item>
     </a-assets>
     </a-assets>
     <a-plane position="0 0 -4" rotation="-90 0 0" width="8" height="8" color="#7BC8A4" shadow></a-plane>
     <a-sky color="#ECECEC"></a-sky>
     <a-gltf-model src="#table" position="0 0 -2">
     </a-gltf-model>
-    <!-- Rig for stuff that should be player relative. -->
-    <a-box id="testbox" depth="0.441" width="0.441" height="0.441" position="0 3 -2" color="red"></a-box>
     <a-entity id="cardhandrig">
-      <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 90 180" position="0 -.02 0.125">
-        <a-box src="#card-image" depth="0.001" width="0.063" height="0.088"></a-image>
+      <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 120 180" position="0 -.02 0.125" obb-collider>
+        <a-entity card="front:./assets/tla-174-earth-rumble.png; back:./assets/cardback.png;" obb-collider></a-entity>
       </a-box>
     </a-entity>
+    
     <a-entity id="rig" position="0 0.2 -0.9">
-      <a-camera position="0 3 0"></a-camera>
+      <a-camera id="camera" position="0 3 0"></a-camera>
+
+      <a-entity id="righthandtracking" hand-tracking-controls="hand: right; modelOpacity: 0.01"></a-entity>
+      <!-- Right Hand Collision Stuff -->
+      <a-sphere radius="0.01" color="green" vizfinger="handEl:#righthandtracking; finger:index-finger-tip;handbox:#cardbox;fingerbase:index-finger-phalanx-proximal" obb-collider></a-sphere>
+      <!-- <a-sphere radius="0.01" color="blue" vizfinger="handEl:#righthandtracking; finger:pinky-finger-tip" obb-collider></a-sphere>
+      <a-sphere radius="0.01" color="yellow" vizfinger="handEl:#righthandtracking; finger:middle-finger-tip" obb-collider></a-sphere>
+      <a-sphere radius="0.01" color="purple" vizfinger="handEl:#righthandtracking; finger:ring-finger-tip" obb-collider></a-sphere> -->
+      <a-sphere radius="0.01" color="red" vizfinger="handEl:#righthandtracking; finger:thumb-tip; thumb:true" obb-collider></a-sphere>
+
+
       <a-entity id="lefthandtracking" hand-tracking-controls="hand: left; modelOpacity: 0.01;"
-        pinchtohand="bound:#cardhandrig; rig:#rig"></a-entity>
-      <a-entity id="righthandtracking" hand-tracking-controls="hand: right;"></a-entity>
+      pinchtohand="bound:#cardhandrig; rig:#rig"></a-entity>
+      <!-- Left hand Collision Stuff -->
+      <a-sphere id="viz-index-finger-left" radius="0.01" color="green" vizfinger="handEl:#lefthandtracking;finger:index-finger-tip;handbox:#cardbox" obb-collider></a-sphere>
+      <!-- <a-sphere radius="0.01" color="blue" vizfinger="handEl:#lefthandtracking; finger:pinky-finger-tip" obb-collider></a-sphere>
+      <a-sphere radius="0.01" color="yellow" vizfinger="handEl:#lefthandtracking; finger:middle-finger-tip" obb-collider></a-sphere>
+      <a-sphere radius="0.01" color="purple" vizfinger="handEl:#lefthandtracking; finger:ring-finger-tip" obb-collider></a-sphere> -->
+      <a-sphere id="viz-thumb-left" radius="0.01" color="red" vizfinger="handEl:#lefthandtracking;finger:thumb-tip;thumb:true" obb-collider></a-sphere>
+      <a-entity vizhand="indexFinger:#viz-index-finger-left;thumb:#viz-thumb-left"></a-entity>
     </a-entity>
   </a-scene>
+  <script type="module" src="finger.ts" ></script>
   <script type="module" src="xrclient.js"></script>
+  <script type="module" src="card.js"></script>
 </body>
 
 </html>

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+declare var THREE: any;
 declare var AFRAME: any;
 
 // Basic entry point
@@ -14,7 +14,6 @@ if (enterVrButton) {
 
 var INDEX_TIP_INDEX  = 4;
 
-// TODO add a deck selection
 AFRAME.registerComponent('pinchtohand',
     {
         schema: {
@@ -24,7 +23,6 @@ AFRAME.registerComponent('pinchtohand',
 
         init: function () {
             this.enabled = false;
-            console.log(this.handEl);
             if(this.data.bound) {
                 this.el.addEventListener('pinchstarted', (e : any)=> {
                     this.enabled = !this.enabled;
@@ -38,15 +36,12 @@ AFRAME.registerComponent('pinchtohand',
             if(this.enabled) {
                 var fingerTip = handtrackingcontrols.getBone('index-finger-tip');
                 var fingerBase = handtrackingcontrols.getBone('index-finger-phalanx-proximal');
-                var wrist = handtrackingcontrols.getBone('wrist');
-                console.log(wrist);
                 
                 var midPoint = new THREE.Vector3().lerpVectors(fingerBase.position, fingerTip.position, 0.5);
                 this.data.bound.object3D.position.copy(midPoint);
 
                 this.data.bound.object3D.lookAt(fingerTip.position);
 
-                // 5. Apply the roll from the first joint to the box
                 const direction = new THREE.Vector3().subVectors(fingerTip.position, fingerBase.position).normalize();
                 const jointUp = new THREE.Vector3(0, 1, 0).applyQuaternion(fingerBase.quaternion);
                 const boxUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.data.bound.object3D.quaternion);
