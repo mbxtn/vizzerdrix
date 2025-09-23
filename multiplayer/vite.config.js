@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+
 
 export default defineConfig({
   root: 'public', // Set the root to the public directory
@@ -28,12 +30,23 @@ export default defineConfig({
       }
     },
     // Copy assets that are referenced in HTML/CSS
-    assetsInclude: ['**/*.png', '**/*.svg', '**/*.css',],
+    assetsInclude: ['**/*.png', '**/*.svg', '**/*.css'],
     // Copy additional static assets
     copyPublicDir: true // We'll handle this manually since we're in the public dir
   },
   // Ensure relative paths work correctly in production
   base: './',
   // Explicitly include assets that might be loaded dynamically
-  assetsInclude: ['**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.gif']
+  assetsInclude: ['**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.gif'],
+
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'xr/**/*',
+          dest: 'xr'
+        }
+      ]
+    })
+  ]
 })
