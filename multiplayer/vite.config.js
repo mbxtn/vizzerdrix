@@ -28,9 +28,9 @@ export default defineConfig({
       }
     },
     // Copy assets that are referenced in HTML/CSS
-    assetsInclude: ['**/*.png', '**/*.svg', '**/*.css'],
+    assetsInclude: ['**/*.png', '**/*.svg', '**/*.css',],
     // Copy additional static assets
-    copyPublicDir: false // We'll handle this manually since we're in the public dir
+    copyPublicDir: true // We'll handle this manually since we're in the public dir
   },
   // Ensure relative paths work correctly in production
   base: './',
