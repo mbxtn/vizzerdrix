@@ -9,6 +9,7 @@ AFRAME.registerComponent('vizfinger', {
         fingerbase: {default: 'index-finger-phalanx-proximal'},
         thumb: {default: false},
         handbox: {type: 'selector', default: null},
+        battlefield: {type:'selector', default:null},
     },
     init: function () {
         this.cardsTouched = [];
@@ -32,24 +33,10 @@ AFRAME.registerComponent('vizfinger', {
                     const card = this.cardsTouched.pop();
                     card.removeAttribute('obb-collider');
                     this.cardsHeld.push(card);
-                    this.el.appendChild(card);
+                    this.el.appendChild(card.parentNode);
                     
-                    // console.log(this.el.object3D.position);
-                    // console.log(this.fingerBase.position);
-                    // const direction = new THREE.Vector3().subVectors(this.el.object3D.position, this.fingerBase.position).normalize();
-                    // const jointUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.fingerBase.quaternion);
-                    // const boxUp = new THREE.Vector3(0, 1, 0).applyQuaternion(card.object3D.quaternion);
-
-                    // const rollAxis = new THREE.Vector3().crossVectors(boxUp, jointUp).dot(direction);
-                    // const rollAngle = Math.atan2(rollAxis, boxUp.dot(jointUp));
-
-                    // card.object3D.rotateZ(rollAngle); // Apply the roll to the box                    
-                    card.object3D.position.set(-0.063 / 2, 0.088 / 2, 0);
-                    const camera : any = document.querySelector("#camera");
-                    if(camera) {
-                        card.object3D.lookAt(camera.object3D.position);
-                    }
-      
+                    card.parentNode.object3D.position.set(0,0,0);
+                    card.parentNode.object3D.rotation.set(THREE.MathUtils.degToRad(30), THREE.MathUtils.degToRad(-90), THREE.MathUtils.degToRad(0));
                 }
 
                 this.recentTouch = true;
@@ -76,18 +63,32 @@ AFRAME.registerComponent('vizfinger', {
                  console.log(this.data);
                  if (this.data.handbox) {
                      while (this.cardsHeld.length > 0) {
-                         console.log("putting a card back");
-                         const card = this.cardsHeld.pop();
-                         this.data.handbox.appendChild(card);
+                        const card = this.cardsHeld.pop();
+                         if (this.data.battlefield) {
+                            console.log("trying to place the card first");
+                            const worldPosition = new THREE.Vector3();
+                            card.parentNode.object3D.getWorldPosition(worldPosition);
+
+                            this.data.battlefield.appendChild(card.parentNode);
+
+                            const localPosition = this.data.battlefield.object3D.worldToLocal(worldPosition);
+                            card.parentNode.object3D.position.copy(localPosition);
+                            card.parentNode.object3D.position.z = 0.01;
+                            card.parentNode.object3D.rotation.set(0, 0, 0);
+
+                         } else {
+                             console.log("putting a card back");
+                             this.data.handbox.appendChild(card.parentNode);
+
+                             card.parentNode.object3D.position.set(0, 0, 0);
+                             card.parentNode.object3D.rotation.set(0, 0, 0);
+                         }
                          card.setAttribute('obb-collider', {
                              size: 0,
                              trackedObject3D: '',
                              minimumColliderDimension: 0.02,
                              centerModel: false,
                          });
-                         card.object3D.position.set(0,0,0);
-                         card.object3D.rotation.set(0,0,0);
-
                      }
                  }
 

@@ -37,11 +37,13 @@
     </a-assets>
     <a-plane position="0 0 -4" rotation="-90 0 0" width="8" height="8" color="#7BC8A4" shadow></a-plane>
     <a-sky color="#ECECEC"></a-sky>
+    <!-- Battlefield will be 1.25 the size a regular playmat -->
+    <a-plane id="battlefield" position="0 1.001 -1.25" rotation="-90 0 0", width="0.75" height=".4375" color="black" opacity="0.2"></a-plane>
     <a-gltf-model src="#table" position="0 0 -2">
     </a-gltf-model>
     <a-entity id="cardhandrig">
       <a-box id="cardbox" color="#BDBDBD" depth="0.1" width="0.441" height="0.1" opacity=".25" rotation="90 120 180" position="0 -.02 0.125" obb-collider>
-        <a-entity card="front:./assets/tla-174-earth-rumble.png; back:./assets/cardback.png;" obb-collider></a-entity>
+        <a-entity><a-entity card="front:./assets/tla-174-earth-rumble.png; back:./assets/cardback.png;" obb-collider></a-entity></a-entity>
       </a-box>
     </a-entity>
     
@@ -50,7 +52,7 @@
 
       <a-entity id="righthandtracking" hand-tracking-controls="hand: right; modelOpacity: 0.01"></a-entity>
       <!-- Right Hand Collision Stuff -->
-      <a-sphere radius="0.01" color="green" vizfinger="handEl:#righthandtracking; finger:index-finger-tip;handbox:#cardbox;fingerbase:index-finger-phalanx-proximal" obb-collider></a-sphere>
+      <a-sphere radius="0.01" color="green" vizfinger="handEl:#righthandtracking; finger:index-finger-tip;handbox:#cardbox;fingerbase:index-finger-phalanx-proximal;battlefield:#battlefield" obb-collider></a-sphere>
       <!-- <a-sphere radius="0.01" color="blue" vizfinger="handEl:#righthandtracking; finger:pinky-finger-tip" obb-collider></a-sphere>
       <a-sphere radius="0.01" color="yellow" vizfinger="handEl:#righthandtracking; finger:middle-finger-tip" obb-collider></a-sphere>
       <a-sphere radius="0.01" color="purple" vizfinger="handEl:#righthandtracking; finger:ring-finger-tip" obb-collider></a-sphere> -->
@@ -68,7 +70,7 @@
       <a-entity vizhand="indexFinger:#viz-index-finger-left;thumb:#viz-thumb-left"></a-entity>
     </a-entity>
   </a-scene>
-  <script type="module" src="finger.ts" ></script>
+  <script type="module" src="finger.js" ></script>
   <script type="module" src="xrclient.js"></script>
   <script type="module" src="card.js"></script>
 </body>

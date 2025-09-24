@@ -59,6 +59,6 @@ AFRAME.registerComponent('card', {
         const geometry = new THREE.BoxGeometry(0.063, 0.088, 0.001); 
         const mesh = new THREE.Mesh( geometry, materials );
         this.el.setObject3D('card', mesh);
-
+        this.el.object3D.position.set(-0.063 / 2, 0.088 / 2, 0);
     }
 });
