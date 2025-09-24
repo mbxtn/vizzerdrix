@@ -53,6 +53,7 @@ export class CardDemoComponent {
       return;
     }
     
+    card.zIndex = this.nextZIndex++;
     card.tapped = !card.tapped;
   }
 
