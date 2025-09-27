@@ -117,10 +117,22 @@ const ScryfallCache = {
                 
                 try {
                     let data = null;
+                    let setRegex = /\(.*\)/g
+                    const setMatch = name.match(setRegex);
                     let finalName = name;
-                    
+                    let setCode = null;
+                    if(setMatch) {
+                        setCode = setMatch[0].replaceAll(/\(|\)/g,"");
+                        finalName = name.split(setRegex)[0];
+                    }
+
                     // First try exact match
-                    let resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                    let resp = {};
+                    if(setCode) {
+                        resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(finalName)}&set=${encodeURIComponent(setCode)}`);
+                    } else {
+                        resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(finalName)}`);
+                    }
                     
                     if (!resp.ok) {
                         // If exact match fails, try fuzzy search for potential double-faced cards or adventure cards

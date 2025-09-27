@@ -510,9 +510,7 @@ joinBtn.addEventListener('click', () => {
             // No count specified, assume 1 copy
             count = 1;
             cardName = line;
-        }
-        cardName = cardName.replace(/[^\sa-zA-Z0-9,'-].*$/, ""); // Remove any trailing set codes or tags
-        
+        }        
         // Remove any trailing/leading whitespace
         cardName = cardName.trim();
         
