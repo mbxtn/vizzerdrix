@@ -14,15 +14,25 @@ export class EventHandler {
         this.games = new Map();
         this.io.on("connection", socket => {
             socket.on("joinGame", (name: string, room: string, commanders: string[], library: string[], onResult: (e: StatusOr<Game>) => void) => {
-                onResult(this.joinGame(socket.id, name, room, commanders, library));
+                let result = this.joinGame(socket.id, name, room, commanders, library);
+                if(result.status == "success")
+                {
+                    // If we joined successfully set the room name so it's easy to remember in the future
+                    socket.data.roomName = room;
+                }
+                onResult(result);
             });
-            socket.on("rejoinGame", (id: string, roomName: string, onResult: (e : StatusOr<Game>) => void) => {
-                onResult(this.rejoinGame(id, socket.id, roomName));
+            socket.on("rejoinGame", (id: string, room: string, onResult: (e : StatusOr<Game>) => void) => {
+                let result = this.rejoinGame(id, socket.id, room);
+                if(result.status == "success")
+                {
+                    // If we joined successfully set the room name so it's easy to remember in the future
+                    socket.data.roomName = room;
+                }
+                onResult(result);
             });
-
-
             socket.on("updateState", (player: Player) => {
-
+                this.updateState(socket.data.roomName, player);
             });
             socket.on('updateCard', (card : BaseCard[], zone: Zone) => {
 
@@ -79,6 +89,23 @@ export class EventHandler {
             return;
         }
         player.isActive = false;
+    }
+
+    // Pretty harsh reset, doesn't track changes.. since creating a readable delta of the object woudln't exactly make sense
+    updateState(room: string, player: Player) {
+        let game = this.games.get(room);
+        if(!game) {
+            console.log("updateState: Couldn't find room");
+            return;
+        }
+
+        let serverPlayer = game.getPlayer(player.id);
+        if(!serverPlayer) {
+            console.log("updateState: room doesn't have client");
+            return;
+        }
+        
+        Object.assign(serverPlayer, player);
     }
 
 }

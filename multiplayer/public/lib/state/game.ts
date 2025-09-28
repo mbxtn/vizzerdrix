@@ -15,6 +15,7 @@ export class Game {
         this.roomName = name;
     }
 
+    
     getPlayer(id: string) : Player | undefined {
         return this.players.find( (player: Player) => {
             if (player.id === id) {

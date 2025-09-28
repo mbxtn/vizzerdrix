@@ -7,12 +7,13 @@ import { Server, type Socket as ServerSocket } from "socket.io";
 import { BaseClient } from "../public/lib/state/socketclient";
 import { Game } from "../public/lib/state/game";
 import { beforeEach } from "node:test";
+import { Player } from "../public/lib/state/player";
 
 
 describe('Client Server Tests', () => {
     let io: Server, serverSocket: ServerSocket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>, clientSocket: ClientSocket<ServerToClientEvents, ClientToServerEvents>;
     let eventHandler: EventHandler;
-    let client : BaseClient;
+    let client: BaseClient;
     beforeAll(() => {
         return new Promise<void>((resolve) => {
             const httpServer = createServer();
@@ -22,6 +23,9 @@ describe('Client Server Tests', () => {
                 const port = (httpServer.address() as AddressInfo).port;
                 clientSocket = ioc(`http://localhost:${port}`);
                 client = new BaseClient(clientSocket);
+                io.on("connection", (socket) => {
+                    serverSocket = socket;
+                });
                 clientSocket.on("connect", resolve);
             });
         });
@@ -41,9 +45,9 @@ describe('Client Server Tests', () => {
                 resolve();
             });
         }
-    );
+        );
     });
-    
+
     it('should rejoin a game', () => {
         eventHandler.games.clear();
         return new Promise<void>((resolve) => {
@@ -54,13 +58,39 @@ describe('Client Server Tests', () => {
                 if (!sergame) {
                     throw new Error("Shouldn't be here");
                 }
-                sergame.players[0].isActive = false;
+                sergame.playerDisconnect(sergame.players[0].id);
                 client.rejoinGame(sergame.players[0].id, "456").then((game: Game) => {
                     resolve();
                 });
-            }); 
+            });
         }
-    );
+        );
+    });
+
+    it('should update a state', () => {
+        eventHandler.games.clear();
+        return new Promise<void>((resolve) => {
+            client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
+                console.log(game);
+                let sergame = eventHandler.games.get("456");
+                expect(sergame).not.toBeNull();
+                let player = sergame?.players[0];
+                if(!player) {
+                    throw new Error("this shouldn't happen");
+                }
+                let updatePlayer = new Player(player.id, "test", ["bobcat"], ["plains"]);
+                client.updateState(updatePlayer);
+                serverSocket.on("updateState", () => {
+                    expect(eventHandler.games.get("456")?.players[0].name).toEqual("test");
+                    resolve();
+                });
+            });
+        }
+        );
+    });
+
+    it('should update a state', () => {
+        eventHandler.games.clear();
     });
 });
 

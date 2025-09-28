@@ -1,6 +1,7 @@
 import { Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, StatusOr } from "./socketinterface";
 import { Game } from "./game";
+import { Player } from "./player";
 
 export class BaseClient {
     socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -35,6 +36,10 @@ export class BaseClient {
             )
         }
         );
+    }
+
+    updateState(player: Player) {
+        this.socket.emit("updateState", player);
     }
 }
 

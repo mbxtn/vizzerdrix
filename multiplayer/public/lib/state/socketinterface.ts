@@ -39,8 +39,7 @@ export interface InterServerEvents {
 }
 
 export interface SocketData {
-    name: string;
-    age: string;
+    roomName: string;
 }
 
 export enum Zone { 
