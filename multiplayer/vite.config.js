@@ -14,6 +14,9 @@ export default defineConfig({
       }
     }
   },
+  test: {
+    include: ['lib/**/*.test.ts', '../lib/**/*.test.ts'],
+  },
   build: {
     outDir: '../dist', // Output built files to dist in the parent directory
     emptyOutDir: true,

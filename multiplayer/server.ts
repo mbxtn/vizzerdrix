@@ -4,33 +4,22 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
-interface ServerToClientEvents {
-    noArg: () => void;
-    basicEmit: (a: number) => void;
-
-    
-}
-
-interface ClientToServerEvents {
-
-}
-
-interface InterServerEvents {
-
-}
+import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from './public/lib/state/socketinterface';
+import { EventHandler } from './lib/eventhandlers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(server, {
     cors: {
         origin: '*',
         methods: ['GET', 'POST']
     }
 });
+
+const eventHandler = new EventHandler();
 
 // Serve static files - use dist in production, public in development
 const isProduction = process.env.NODE_ENV === 'production';
@@ -173,7 +162,7 @@ function initializePlayer(game, playerId, displayName) {
 io.on('connection', (socket) => {
     let room = null;
     let playerId = socket.id;
-
+    socket.on('joinGame', eventHandler.joinGameHandler);
     socket.on('join', (data) => {
         const { roomName, displayName, decklist, commanders } = data;
         if (!games[roomName]) {

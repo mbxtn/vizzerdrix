@@ -1,6 +1,6 @@
 import { Player } from "./player"
 // Representation of a game as the server knows it
-class Game {
+export class Game {
     roomName: string;
     players: Map<string, Player> = new Map();
     
@@ -11,12 +11,11 @@ class Game {
     // Number of times we've gone around
     round = 0;
 
-    idIndex = 0;
     constructor(name: string) {
         this.roomName = name;
     }
 
-    addPlayer(name: string, commanders: string[], library: string[]) : Error | Player {
+    addPlayer(name: string, id: string, commanders: string[], library: string[]) : Player | undefined {
         let existingPlayer : Player | undefined;
         this.players.forEach(player => {
             if(player.name == name) {
@@ -27,16 +26,14 @@ class Game {
         if(existingPlayer) {
             // Might be a rejoin...
             if(existingPlayer.isActive) {
-                return new Error("Player with that name is already in the game.")
+                return undefined;
             } else {
-                existingPlayer.isActive = true
-                return existingPlayer
+                existingPlayer.isActive = true;
+                return existingPlayer;
             }
         }
-        let playerId = name + "_" + this.idIndex.toString;
-        this.idIndex++;
-        let newPlayer = new Player(playerId, name, commanders, library);
-        this.players.set(playerId, newPlayer);
+        let newPlayer = new Player(id, name, commanders, library);
+        this.players.set(id, newPlayer);
         return newPlayer;
     }
 

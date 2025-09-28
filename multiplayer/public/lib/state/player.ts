@@ -2,7 +2,8 @@ import { BaseCard } from './basecard';
 
 // Base representation of a player
 export class Player {
-    readonly id : string;
+    // id can possibly change (rejoin)
+    id : string;
     readonly name: string;
     readonly commanders : string[];
     readonly library : string[];
