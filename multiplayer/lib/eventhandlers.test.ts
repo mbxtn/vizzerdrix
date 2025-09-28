@@ -1,24 +1,66 @@
-import { describe, expect, it } from 'vitest';
-import { EventHandler } from './eventhandlers';
-
-describe('eventhandlers', () => {
-  it('should create a game', () => {
-    let eventHandler = new EventHandler();
-    let roomName = "testroom";
-    let roomNameBar = "testroombar";
-
-    eventHandler.joinGameHandler("123", "foo", roomName, ["vren"], ["swamp"]);
-    expect(eventHandler.games.size).toEqual(1);
-    expect(eventHandler.games.get(roomName)?.players.size).toEqual(1);
+import { beforeAll, afterAll, describe, it, expect } from "vitest"; import { EventHandler } from './eventhandlers';
+import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData, StatusOr } from '../public/lib/state/socketinterface';
+import { createServer } from "node:http";
+import { type AddressInfo } from "node:net";
+import { io as ioc, type Socket as ClientSocket } from "socket.io-client";
+import { Server, type Socket as ServerSocket } from "socket.io";
+import { BaseClient } from "../public/lib/state/socketclient";
+import { Game } from "../public/lib/state/game";
+import { beforeEach } from "node:test";
 
 
-    eventHandler.joinGameHandler("456", "bar", roomName, ["vren"], []);
-    expect(eventHandler.games.size).toEqual(1);
-    expect(eventHandler.games.get(roomName)?.players.size).toEqual(2);
+describe('Client Server Tests', () => {
+    let io: Server, serverSocket: ServerSocket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>, clientSocket: ClientSocket<ServerToClientEvents, ClientToServerEvents>;
+    let eventHandler: EventHandler;
+    let client : BaseClient;
+    beforeAll(() => {
+        return new Promise<void>((resolve) => {
+            const httpServer = createServer();
+            io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(httpServer);
+            eventHandler = new EventHandler(io);
+            httpServer.listen(() => {
+                const port = (httpServer.address() as AddressInfo).port;
+                clientSocket = ioc(`http://localhost:${port}`);
+                client = new BaseClient(clientSocket);
+                clientSocket.on("connect", resolve);
+            });
+        });
+    });
 
-    eventHandler.joinGameHandler("456", "bar", roomNameBar, ["vren"], []);
-    expect(eventHandler.games.size).toEqual(2);
-    expect(eventHandler.games.get(roomNameBar)?.players.size).toEqual(1);
 
-  });
+    afterAll(() => {
+        io.close();
+        clientSocket.disconnect();
+    });
+
+    it('should create a game', () => {
+        eventHandler.games.clear();
+        return new Promise<void>((resolve) => {
+            client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
+                console.log(game);
+                resolve();
+            });
+        }
+    );
+    });
+    
+    it('should rejoin a game', () => {
+        eventHandler.games.clear();
+        return new Promise<void>((resolve) => {
+            client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
+                console.log(game);
+                let sergame = eventHandler.games.get("456");
+                expect(sergame).not.toBeNull();
+                if (!sergame) {
+                    throw new Error("Shouldn't be here");
+                }
+                sergame.players[0].isActive = false;
+                client.rejoinGame(sergame.players[0].id, "456").then((game: Game) => {
+                    resolve();
+                });
+            }); 
+        }
+    );
+    });
 });
+

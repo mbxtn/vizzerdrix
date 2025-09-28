@@ -2,10 +2,10 @@ import { Player } from "./player"
 // Representation of a game as the server knows it
 export class Game {
     roomName: string;
-    players: Map<string, Player> = new Map();
+    players: Player[] = [];
     
     // order of the players 
-    turnOrder: string[] = [];
+    turnOrder: Player[] = [];
     // index in array of current turn
     currentTurn = 0;
     // Number of times we've gone around
@@ -13,6 +13,22 @@ export class Game {
 
     constructor(name: string) {
         this.roomName = name;
+    }
+
+    getPlayer(id: string) : Player | undefined {
+        return this.players.find( (player: Player) => {
+            if (player.id === id) {
+                return true;
+            }
+        });
+    }
+
+    getPlayerByName(name: string) : Player | undefined {
+        return this.players.find( (player: Player) => {
+            if (player.name === name) {
+                return true;
+            }
+        });
     }
 
     addPlayer(name: string, id: string, commanders: string[], library: string[]) : Player | undefined {
@@ -33,7 +49,7 @@ export class Game {
             }
         }
         let newPlayer = new Player(id, name, commanders, library);
-        this.players.set(id, newPlayer);
+        this.players.push(newPlayer);
         return newPlayer;
     }
 
@@ -51,12 +67,12 @@ export class Game {
         }
 
         shuffledOrder.forEach(player => {
-            this.turnOrder.push(player[1].id)
+            this.turnOrder.push(player)
         });
     }
 
     playerDisconnect(id: string) {
-        let player = this.players.get(id);
+        let player = this.getPlayer(id);
         if(player) {
             player.isActive = false;
         }

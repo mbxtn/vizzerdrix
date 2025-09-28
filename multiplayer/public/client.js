@@ -4687,6 +4687,9 @@ function getRelatedCardsFromSelection() {
                 console.log(`Skipping self: ${part.name}`);
                 return;
             }
+            if( part.component == "combo_piece") {
+                return;
+            }
             
             console.log(`Found related card: ${part.name} (${part.component || 'no component'}) URI: ${part.uri}`);
             
