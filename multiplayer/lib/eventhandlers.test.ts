@@ -52,15 +52,22 @@ describe('Client Server Tests', () => {
         eventHandler.games.clear();
         return new Promise<void>((resolve) => {
             client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
-                console.log(game);
-                let sergame = eventHandler.games.get("456");
-                expect(sergame).not.toBeNull();
-                if (!sergame) {
+                let gameServer = eventHandler.games.get("456");
+                expect(gameServer).not.toBeNull();
+                if (!gameServer) {
                     throw new Error("Shouldn't be here");
                 }
-                sergame.playerDisconnect(sergame.players[0].id);
-                client.rejoinGame(sergame.players[0].id, "456").then((game: Game) => {
+                console.log(gameServer.players);
+                if(!clientSocket.id) throw new Error("clientsocket.is is null");
+                const playerObj = gameServer.players[clientSocket.id];
+                if (!playerObj) {
+                    throw new Error(`Player with socket id ${clientSocket.id} not found`);
+                }
+                gameServer.playerDisconnect(playerObj.id);
+                client.rejoinGame(playerObj.id, "456").then((game: Game) => {
                     resolve();
+                }, (reason) => {
+                    console.log(reason);
                 });
             });
         }
@@ -72,16 +79,18 @@ describe('Client Server Tests', () => {
         return new Promise<void>((resolve) => {
             client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
                 console.log(game);
-                let sergame = eventHandler.games.get("456");
-                expect(sergame).not.toBeNull();
-                let player = sergame?.players[0];
+                let gameServer = eventHandler.games.get("456");
+                expect(gameServer).not.toBeNull();
+                if (!clientSocket.id) throw new Error("no clientsocket.id");
+                let player = gameServer?.players[clientSocket.id];
                 if(!player) {
                     throw new Error("this shouldn't happen");
                 }
                 let updatePlayer = new Player(player.id, "test", ["bobcat"], ["plains"]);
                 client.updateState(updatePlayer);
                 serverSocket.on("updateState", () => {
-                    expect(eventHandler.games.get("456")?.players[0].name).toEqual("test");
+                    if (!clientSocket.id) throw new Error("no clientsocket.id");
+                    expect(eventHandler.games.get("456")?.players[clientSocket.id].name).toEqual("test");
                     resolve();
                 });
             });
@@ -89,7 +98,7 @@ describe('Client Server Tests', () => {
         );
     });
 
-    it('should update a state', () => {
+    it('should update a card', () => {
         eventHandler.games.clear();
     });
 });

@@ -2,7 +2,7 @@ import { Player } from "./player"
 // Representation of a game as the server knows it
 export class Game {
     roomName: string;
-    players: Player[] = [];
+    players: { [id: string]: Player } = {};
     
     // order of the players 
     turnOrder: Player[] = [];
@@ -17,15 +17,11 @@ export class Game {
 
     
     getPlayer(id: string) : Player | undefined {
-        return this.players.find( (player: Player) => {
-            if (player.id === id) {
-                return true;
-            }
-        });
+        return this.players[id];
     }
 
     getPlayerByName(name: string) : Player | undefined {
-        return this.players.find( (player: Player) => {
+        return Object.values(this.players).find( (player: Player) => {
             if (player.name === name) {
                 return true;
             }
@@ -33,24 +29,11 @@ export class Game {
     }
 
     addPlayer(name: string, id: string, commanders: string[], library: string[]) : Player | undefined {
-        let existingPlayer : Player | undefined;
-        this.players.forEach(player => {
-            if(player.name == name) {
-                existingPlayer = player;
-            }
-        });
-
-        if(existingPlayer) {
-            // Might be a rejoin...
-            if(existingPlayer.isActive) {
-                return undefined;
-            } else {
-                existingPlayer.isActive = true;
-                return existingPlayer;
-            }
+        if(this.players[id]) {
+            return undefined;
         }
         let newPlayer = new Player(id, name, commanders, library);
-        this.players.push(newPlayer);
+        this.players[id] = newPlayer;
         return newPlayer;
     }
 
@@ -59,7 +42,7 @@ export class Game {
         this.round = 0;
 
         this.turnOrder = [];
-        const shuffledOrder = [...this.players];
+        const shuffledOrder = [...Object.values(this.players)];
             
         // Fisher-Yates shuffle
         for (let i = shuffledOrder.length - 1; i > 0; i--) {

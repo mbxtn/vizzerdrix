@@ -19,10 +19,10 @@ export interface ClientToServerEvents {
     // happening this way. So we couldn't use if for a log
     updateState: (player: Player) => void;  
     
-    // update the card, and move it to the appropriate zone
+    // update the cards,
     // We should be able to generally describe this as a written statement: e.g.
-    // Player Tapped Sol Ring, Player added 3 counters to Vren, Player moved Ashcoat (to Zone)
-    updateCard: (card : BaseCard[], zone: Zone) => void;
+    // Player Tapped Sol Ring, Player added 3 counters to Vren, Player moved Ashcoat
+    updateCards: (card : BaseCard[], zone: Zone) => void;
     
     // for creating or removing temporary cards. These cards should always be in the battlefield
     cardCreated: (card: BaseCard) => void;
@@ -46,7 +46,9 @@ export enum Zone {
     battlefield,
     command,
     exile,
-    graveyard
+    graveyard,
+    hand,
+    library
 }
 
 export interface Success<T> {

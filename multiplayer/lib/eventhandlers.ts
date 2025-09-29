@@ -3,6 +3,7 @@ import { Game } from "../public/lib/state/game";
 import { Player } from "../public/lib/state/player";
 import { BaseCard } from "../public/lib/state/basecard";
 import { Server } from "socket.io";
+import { Type, Update } from "../public/lib/state/updates";
 
 
 export class EventHandler {
@@ -34,7 +35,7 @@ export class EventHandler {
             socket.on("updateState", (player: Player) => {
                 this.updateState(socket.data.roomName, player);
             });
-            socket.on('updateCard', (card : BaseCard[], zone: Zone) => {
+            socket.on('updateCards', (card : BaseCard[], zone: Zone) => {
 
             });
             socket.on('cardCreated', (card: BaseCard) => {
@@ -70,12 +71,14 @@ export class EventHandler {
         if (!game) {
             return {status: "error", message: "Game not found"};
         }
-        let player = game.getPlayer(identifier);
+        let player = game.players[identifier];
         if (!player) {
             return {status: "error", message: "Player not found"};
         }
         player.isActive = true;
         player.id = newId;
+        game.players[newId] = player;
+        delete game.players[identifier];
         return {status: "success", value: game};
     }
 
@@ -108,6 +111,27 @@ export class EventHandler {
         Object.assign(serverPlayer, player);
     }
 
+    updateCard(room: string, id: string, zone: Zone, card: BaseCard) :  StatusOr<Update>{
+        let game = this.games.get(room);
+        if(!game) {
+            console.log("updateCard: room: ${room} not found");
+            return {status: "error", message: "room not found"};
+        }
+
+        let player = game.getPlayer(id);
+        if(!player) {
+            console.log("updateCard: player: ${player} not found");
+            return {status: "error", message: "player not found"};
+        }
+
+        let serverCard = player.getCard(card.id, zone);
+        if(!serverCard) {
+            console.warn("updateCard: updating a card that doesn't exist... trust the client for now and add it");
+            // We don't really know what to say we're updating in this case
+            player.getZone(zone).push(card);
+            return {status: "success", value:new Update(Type.undefined)};
+        }
+    }
 }
 
 

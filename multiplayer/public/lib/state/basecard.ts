@@ -1,3 +1,5 @@
+import { Type, Update } from "./updates";
+
 export class BaseCard {
     readonly cardName: string;
     readonly scryfallId: string;
@@ -19,6 +21,15 @@ export class BaseCard {
         this.tapped = false;
         this.flipped = false;
         this.commander = isCommander;
+    }
+
+    updateCard(card : BaseCard) : Update[] {
+        let updates : Update[] = [];
+        if (this.location != card.location) {
+            updates.push(new Update(Type.cardMoved));
+        }
+
+        return updates;
     }
 }
 
