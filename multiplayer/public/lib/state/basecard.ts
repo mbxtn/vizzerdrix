@@ -22,15 +22,6 @@ export class BaseCard {
         this.flipped = false;
         this.commander = isCommander;
     }
-
-    updateCard(card : BaseCard) : Update[] {
-        let updates : Update[] = [];
-        if (this.location != card.location) {
-            updates.push(new Update(Type.cardMoved));
-        }
-
-        return updates;
-    }
 }
 
 export class Point {

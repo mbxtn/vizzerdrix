@@ -477,12 +477,6 @@ joinBtn.addEventListener('click', () => {
             }
         }
         
-        // If there's an empty line and this card is after it (and it's the last section), it's a commander
-        if (lastEmptyLineIndex >= 0 && index > lastEmptyLineIndex) {
-            console.log(`Line "${line}" is after last empty line at index ${lastEmptyLineIndex}, treating as commander`);
-            return true;
-        }
-        
         return false;
     };
     
@@ -492,11 +486,8 @@ joinBtn.addEventListener('click', () => {
         const isCommander = isCommanderSection(index);
         
         // Enhanced parsing to handle various formats:
-        // Standard: "2 Lightning Bolt" or "1x Lightning Bolt" or "Lightning Bolt"
-        // Moxfield: "1 Snow-Covered Wastes (MH3) 309 *F*"
-        // Archidekt: "1x Burning Inquiry (m10) 128 [Consistent Shared Draw,Draw]"
-        // MTGO/Arena: "4 Lightning Bolt"
-        // EDHRec: "1 Sol Ring (C14)"
+        // We do use fuzzy search which may or may not find the card if it uses another format.
+        // Moxfield: "1 Snow-Covered Wastes (MH3)
         
         let cardName, count;
         

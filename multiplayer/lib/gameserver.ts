@@ -3,7 +3,7 @@ import { Game } from "../public/lib/state/game";
 import { Player } from "../public/lib/state/player";
 import { BaseCard } from "../public/lib/state/basecard";
 import { Server } from "socket.io";
-import { Type, Update } from "../public/lib/state/updates";
+import { EmptyUpdate, Type, Update } from "../public/lib/state/updates";
 
 
 export class EventHandler {
@@ -16,38 +16,26 @@ export class EventHandler {
         this.io.on("connection", socket => {
             socket.on("joinGame", (name: string, room: string, commanders: string[], library: string[], onResult: (e: StatusOr<Game>) => void) => {
                 let result = this.joinGame(socket.id, name, room, commanders, library);
-                if(result.status == "success")
-                {
+                if (result.status == "success") {
                     // If we joined successfully set the room name so it's easy to remember in the future
                     socket.data.roomName = room;
                 }
                 onResult(result);
             });
-            socket.on("rejoinGame", (id: string, room: string, onResult: (e : StatusOr<Game>) => void) => {
+            socket.on("rejoinGame", (id: string, room: string, onResult: (e: StatusOr<Game>) => void) => {
                 let result = this.rejoinGame(id, socket.id, room);
-                if(result.status == "success")
-                {
+                if (result.status == "success") {
                     // If we joined successfully set the room name so it's easy to remember in the future
                     socket.data.roomName = room;
                 }
                 onResult(result);
             });
             socket.on("updateState", (player: Player) => {
+                // This is sort of a hard update. For the moment we don't try and bother deducing the differences.
+                // This is used for player initialization and game resets, or shuffling. It won't be reflected in the public game 
+                // logs in any way.
                 this.updateState(socket.data.roomName, player);
             });
-            socket.on('updateCards', (card : BaseCard[], zone: Zone) => {
-
-            });
-            socket.on('cardCreated', (card: BaseCard) => {
-
-            });
-            socket.on('cardRemoved', (card: BaseCard) => {
-
-            });
-            socket.on('updateLifeTotal', (amount: number) => {
-
-            })
-
         })
     }
 
@@ -60,26 +48,29 @@ export class EventHandler {
         }
         let player = game.addPlayer(name, id, commanders, library);
         if (!player) {
-            return {status: 'error', message: "Client already exists"};
+            return { status: 'error', message: "Client already exists" };
         } else {
-            return {status: 'success', value: game};
+            return { status: 'success', value: game };
         }
     }
 
     rejoinGame(identifier: string, newId: string, roomName: string): StatusOr<Game> {
         let game = this.games.get(roomName);
         if (!game) {
-            return {status: "error", message: "Game not found"};
+            return { status: "error", message: "Game not found" };
         }
         let player = game.players[identifier];
         if (!player) {
-            return {status: "error", message: "Player not found"};
+            return { status: "error", message: "Player not found" };
         }
+
+        // Really Basic Logic just set the player to active and update the id and hand them the game.
+        // Also delete the old identifier.
         player.isActive = true;
         player.id = newId;
         game.players[newId] = player;
         delete game.players[identifier];
-        return {status: "success", value: game};
+        return { status: "success", value: game };
     }
 
     playerLeft(id: string, room: string) {
@@ -97,40 +88,41 @@ export class EventHandler {
     // Pretty harsh reset, doesn't track changes.. since creating a readable delta of the object woudln't exactly make sense
     updateState(room: string, player: Player) {
         let game = this.games.get(room);
-        if(!game) {
+        if (!game) {
             console.log("updateState: Couldn't find room");
             return;
         }
 
         let serverPlayer = game.getPlayer(player.id);
-        if(!serverPlayer) {
+        if (!serverPlayer) {
             console.log("updateState: room doesn't have client");
             return;
         }
-        
+
         Object.assign(serverPlayer, player);
     }
 
-    updateCard(room: string, id: string, zone: Zone, card: BaseCard) :  StatusOr<Update>{
+    updateCard(room: string, id: string, zone: Zone, card: BaseCard): StatusOr<Update> {
         let game = this.games.get(room);
-        if(!game) {
+        if (!game) {
             console.log("updateCard: room: ${room} not found");
-            return {status: "error", message: "room not found"};
+            return { status: "error", message: "room not found" };
         }
 
         let player = game.getPlayer(id);
-        if(!player) {
+        if (!player) {
             console.log("updateCard: player: ${player} not found");
-            return {status: "error", message: "player not found"};
+            return { status: "error", message: "player not found" };
         }
 
         let serverCard = player.getCard(card.id, zone);
-        if(!serverCard) {
+        if (!serverCard) {
             console.warn("updateCard: updating a card that doesn't exist... trust the client for now and add it");
             // We don't really know what to say we're updating in this case
             player.getZone(zone).push(card);
-            return {status: "success", value:new Update(Type.undefined)};
+            return { status: "success", value: new EmptyUpdate(Type.cardMoved) };
         }
+        return { status: "success", value: new EmptyUpdate(Type.cardMoved) };
     }
 }
 

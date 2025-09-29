@@ -3,7 +3,7 @@ import { ClientToServerEvents, ServerToClientEvents, StatusOr } from "./socketin
 import { Game } from "./game";
 import { Player } from "./player";
 
-export class BaseClient {
+export class VdClient {
     socket: Socket<ServerToClientEvents, ClientToServerEvents>;
     constructor(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
         this.socket = socket;

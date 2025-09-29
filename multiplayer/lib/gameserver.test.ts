@@ -4,16 +4,15 @@ import { createServer } from "node:http";
 import { type AddressInfo } from "node:net";
 import { io as ioc, type Socket as ClientSocket } from "socket.io-client";
 import { Server, type Socket as ServerSocket } from "socket.io";
-import { BaseClient } from "../public/lib/state/socketclient";
+import { VdClient } from "../public/lib/state/socketclient";
 import { Game } from "../public/lib/state/game";
-import { beforeEach } from "node:test";
 import { Player } from "../public/lib/state/player";
 
 
 describe('Client Server Tests', () => {
     let io: Server, serverSocket: ServerSocket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>, clientSocket: ClientSocket<ServerToClientEvents, ClientToServerEvents>;
     let eventHandler: EventHandler;
-    let client: BaseClient;
+    let client: VdClient;
     beforeAll(() => {
         return new Promise<void>((resolve) => {
             const httpServer = createServer();
@@ -22,7 +21,7 @@ describe('Client Server Tests', () => {
             httpServer.listen(() => {
                 const port = (httpServer.address() as AddressInfo).port;
                 clientSocket = ioc(`http://localhost:${port}`);
-                client = new BaseClient(clientSocket);
+                client = new VdClient(clientSocket);
                 io.on("connection", (socket) => {
                     serverSocket = socket;
                 });
