@@ -31,7 +31,6 @@ describe('Client Server Tests', () => {
         });
     });
 
-
     afterAll(() => {
         io.close();
         clientSocket.disconnect();
