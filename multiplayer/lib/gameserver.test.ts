@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, describe, it, expect } from "vitest"; import { EventHandler } from './eventhandlers';
+import { beforeAll, afterAll, describe, it, expect } from "vitest"; import { EventHandler } from './gameserver';
 import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData, StatusOr } from '../public/lib/state/socketinterface';
 import { createServer } from "node:http";
 import { type AddressInfo } from "node:net";
