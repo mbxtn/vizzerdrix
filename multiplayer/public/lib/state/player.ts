@@ -10,12 +10,8 @@ export class Player {
     readonly commanders: string[];
     readonly library: string[];
 
-    libraryZone: BaseCard[] = [];
-    commandZone: BaseCard[] = [];
-    graveyardZone: BaseCard[] = [];
-    handZone: BaseCard[] = [];
-    exileZone: BaseCard[] = [];
-    battlefieldZone: BaseCard[] = [];
+    // Flat map of all cards by ID
+    cards: { [id: string]: BaseCard } = {};
 
     // A single players game log, a date sorted combined log should be accessible in the Game itself
     // should be periodically updated with the contents of updates. Updates subclassing won't properly 
@@ -62,24 +58,16 @@ export class Player {
     }
 
     getZone(zone: Zone): BaseCard[] {
-        switch (zone) {
-            case Zone.battlefield:
-                return this.battlefieldZone;
-            case Zone.command:
-                return this.commandZone;
-            case Zone.exile:
-                return this.exileZone;
-            case Zone.graveyard:
-                return this.exileZone;
-            case Zone.hand:
-                return this.handZone;
-            default:
-                return this.libraryZone;
-        }
+        return Object.values(this.cards).filter(card => card.zone === zone);
     }
 
-    getCard(id: string, zone: Zone): BaseCard | undefined {
-        // Just loop through all the zones and see if we can get a reference to the card, probably a smarter way to handle this.
-        return this.getZone(zone).find((card: BaseCard) => { return card.id == id; });
+    getCard(id: string, zone?: Zone): BaseCard | undefined {
+        const card = this.cards[id];
+        if (!card) return undefined;
+        
+        // If zone is specified, only return the card if it's in that zone
+        if (zone !== undefined && card.zone !== zone) return undefined;
+        
+        return card;
     }
 }

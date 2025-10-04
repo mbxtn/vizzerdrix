@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from './public/lib/state/socketinterface';
-import { EventHandler } from './lib/gameserver';
+import { EventHandler } from './lib/gameserver.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

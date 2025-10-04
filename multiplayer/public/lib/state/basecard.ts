@@ -1,4 +1,5 @@
-import { Type, Update } from "./updates";
+import { Update } from "./updates";
+import { Zone } from "./socketinterface";
 
 export class BaseCard {
     readonly cardName: string;
@@ -8,16 +9,20 @@ export class BaseCard {
     // We should generate a new id rather than duplicate
     readonly id: string;
 
+    // Zone where this card is currently located
+    zone: Zone;
+
     // These only really matter when in a battlefield, should be ignored otherwise
     location = new Point(0,0);
     tapped: boolean;
     flipped: boolean;
     counters = 0;
 
-    constructor(id: string, name: string, isCommander = false) {
+    constructor(id: string, name: string, zone: Zone = Zone.library, isCommander = false) {
         this.cardName = name;
         this.id = id;
         this.scryfallId = "";
+        this.zone = zone;
         this.tapped = false;
         this.flipped = false;
         this.commander = isCommander;
