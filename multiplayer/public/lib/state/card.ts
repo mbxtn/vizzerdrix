@@ -1,40 +1,45 @@
-import { BaseCard } from "./basecard";
-// Class representing cards, has clientside specific behavior. Server only tracks information in BaseState
-export class Card extends BaseCard {
+import { Update } from "./updates";
+import { Zone } from "./socketinterface";
 
-    // Basic information about a card
-    // this should be copied if we make duplicates
-    frontFace?: Face;
-    backFace?: Face;
+export class Card {
+    readonly cardName: string;
+    readonly scryfallId: string;
+    readonly commander: boolean;
 
-    // Indicator if the card is considered temporary and should be deleted at the end of a game.
-    temporary = false;
+    // We should generate a new id rather than duplicate
+    readonly id: string;
 
-    toggleTap() {
-        this.tapped = !this.tapped;
+    // Zone where this card is currently located
+    zone: Zone;
+
+    // These only really matter when in a battlefield, should be ignored otherwise
+    location = new Point(0,0);
+    tapped: boolean;
+    flipped: boolean;
+    counters = 0;
+
+    constructor(id: string, name: string, zone: Zone = Zone.library, isCommander = false) {
+        this.cardName = name;
+        this.id = id;
+        this.scryfallId = "";
+        this.zone = zone;
+        this.tapped = false;
+        this.flipped = false;
+        this.commander = isCommander;
     }
-
-    canHover() :  boolean {
-        return true;
-    }
-
-    getFaceUri() : string {
-        return "";
-    }
-
-    shouldMagnify() : boolean {
-        // We should always magnify if it's a face card, 
-        // or if there's a valid backface
-        return !this.flipped || this.backFace !== undefined;
-    }
-
-    duplicate(newId : string) : Card {
-        return new Card(newId, this.cardName);
-    }
-
 }
 
-export class Face { 
-    name: String = "";
-    imageUris: string[] = [];
+export class Point {
+    x = 0;
+    y = 0;
+
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+export interface CardFactory {
+    createCardFromId(scryfallId: string) : Card;
+    createCardFromName(name: string) : Card;
 }

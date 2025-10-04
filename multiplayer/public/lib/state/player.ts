@@ -1,4 +1,4 @@
-import { BaseCard } from './basecard';
+import { Card, CardFactory } from './card';
 import { Zone } from './socketinterface';
 import { Update } from './updates';
 
@@ -11,7 +11,7 @@ export class Player {
     readonly library: string[];
 
     // Flat map of all cards by ID
-    cards: { [id: string]: BaseCard } = {};
+    cards: { [id: string]: Card } = {};
 
     // A single players game log, a date sorted combined log should be accessible in the Game itself
     // should be periodically updated with the contents of updates. Updates subclassing won't properly 
@@ -57,11 +57,35 @@ export class Player {
         this.gameLog = gameLog;
     }
 
-    getZone(zone: Zone): BaseCard[] {
+    // resets cards with new ids and in the correct zone
+    createDeck(cardFactory: CardFactory) {
+        // Delete all objects in the original array
+        Object.keys(this.cards).forEach( key => delete this.cards[key]);
+
+        // Put all Commanders in the command zone
+        this.commanders.forEach(
+            name => {
+                let card = cardFactory.createCardFromName(name);
+                card.zone = Zone.command;
+                this.cards[card.id] =  card;
+            }
+        )
+
+        // Put the rest in the library
+        this.library.forEach(
+            name => {
+                let card = cardFactory.createCardFromName(name);
+                card.zone = Zone.library;
+                this.cards[card.id] =  card;
+            }
+        )
+    }
+
+    getZone(zone: Zone): Card[] {
         return Object.values(this.cards).filter(card => card.zone === zone);
     }
 
-    getCard(id: string, zone?: Zone): BaseCard | undefined {
+    getCard(id: string, zone?: Zone): Card | undefined {
         const card = this.cards[id];
         if (!card) return undefined;
         

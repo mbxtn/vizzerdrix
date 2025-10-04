@@ -1,4 +1,4 @@
-import { BaseCard } from "./basecard";
+import { Card } from "./card";
 import { Game } from "./game";
 import { Player } from "./player";
 

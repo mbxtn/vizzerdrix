@@ -1,7 +1,7 @@
 // This is a class with client side updates.
 // Foundation for a log and also generating events.
 
-import { BaseCard, Point } from "./basecard";
+import { Card, Point } from "./card";
 import { Player } from "./player";
 import { Zone } from "./socketinterface";
 
@@ -43,12 +43,12 @@ export class EmptyUpdate extends Update {
 }
 
 export class CardMoved extends Update {
-    card: BaseCard;
+    card: Card;
     origin: Zone;
     dest: Zone;
     position: Point;
 
-    constructor(card: BaseCard, fromZone: Zone, toZone: Zone, position: Point = new Point(0,0)) {
+    constructor(card: Card, fromZone: Zone, toZone: Zone, position: Point = new Point(0,0)) {
         super();
         this.card = card;
         this.origin = fromZone;
@@ -96,11 +96,11 @@ export class CardMoved extends Update {
 }
 
 export class CardsMoved extends Update {
-    cards : BaseCard[];
+    cards : Card[];
     origin: Zone;
     dest: Zone;
 
-    constructor(first: BaseCard,  second : BaseCard, origin : Zone, dest: Zone) {
+    constructor(first: Card,  second : Card, origin : Zone, dest: Zone) {
         super();
         this.cards = [first, second];
         this.origin = origin;
@@ -138,11 +138,11 @@ export class TappedUntapped extends Update {
 }
 
 export class CardCreated extends Update {
-    card : BaseCard;
+    card : Card;
     // We only need one card and a number since we'll only duplicate cards with the same name
     cardsCreated : number;
 
-    constructor(card: BaseCard) {
+    constructor(card: Card) {
         super();
         this.card = card;
         this.cardsCreated = 1;
@@ -192,4 +192,25 @@ export class Message extends Update {
     describe(): string {
         return this.message;
     }
+}
+
+export class ResetBoard extends Update {
+    describe(): string {
+        throw new Error("Method not implemented.");
+    }
+
+}
+
+export class TurnOrder extends Update {
+    describe(): string {
+        throw new Error("Method not implemented.");
+    }
+
+}
+
+export class TurnChanged extends Update {
+    describe(): string {
+        throw new Error("Method not implemented.");
+    }
+    
 }
