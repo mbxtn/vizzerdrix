@@ -166,7 +166,6 @@ function initializePlayer(game, playerId, displayName) {
 io.on('connection', (socket) => {
     let room = null;
     let playerId = socket.id;
-    socket.on('joinGame', eventHandler.joinGameHandler);
     socket.on('join', (data) => {
         const { roomName, displayName, decklist, commanders } = data;
         if (!games[roomName]) {
