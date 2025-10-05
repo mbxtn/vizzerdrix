@@ -17,6 +17,8 @@ export class EventHandler {
                 if (result.status == "success") {
                     // If we joined successfully set the room name so it's easy to remember in the future
                     socket.data.roomName = room;
+                    socket.join(room);
+                    this.emitState(room);
                 }
                 onResult(result);
             });
@@ -25,6 +27,8 @@ export class EventHandler {
                 if (result.status == "success") {
                     // If we joined successfully set the room name so it's easy to remember in the future
                     socket.data.roomName = room;
+                    socket.join(room);
+                    this.emitState(room);
                 }
                 onResult(result);
             });
@@ -33,6 +37,7 @@ export class EventHandler {
                 // This is used for player initialization and game resets, or shuffling. It won't be reflected in the public game 
                 // logs in any way.
                 this.updateState(socket.data.roomName, player);
+                this.emitState(socket.data.roomName);
             });
         })
     }
@@ -49,6 +54,13 @@ export class EventHandler {
             return { status: 'error', message: "Client already exists" };
         } else {
             return { status: 'success', value: game };
+        }
+    }
+
+    emitState(room: string) {
+        let game = this.games.get(room);
+        if (game) {
+           this.io.to(room).emit("StateUpdate", game);
         }
     }
 

@@ -1113,7 +1113,7 @@ socket.on('state', async (state) => {
         console.log(`Cards status: ${cachedCards} cached, ${uncachedCards.length} need loading`);
         
         // Only show loading progress for loads with 3+ uncached cards that will take time
-        const showProgress = uncachedCards.length >= 3;
+        const showProgress = uncachedCards.length >= 100;
         
         if (showProgress) {
             showLoadingProgress();

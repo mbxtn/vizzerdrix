@@ -75,8 +75,14 @@ describe('Client Server Tests', () => {
     it('should update a state', () => {
         eventHandler.games.clear();
         return new Promise<void>((resolve) => {
+            client.addOnUpdateListener("test", (game) => {
+                resolve()
+                console.log("Inside my callback");
+            });
             client.joinGame("345", "456", ["vren"], ["swamp"]).then((game: Game) => {
-                console.log(game);
+                client.addOnUpdateListener("test", (game) => {
+                    console.log("Inside my callback");
+                })
                 let gameServer = eventHandler.games.get("456");
                 expect(gameServer).not.toBeNull();
                 if (!clientSocket.id) throw new Error("no clientsocket.id");
@@ -89,15 +95,10 @@ describe('Client Server Tests', () => {
                 serverSocket.on("updateState", () => {
                     if (!clientSocket.id) throw new Error("no clientsocket.id");
                     expect(eventHandler.games.get("456")?.players[clientSocket.id].name).toEqual("test");
-                    resolve();
                 });
             });
         }
         );
-    });
-
-    it('should update a card', () => {
-        eventHandler.games.clear();
     });
 });
 

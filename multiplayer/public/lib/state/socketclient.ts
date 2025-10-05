@@ -5,8 +5,18 @@ import { Player } from "./player";
 
 export class VdClient {
     socket: Socket<ServerToClientEvents, ClientToServerEvents>;
+    listeners: Map<string, (gameState : Game) => void> = new Map();
+
     constructor(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
         this.socket = socket;
+
+        this.socket.on("StateUpdate", (game: Game) => {
+            this.listeners.forEach(
+                (fn: (gameState : Game) => void) => {
+                    fn(game);
+                }
+            )
+        });
     }
 
     joinGame(name: string, roomName: string, commanders: string[], library: string[]): Promise<Game> {
@@ -40,6 +50,15 @@ export class VdClient {
 
     updateState(player: Player) {
         this.socket.emit("updateState", player);
+    }
+
+    // Add a subscriber to gamestate changes. 
+    addOnUpdateListener(name: string, fn : (gameState : Game) => void) {
+        this.listeners.set(name, fn);
+    }
+
+    remmoveOnUpdateListener(name: string) { 
+        this.listeners.delete(name);
     }
 }
 
