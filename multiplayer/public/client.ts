@@ -1,4 +1,4 @@
-import ScryfallCache from './lib/scryfallCache.js';
+import ScryfallCache from './lib/scryfallCache';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
 import onChange from 'on-change';

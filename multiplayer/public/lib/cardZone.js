@@ -1,4 +1,4 @@
-import ScryfallCache from './scryfallCache.js';
+import ScryfallCache from './scryfallCache.ts';
 import { createCardElement } from './cardFactory.js';
 
 export class CardZone {

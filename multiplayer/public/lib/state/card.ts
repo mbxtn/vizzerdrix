@@ -43,3 +43,13 @@ export interface CardFactory {
     createCardFromId(scryfallId: string) : Card;
     createCardFromName(name: string) : Card;
 }
+
+export class ScryfallCardFactory implements CardFactory {    
+    createCardFromId(scryfallId: string): Card {
+        throw new Error("Method not implemented.");
+    }
+    createCardFromName(name: string): Card {
+        throw new Error("Method not implemented.");
+    }
+    
+}

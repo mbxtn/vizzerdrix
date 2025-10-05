@@ -1,15 +1,29 @@
-// scryfallCache.js
+// scryfallCache.ts
 // Browser-compatible Scryfall card cache for local use
-// Usage: await ScryfallCache.load(['Black Lotus', 'Lightning Bolt'])
-//        const card = ScryfallCache.get('Black Lotus')
+// Usage: await ScryfallCache.getInstance().load(['Black Lotus', 'Lightning Bolt'])
+//        const card = ScryfallCache.getInstance().get('Black Lotus')
 
-const ScryfallCache = {
-    _cache: {},
-    _cardBackCache: {},
-    _cacheVersion: '1.0', // Version for cache invalidation if needed
+export class ScryfallCache {
+    private static instance: ScryfallCache;
+    
+    private _cache: any = {};
+    private _cardBackCache: any = {};
+    private readonly _cacheVersion: string = '1.0'; // Version for cache invalidation if needed
+
+    private constructor() {
+        // Initialize cache from localStorage when instance is created
+        this._initCache();
+    }
+
+    public static getInstance(): ScryfallCache {
+        if (!ScryfallCache.instance) {
+            ScryfallCache.instance = new ScryfallCache();
+        }
+        return ScryfallCache.instance;
+    }
 
     // Initialize cache from localStorage
-    _initCache() {
+    private _initCache(): void {
         try {
             const savedCache = localStorage.getItem('scryfallCache');
             const savedBackCache = localStorage.getItem('scryfallBackCache');
@@ -32,10 +46,10 @@ const ScryfallCache = {
             console.error('Error loading cache from localStorage:', error);
             this._clearLocalStorage();
         }
-    },
+    }
 
     // Save cache to localStorage
-    _saveCache() {
+    private _saveCache(): void {
         // Use setTimeout to make cache saving non-blocking
         setTimeout(() => {
             try {
@@ -48,17 +62,17 @@ const ScryfallCache = {
                 this._clearOldCacheEntries();
             }
         }, 0);
-    },
+    }
 
     // Clear localStorage cache
-    _clearLocalStorage() {
+    private _clearLocalStorage(): void {
         localStorage.removeItem('scryfallCache');
         localStorage.removeItem('scryfallBackCache');
         localStorage.removeItem('scryfallCacheVersion');
-    },
+    }
 
     // Clear old cache entries if storage is full
-    _clearOldCacheEntries() {
+    private _clearOldCacheEntries(): void {
         // Keep only the most recently used cards (simple approach)
         const cacheKeys = Object.keys(this._cache);
         if (cacheKeys.length > 500) { // Keep only 500 most recent cards
@@ -69,9 +83,9 @@ const ScryfallCache = {
             });
             this._saveCache();
         }
-    },
+    }
 
-    async load(cardNames, progressCallback = null) {
+    public async load(cardNames: string[], progressCallback: ((loaded: number, total: number, currentCard: string) => void) | null = null): Promise<void> {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
@@ -122,7 +136,7 @@ const ScryfallCache = {
                     let finalName = name;
                     let setCode = null;
                     if(setMatch) {
-                        setCode = setMatch[0].replaceAll(/\(|\)/g,"");
+                        setCode = setMatch[0].replace(/\(|\)/g,"");
                         finalName = name.split(setRegex)[0];
                     }
 
@@ -219,9 +233,9 @@ const ScryfallCache = {
             const cachedCount = uniqueNames.length - totalCards;
             progressCallback(uniqueNames.length, uniqueNames.length, `Loaded ${totalCards} new cards, ${cachedCount} from cache`);
         }
-    },
+    }
 
-    async _loadCardBack(cardId, cardName) {
+    private async _loadCardBack(cardId: string, cardName: string): Promise<void> {
         if (this._cardBackCache[cardName]) return;
         
         try {
@@ -234,17 +248,17 @@ const ScryfallCache = {
             console.error('Card back fetch error for', cardName, err);
             this._cardBackCache[cardName] = null;
         }
-    },
+    }
 
-    get(name) {
+    public get(name: string): any {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
         }
         return this._cache[name] || null;
-    },
+    }
 
-    getCardBack(name, forceDefault = false) {
+    public getCardBack(name: string, forceDefault: boolean = false): string {
         // If we want to force default (like for library cards), always return cardback.png
         if (forceDefault) {
             return './cardback.png';
@@ -264,23 +278,23 @@ const ScryfallCache = {
         
         // Default to our local card back image for single-faced cards
         return './cardback.png';
-    },
+    }
 
-    hasBackFace(name) {
+    public hasBackFace(name: string): boolean {
         const cardData = this._cache[name];
         return cardData && cardData.card_faces && cardData.card_faces.length > 1 && cardData.layout !== 'adventure';
-    },
+    }
 
-    getAll() {
+    public getAll(): any {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
         }
         return { ...this._cache };
-    },
+    }
 
     // Get cache statistics
-    getCacheStats() {
+    public getCacheStats(): { totalCards: number; totalBackImages: number; cacheVersion: string } {
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
         }
@@ -289,18 +303,18 @@ const ScryfallCache = {
             totalBackImages: Object.keys(this._cardBackCache).length,
             cacheVersion: this._cacheVersion
         };
-    },
+    }
 
     // Clear all cache (useful for debugging)
-    clearCache() {
+    public clearCache(): void {
         this._cache = {};
         this._cardBackCache = {};
         this._clearLocalStorage();
         console.log('Cache cleared');
-    },
+    }
 
     // Helper method to get the full name of a double-faced card
-    getFullCardName(searchName) {
+    public getFullCardName(searchName: string): string {
         // First check if we have it cached under the search name
         const cachedCard = this._cache[searchName];
         if (cachedCard) {
@@ -323,10 +337,10 @@ const ScryfallCache = {
         }
         
         return searchName; // Return original if no match found
-    },
+    }
 
     // Helper to check if a card name looks like it might be a partial double-faced card name or adventure
-    mightBePartialCard(name) {
+    public mightBePartialCard(name: string): boolean {
         // Simple heuristics - these are common single face names that are part of DFCs or adventures
         const commonDFCPatterns = [
             /^(Stump|Stomp)$/i,
@@ -347,36 +361,36 @@ const ScryfallCache = {
         
         return commonDFCPatterns.some(pattern => pattern.test(name)) ||
                commonAdventurePatterns.some(pattern => pattern.test(name));
-    },
+    }
 
     // Check if a card is an adventure card
-    isAdventureCard(name) {
+    public isAdventureCard(name: string): boolean {
         const cardData = this._cache[name];
         return cardData && cardData.layout === 'adventure';
-    },
+    }
 
     // Get the adventure spell name from an adventure card
-    getAdventureSpellName(name) {
+    public getAdventureSpellName(name: string): string | null {
         const cardData = this._cache[name];
         if (cardData && cardData.layout === 'adventure' && cardData.card_faces && cardData.card_faces.length > 1) {
             // Adventure spell is typically the second face
             return cardData.card_faces[1].name;
         }
         return null;
-    },
+    }
 
     // Get the creature name from an adventure card
-    getCreatureName(name) {
+    public getCreatureName(name: string): string | null {
         const cardData = this._cache[name];
         if (cardData && cardData.layout === 'adventure' && cardData.card_faces && cardData.card_faces.length > 1) {
             // Creature is typically the first face
             return cardData.card_faces[0].name;
         }
         return null;
-    },
+    }
 
     // Test function to verify double-faced card and adventure card resolution
-    async testCardResolution() {
+    public async testCardResolution(): Promise<void> {
         console.log('Testing double-faced card and adventure card resolution...');
         const testCards = [
             'Stump', 'Stomp', 'Stump Stomp //  Burnwillow Clearing', // DFC test
@@ -400,10 +414,10 @@ const ScryfallCache = {
                 console.log(`❌ Not found: "${cardName}"`);
             }
         }
-    },
+    }
 
     // Load cards by their Scryfall ID (extracted from URI)
-    async loadById(cardUri, cardName = null) {
+    public async loadById(cardUri: string, cardName: string | null = null): Promise<any> {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
@@ -462,17 +476,19 @@ const ScryfallCache = {
             }
             return null;
         }
-    },
+    }
 
     // Get card data by Scryfall ID
-    getById(cardId) {
+    public getById(cardId: string): any {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cache).length === 0) {
             this._initCache();
         }
         const cacheKey = `id:${cardId}`;
         return this._cache[cacheKey] || null;
-    },
-};
+    }
+}
 
-export default ScryfallCache;
+// Export both the class and a default instance for backward compatibility
+export const scryfallCache = ScryfallCache.getInstance();
+export default scryfallCache;
