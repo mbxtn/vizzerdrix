@@ -44,16 +44,27 @@ export interface CardFactory {
     createCardsFromIds(scryfallIds: string[]) : Card[];
     createCardsFromNames(scryfallIds: string[]) : Card[];
     loadCardsFromNames(names: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) : void;
+    loadCardsFromIds(names: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) : void;
 }
 
 export class ScryfallCardFactory implements CardFactory {
-    scryfallCache = ScryfallCache.getInstance()
+    playerId : string;
+    counter = 0;
+
+    constructor(playerId : string) {
+        this.playerId = playerId;
+    }
+
+    scryfallCache = ScryfallCache.getInstance();
 
     createCardsFromIds(scryfallIds: string[]): Card[] {
         let cards : Card[] = [];
         scryfallIds.forEach(
             id => {
-
+                let scryFallCard = this.scryfallCache.getById(id);
+                let name = scryFallCard?.name ?? "unnamed";
+                cards.push(new Card(this.playerId + this.counter, name, Zone.library, false, id));
+                ++this.counter;
             }
         )
         return  cards;
@@ -62,8 +73,10 @@ export class ScryfallCardFactory implements CardFactory {
     createCardsFromNames(names: string[]) : Card[] {
         let cards : Card[] = [];
         names.forEach(
-            id => {
-
+            name => {
+                let scryFallCard = this.scryfallCache.get(name);
+                cards.push(new Card(this.playerId + this.counter, name, Zone.library, false, scryFallCard?.id ?? ""));
+                ++this.counter;
             }
         )
         return  cards;
@@ -71,7 +84,9 @@ export class ScryfallCardFactory implements CardFactory {
 
     // Active step, but we can be a bit more agressive here, there's a progress callback but it typically shouldn't be used
     loadCardsFromIds(ids: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) {
-        
+        this.scryfallCache.load(ids, (loaded: number, total: number, currentCard: string) => {
+            progressCallback(loaded, total, currentCard);
+        }, true);
     }
 
     // Preload step, each client should only have to do this on their own cards
