@@ -1,12 +1,9 @@
-import ScryfallCache from './lib/scryfallCache';
+import ScryfallCache, { scryfallCache } from './lib/scryfallCache';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
 import onChange from 'on-change';
 import { io } from 'socket.io-client';
 import { GameState } from './lib/gameState.js';
-
-// Test that on-change is working
-console.log('✅ Successfully imported on-change library!');
 
 // Example usage of on-change (you can use this pattern for your game state)
 const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
@@ -430,64 +427,20 @@ function attemptRejoin(roomName, displayName) {
 }
 
 // Socket.IO event handlers
-joinBtn.addEventListener('click', () => {
+joinBtn?.addEventListener('click', async () => {
     const roomName = roomInput.value.trim();
     const displayName = displayNameInput.value.trim();
     const decklistRaw = decklistInput.value.trim();
     
     // Parse decklist into arrays of card names, separating commanders from library cards
-    const decklist = [];
-    const commanders = [];
+    const decklist : string[]= [];
+    const commanders : string[]= [];
     
     // Split by lines and handle empty lines to detect commander section
     const lines = decklistRaw.split('\n').map(line => line.trim());
     
-    // Find the last empty line to determine if there's a commander section
-    let lastEmptyLineIndex = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i] === '') {
-            lastEmptyLineIndex = i;
-            break;
-        }
-    }
-    
-    // Determine which lines are commanders vs library cards
-    const isCommanderSection = (index) => {
-        const line = lines[index];
-        
-        // Cards marked with (CMDR) are always commanders
-        if (/\(CMDR\)/i.test(line)) {
-            console.log(`Found (CMDR) marker in line: "${line}"`);
-            return true;
-        }
-        
-        // Cards marked with *CMDR* are also commanders (some formats use this)
-        if (/\*CMDR\*/i.test(line)) {
-            console.log(`Found *CMDR* marker in line: "${line}"`);
-            return true;
-        }
-        
-        // Cards in sections labeled "Commander" or "Commanders" (check previous lines for section headers)
-        for (let i = index - 1; i >= 0; i--) {
-            const prevLine = lines[i].toLowerCase().trim();
-            if (prevLine === '' && i < index - 1) break; // Stop at empty line that's not immediately before
-            if (/^commanders?:?\s*$/i.test(prevLine)) {
-                console.log(`Found commander section header "${lines[i]}" for line: "${line}"`);
-                return true;
-            }
-        }
-        
-        return false;
-    };
-    
     lines.forEach((line, index) => {
         if (!line) return; // Skip empty lines
-        
-        const isCommander = isCommanderSection(index);
-        
-        // Enhanced parsing to handle various formats:
-        // We do use fuzzy search which may or may not find the card if it uses another format.
-        // Moxfield: "1 Snow-Covered Wastes (MH3)
         
         let cardName, count;
         
@@ -513,16 +466,30 @@ joinBtn.addEventListener('click', () => {
         
         // Log parsing for debugging (only for first few cards to avoid spam)
         if (index < 10) {
-            console.log(`Parsed line "${line}" -> Count: ${count}, Name: "${cardName}", Commander: ${isCommander}`);
+            console.log(`Parsed line "${line}" -> Count: ${count}, Name: "${cardName}"`);
         }
         
         // Add the specified number of copies to the appropriate zone
-        const targetArray = isCommander ? commanders : decklist;
+        const targetArray = decklist;
         for (let i = 0; i < count; i++) {
             targetArray.push(cardName);
         }
     });
-    
+
+    showLoadingProgress();
+    try {
+        await ScryfallCache.load(decklist, (loaded, total, currentCard) => {
+            updateLoadingProgress(loaded, total, currentCard);
+        });
+        console.log('Finished loading card images');
+    } catch (error) {
+        console.error('Error loading card images:', error);
+        showMessage('Some card images failed to load. The game will continue with placeholders.');
+    } finally {
+        // Hide loading progress modal
+        hideLoadingProgress();
+    }
+
     // Log parsing summary
     console.log(`Decklist parsing complete: ${decklist.length} library cards, ${commanders.length} commanders`);
     if (commanders.length > 0) {
@@ -1122,13 +1089,6 @@ socket.on('state', async (state) => {
         try {
             await ScryfallCache.load(cardNamesArray, showProgress ? (loaded, total, currentCard) => {
                 updateLoadingProgress(loaded, total, currentCard);
-                
-                // If all cards were cached, hide the progress quickly
-                if (currentCard && currentCard.includes('already loaded from cache')) {
-                    setTimeout(() => {
-                        hideLoadingProgress();
-                    }, 500); // Show briefly then hide
-                }
             } : null);
             console.log('Finished loading card images');
         } catch (error) {
@@ -1722,41 +1682,16 @@ function showMessage(message) {
 }
 
 // Loading progress functions
-let loadingModalTimeout = null;
-
 function showLoadingProgress() {
-    // Only show the modal if we have the elements and loading will take a moment
-    if (loadingModal) {
-        // Clear any existing timeout
-        if (loadingModalTimeout) {
-            clearTimeout(loadingModalTimeout);
-        }
-        
-        // Show modal after a short delay to avoid flashing for quick loads
-        loadingModalTimeout = setTimeout(() => {
-            loadingModal.classList.remove('hidden');
-            loadingProgressBar.style.width = '0%';
-            loadingProgressText.textContent = 'Preparing to load cards...';
-            loadingCurrentCard.textContent = '';
-        }, 200); // 200ms delay
-    }
-}
-
-function updateLoadingProgress(loaded, total, currentCard) {
-    // Clear the delay timeout since we're definitely loading
-    if (loadingModalTimeout) {
-        clearTimeout(loadingModalTimeout);
-        loadingModalTimeout = null;
-    }
-    
-    // Show modal immediately if not already shown
-    if (loadingModal && loadingModal.classList.contains('hidden')) {
+    if (loadingModal && loadingProgressBar && loadingProgressText && loadingCurrentCard) {
         loadingModal.classList.remove('hidden');
         loadingProgressBar.style.width = '0%';
         loadingProgressText.textContent = 'Preparing to load cards...';
         loadingCurrentCard.textContent = '';
     }
-    
+}
+
+function updateLoadingProgress(loaded, total, currentCard) {
     if (loadingModal && !loadingModal.classList.contains('hidden')) {
         const percentage = Math.round((loaded / total) * 100);
         loadingProgressBar.style.width = `${percentage}%`;
@@ -1781,12 +1716,6 @@ function updateLoadingProgress(loaded, total, currentCard) {
 }
 
 function hideLoadingProgress() {
-    // Clear any pending timeout
-    if (loadingModalTimeout) {
-        clearTimeout(loadingModalTimeout);
-        loadingModalTimeout = null;
-    }
-    
     if (loadingModal) {
         loadingModal.classList.add('hidden');
     }
