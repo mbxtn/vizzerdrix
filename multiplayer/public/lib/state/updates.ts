@@ -2,7 +2,6 @@
 // Foundation for a log and also generating events.
 
 import { Card, Point } from "./card";
-import { Player } from "./player";
 import { Zone } from "./socketinterface";
 
 // Updates are really for logging, not for managing state. We aren't really shooting for reliability or server side validation

@@ -57,6 +57,7 @@ export class Player {
         this.gameLog = gameLog;
     }
 
+
     // resets cards with new ids and in the correct zone
     createDeck(cardFactory: CardFactory) {
         // Delete all objects in the original array
