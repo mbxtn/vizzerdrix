@@ -21,10 +21,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEve
 
 const eventHandler = new EventHandler(io);
 
-io.on("connection", socket => {
-    socket.on("joinGame", eventHandler.joinGame)
-})
-
 // Serve static files - use dist in production, public in development
 const isProduction = process.env.NODE_ENV === 'production';
 const staticPath = isProduction ? join(__dirname, 'dist') : join(__dirname, 'public');

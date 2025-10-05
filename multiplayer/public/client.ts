@@ -3,7 +3,8 @@ import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.
 import { CardZone } from './lib/cardZone.js';
 import onChange from 'on-change';
 import { io } from 'socket.io-client';
-import { GameState } from './lib/gameState.js';
+import { VdClient } from './lib/state/socketclient';
+import { Game } from './lib/state/game';
 
 // Example usage of on-change (you can use this pattern for your game state)
 const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
@@ -53,9 +54,9 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
 }
 
 const socket = io();
+let vdClient = new VdClient(socket);
 let room = null;
 let playerId = null;
-let newGameState = null;
 let gameState = onChange({}, () => {console.log('Game state updated');});
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
@@ -491,32 +492,9 @@ joinBtn?.addEventListener('click', async () => {
     }
 
     // Log parsing summary
-    console.log(`Decklist parsing complete: ${decklist.length} library cards, ${commanders.length} commanders`);
-    if (commanders.length > 0) {
-        console.log('Commanders found:', commanders);
-    }
-    
-    if (roomName && displayName && (decklist.length > 0 || commanders.length > 0)) {
-        console.log('Final check before join:', { commanders: commanders.length, decklist: decklist.length });
-        // Check if commanders were detected automatically
-        if (commanders.length === 0 && decklist.length > 0) {
-            // No commanders found - show selection modal
-            console.log('No commanders detected automatically, showing selection modal');
-            showCommanderSelectionModal([...decklist], roomName, displayName);
-        } else {
-            // Commanders found or no cards at all - proceed normally
-            console.log('Commanders detected or no cards, proceeding with join');
-            // Save game info for potential future rejoins
-            localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
-                roomName,
-                displayName,
-                timestamp: Date.now()
-            }));
-            
-            // Emit join event for new players
-            socket.emit('join', { roomName, displayName, decklist, commanders });
-            showMessage("Joining Vizzerdrix game...");
-        }
+    console.log(`Decklist parsing complete: ${decklist.length} library cards`);
+    if (roomName && displayName && decklist.length > 0) {
+        showCommanderSelectionModal([...decklist], roomName, displayName);
     } else {
         showMessage("Please enter a room name, display name, and at least one card in your decklist.");
     }
@@ -644,12 +622,12 @@ function updateSelectedCommandersCount() {
 }
 
 function processCommanderSelection() {
-    const decklist = [];
-    const commanders = [];
+    const decklist : string[] = [];
+    const commanders : string[] = [];
     
     // Group identical card names and show counts while preserving order
     const cardCounts = {};
-    const uniqueCardOrder = []; // Track the order cards first appear
+    const uniqueCardOrder : string[] = []; // Track the order cards first appear
     pendingDecklistForCommander.forEach(cardName => {
         if (!cardCounts[cardName]) {
             cardCounts[cardName] = 0;
@@ -699,6 +677,12 @@ function processCommanderSelection() {
         decklist, 
         commanders 
     });
+
+    vdClient.joinGame(pendingDisplayName, pendingRoomName, commanders, decklist).then( (game: Game) => {
+        console.log("Joined game");
+    }, (reason: any) => {
+        console.log("Failed to join game");
+    });
     showMessage("Joining Vizzerdrix game...");
     
     // Hide the modal
@@ -711,12 +695,6 @@ socket.on('connect', () => {
     activePlayZonePlayerId = socket.id;
     console.log('Client connected. Player ID:', playerId);
     
-    // Clear ALL stale local state from previous sessions
-    newGameState = new GameState(playerId, socket); // Reset newGameState instance
-    newGameState.addListener('update', () => {
-        console.log('GameState updated event fired');
-    });
-
     gameState = onChange({}, stateUpdated); 
     hand = [];
     library = [];
@@ -851,8 +829,6 @@ socket.on('disconnect', (reason) => {
 });
 
 socket.on('state', async (state) => {    
-    newGameState.updateFromServer(state);
-
     // Check if state has actually changed
     const stateChanged = !gameState || JSON.stringify(gameState) !== JSON.stringify(state);
     
@@ -1245,8 +1221,6 @@ resetBtnModal.addEventListener('click', () => {
     // Collect all non-commander cards from hand, playZone, graveyard, and exile
     let allNonCommanderCards = [];
     let commanderCards = [];
-
-    newGameState.resetGame();
 
     // Process cards from hand
     hand.forEach(card => {
