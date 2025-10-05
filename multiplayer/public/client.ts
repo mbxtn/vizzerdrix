@@ -15,11 +15,11 @@ const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value
 window.gameSettings = gameSettings; // Expose for testing in console
 
 // Cache for heart SVG content
-let heartSVGContent = null;
+let heartSVGContent = "";
 
 // Load heart SVG content
 async function loadHeartSVG() {
-    if (heartSVGContent) return heartSVGContent;
+    if (heartSVGContent !== "") return heartSVGContent;
     
     try {
         const response = await fetch('./icons/heart.svg');
