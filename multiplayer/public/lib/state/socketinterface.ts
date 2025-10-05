@@ -17,6 +17,9 @@ export interface ClientToServerEvents {
     updateState: (player: Player) => void;
     // Set turn order
     setTurnOrder: () => void;
+
+    // Allow players to check if they can rejoin an old room.
+    canRejoin: (identifier: string, roomName: string, onResult: (e: boolean) => void) => void;
 }
 
 export interface InterServerEvents {

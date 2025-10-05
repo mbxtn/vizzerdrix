@@ -63,20 +63,20 @@ export class Player {
         Object.keys(this.cards).forEach( key => delete this.cards[key]);
 
         // Put all Commanders in the command zone
-        this.commanders.forEach(
-            name => {
-                let card = cardFactory.createCardFromName(name);
-                card.zone = Zone.command;
-                this.cards[card.id] =  card;
+        let commanders = cardFactory.createCardsFromNames(this.commanders);
+        commanders.forEach(
+            commander => {
+                this.cards[commander.id] = commander;
+                commander.zone = Zone.command;
             }
         )
 
         // Put the rest in the library
-        this.library.forEach(
-            name => {
-                let card = cardFactory.createCardFromName(name);
+        let library = cardFactory.createCardsFromNames(this.library);
+        library.forEach(
+            card => {
+                this.cards[card.id] = card;
                 card.zone = Zone.library;
-                this.cards[card.id] =  card;
             }
         )
     }

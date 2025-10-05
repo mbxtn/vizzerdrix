@@ -13,6 +13,7 @@
     "deploy": "npm run build:full && npm run start:prod"
   },
   "dependencies": {
+    "@scryfall/api-types": "^1.0.0-alpha.4",
     "express": "^5.1.0",
     "idb": "^8.0.3",
     "idb-keyval": "^6.2.2",

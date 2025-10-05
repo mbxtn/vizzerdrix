@@ -1,9 +1,10 @@
 import { Update } from "./updates";
-import { Zone } from "./socketinterface";
+import { StatusOr, Zone } from "./socketinterface";
+import { ScryfallCache } from "../scryfallCache";
 
 export class Card {
     readonly cardName: string;
-    readonly scryfallId: string;
+    readonly scryfallId: string; // If empty that means this wasn't found on creation, don't bother trying to find it
     readonly commander: boolean;
 
     // We should generate a new id rather than duplicate
@@ -18,10 +19,10 @@ export class Card {
     flipped: boolean;
     counters = 0;
 
-    constructor(id: string, name: string, zone: Zone = Zone.library, isCommander = false) {
+    constructor(id: string, name: string, zone: Zone = Zone.library, isCommander = false, scryfallId: string = "") {
         this.cardName = name;
         this.id = id;
-        this.scryfallId = "";
+        this.scryfallId = scryfallId;
         this.zone = zone;
         this.tapped = false;
         this.flipped = false;
@@ -40,16 +41,44 @@ export class Point {
 }
 
 export interface CardFactory {
-    createCardFromId(scryfallId: string) : Card;
-    createCardFromName(name: string) : Card;
+    createCardsFromIds(scryfallIds: string[]) : Card[];
+    createCardsFromNames(scryfallIds: string[]) : Card[];
+    loadCardsFromNames(names: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) : void;
 }
 
-export class ScryfallCardFactory implements CardFactory {    
-    createCardFromId(scryfallId: string): Card {
-        throw new Error("Method not implemented.");
+export class ScryfallCardFactory implements CardFactory {
+    scryfallCache = ScryfallCache.getInstance()
+
+    createCardsFromIds(scryfallIds: string[]): Card[] {
+        let cards : Card[] = [];
+        scryfallIds.forEach(
+            id => {
+
+            }
+        )
+        return  cards;
     }
-    createCardFromName(name: string): Card {
-        throw new Error("Method not implemented.");
+
+    createCardsFromNames(names: string[]) : Card[] {
+        let cards : Card[] = [];
+        names.forEach(
+            id => {
+
+            }
+        )
+        return  cards;
+    }
+
+    // Active step, but we can be a bit more agressive here, there's a progress callback but it typically shouldn't be used
+    loadCardsFromIds(ids: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) {
+        
+    }
+
+    // Preload step, each client should only have to do this on their own cards
+    loadCardsFromNames(names: string[], progressCallback: (loaded: number, total: number, currentCard: string) => void) {
+        this.scryfallCache.load(names, (loaded: number, total: number, currentCard: string) => {
+            progressCallback(loaded, total, currentCard);
+        }); 
     }
     
 }
