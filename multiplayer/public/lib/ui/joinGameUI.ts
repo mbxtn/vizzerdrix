@@ -9,10 +9,10 @@
  * - Transition to game UI
  */
 
-import { CommanderSelectionModal } from './commanderSelectionModal.js';
-import { scryfallCache } from '../scryfallCache.js';
-import type { Game } from '../state/game.js';
-import type { Player } from '../state/player.js';
+import { CommanderSelectionModal } from './commanderSelectionModal';
+import { scryfallCache } from '../scryfallCache';
+import type { Game } from '../state/game';
+import type { Player } from '../state/player';
 
 export class JoinGameUI {
     private socket: any;

@@ -1,7 +1,7 @@
 import { Card } from '../state/card.js';
 import { Zone } from '../state/socketinterface.js';
 
-export interface DOMCardElementOptions {
+export type DOMCardElementOptions = {
     isMagnifyEnabled?: boolean;
     isInteractable?: boolean;
     onCardClick?: (card: Card, element: HTMLElement) => void;
@@ -14,7 +14,7 @@ export interface DOMCardElementOptions {
     isReverseGhost?: boolean;
     playerSelections?: { [playerId: string]: string[] };
     playerColors?: { [playerId: string]: string };
-}
+};
 
 /**
  * Manages a DOM element representation of a Card state object.

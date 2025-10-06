@@ -10,7 +10,7 @@ import { Card, ScryfallCardFactory } from './lib/state/card';
 import { Zone } from './lib/state/socketinterface';
 import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
 import { JoinGameUI } from './lib/ui/joinGameUI.js';
-import { DOMCardManager } from './lib/ui/index.js';
+import { DOMCardManager } from './lib/ui/domCardManager.js';
 
 // Cache for heart SVG content
 let heartSVGContent = "";
@@ -124,6 +124,10 @@ let selectionBox = null;
 let startX = 0;
 let startY = 0;
 let justSelectedByDrag = false;
+
+// Drag state
+let draggedCards: string[] = [];
+let dragSourceZone: Zone | null = null;
 
 // Multi-player selection tracking
 let allPlayerSelections = {}; // { playerId: [cardIds] }
@@ -1437,20 +1441,20 @@ async function render() {
         playerZoneEl.id = `play-zone-${pid}`;
         playerZoneEl.className = 'play-zone relative';
         
-        // Get player's battlefield data
-        const playerZoneData = pidPlayer.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
+        // Get player's battlefield data directly as Card objects
+        const playerBattlefieldCards = pidPlayer.getZone(Zone.battlefield);
         
         // Calculate the minimum size needed to contain all cards
         let minWidth = 100; // Very minimal default
         let minHeight = 100;
         
-        if (playerZoneData.length > 0) {
+        if (playerBattlefieldCards.length > 0) {
             let maxX = 0;
             let maxY = 0;
             
-            playerZoneData.forEach(cardData => {
-                const cardRight = (cardData.x || 0) + currentCardWidth;
-                const cardBottom = (cardData.y || 0) + (currentCardWidth * 120/90); // Card height
+            playerBattlefieldCards.forEach(card => {
+                const cardRight = card.location.x + currentCardWidth;
+                const cardBottom = card.location.y + (currentCardWidth * 120/90); // Card height
                 maxX = Math.max(maxX, cardRight);
                 maxY = Math.max(maxY, cardBottom);
             });
@@ -1469,27 +1473,40 @@ async function render() {
         if (pid !== activePlayZonePlayerId) {
             playerZoneEl.style.display = 'none';
         }
-        
-        playerZoneData.forEach(cardData => {
-            const isOwnCard = (pid === activePlayZonePlayerId && pid === playerId);
-            const cardEl = createCardElement(cardData, 'play', {
-                isMagnifyEnabled: isMagnifyEnabled,
-                isInteractable: isOwnCard, // Only allow full interactability for own cards
-                onCardClick: handleCardClick, // Always allow clicking for selection
-                onCardDblClick: isOwnCard ? handleCardDoubleClick : null, // Only allow double-click on own cards
-                onCardDragStart: isOwnCard ? handleCardDragStart : null, // Only allow dragging own cards
-                onCounterClick: isOwnCard ? handleCounterClick : null, // Only allow counter interactions on own cards
-                onTouchRelease: allowInteractions ? handleTouchRelease : null,
-                showBack: cardData.faceShown === 'back',
-                playerSelections: allPlayerSelections,
-                playerColors: playerColors
-            });
-            cardEl.style.position = 'absolute';
-            cardEl.style.left = `${cardData.x}px`;
-            cardEl.style.top = `${cardData.y}px`;
-            cardEl.style.transform = `rotate(${cardData.rotation || 0}deg)`;
-            cardEl.style.zIndex = '10'; // Ensure regular cards appear above ghost cards
-            playerZoneEl.appendChild(cardEl);
+
+        // Use DOMCardManager to render battlefield cards
+        const isOwnCards = (pid === activePlayZonePlayerId && pid === playerId);
+        const battlefieldOptions = {
+            isMagnifyEnabled: isMagnifyEnabled,
+            isInteractable: isOwnCards, // Only allow full interactability for own cards
+            onCardClick: handleCardClick_New, // Use new Card-based handler
+            onCardDblClick: isOwnCards ? handleCardDoubleClick_New : undefined, // Only allow double-click on own cards
+            onCardDragStart: isOwnCards ? handleCardDragStart_New : undefined, // Only allow dragging own cards
+            onCounterClick: undefined, // TODO: Create counter handler
+            onTouchRelease: undefined, // TODO: Create touch handler
+            showBack: false, // TODO: Handle card face state from card.flipped
+            playerSelections: allPlayerSelections,
+            playerColors: playerColors
+        };
+
+        // Render cards using DOMCardManager
+        const domCards = cardManager.renderCardsToContainer(
+            playerBattlefieldCards, 
+            playerZoneEl, 
+            Zone.battlefield, 
+            battlefieldOptions
+        );
+
+        // Apply positioning and styling for battlefield cards
+        domCards.forEach(domCard => {
+            const card = domCard.getCard();
+            const element = domCard.getElement();
+            
+            element.style.position = 'absolute';
+            element.style.left = `${card.location.x}px`;
+            element.style.top = `${card.location.y}px`;
+            element.style.transform = `rotate(${card.tapped ? 90 : 0}deg)`;
+            element.style.zIndex = '10'; // Ensure regular cards appear above ghost cards
         });
         
         // Add ghost cards if ghost mode is enabled and we're viewing another player's battlefield
@@ -2464,6 +2481,107 @@ let currentCardSpacing = 0; // Default spacing (0 = no gap, negative = overlap)
 // Cache for shuffled other players' libraries to avoid re-shuffling on every render
 let shuffledLibraryCache = new Map();
 
+// New event handlers for DOMCardElement callbacks
+function handleCardClick_New(card: Card, element: HTMLElement) {
+    // Close both context menus when clicking on any card
+    hideCardContextMenu();
+    hideBottomBarContextMenu();
+    
+    // Allow selection of any card, but only allow full interaction with own cards
+    const zone = card.zone;
+    const isOwnCard = (zone === Zone.hand) || (zone === Zone.battlefield && activePlayZonePlayerId === playerId);
+    
+    // Update player's selected cards (using the new Player.selectedCards)
+    if (!player) return;
+    
+    // Handle multi-selection with Ctrl key
+    const isCtrlPressed = false; // TODO: Add event parameter to get ctrl state
+    
+    if (isCtrlPressed) {
+        // Toggle selection
+        const index = player.selectedCards.indexOf(card.id);
+        if (index > -1) {
+            player.selectedCards.splice(index, 1);
+        } else {
+            player.selectedCards.push(card.id);
+        }
+    } else {
+        // Single selection
+        player.selectedCards.length = 0; // Clear array
+        player.selectedCards.push(card.id);
+    }
+    
+    // Update visual selection state through DOMCardManager
+    cardManager.updateSelections(player.selectedCards, allPlayerSelections, playerColors);
+    
+    // Send selection update to server
+    debouncedSendSelectionUpdate();
+}
+
+function handleCardDoubleClick_New(card: Card, element: HTMLElement) {
+    // Only allow double-click interactions on own cards
+    const zone = card.zone;
+    const isOwnCard = (zone === Zone.hand) || (zone === Zone.battlefield && activePlayZonePlayerId === playerId);
+    if (!isOwnCard) return;
+    
+    console.log('Double click detected:', { cardId: card.id, cardName: card.cardName, zone: Zone[zone] });
+    
+    if (zone === Zone.battlefield) {
+        // Double-click on battlefield cards to tap/untap them
+        card.tapped = !card.tapped;
+        
+        // Update the DOM element rotation
+        const domCard = cardManager.getCardElement(card.id);
+        if (domCard) {
+            domCard.setRotation(card.tapped ? 90 : 0);
+        }
+        
+        // Update server state
+        debouncedSendMove();
+    } else if (zone === Zone.hand) {
+        // Double-click on hand cards to play them to battlefield
+        // Move card from hand to battlefield
+        card.zone = Zone.battlefield;
+        card.location.x = 100; // Default position
+        card.location.y = 100;
+        card.tapped = false;
+        
+        // Update server state
+        debouncedSendMove();
+        
+        // Trigger re-render to update card positions
+        debouncedRender();
+    }
+}
+
+function handleCardDragStart_New(card: Card, element: HTMLElement, event: DragEvent) {
+    // Only allow dragging own cards
+    const zone = card.zone;
+    const isOwnCard = (zone === Zone.hand) || (zone === Zone.battlefield && activePlayZonePlayerId === playerId);
+    if (!isOwnCard) {
+        event.preventDefault();
+        return;
+    }
+    
+    // If this card is not selected, select it
+    if (!player?.selectedCards.includes(card.id)) {
+        player?.selectedCards.length && (player.selectedCards.length = 0);
+        player?.selectedCards.push(card.id);
+        cardManager.updateSelections(player?.selectedCards || [], allPlayerSelections, playerColors);
+    }
+    
+    // Set up drag data
+    event.dataTransfer?.setData('text/plain', JSON.stringify({
+        cardIds: player?.selectedCards || [card.id],
+        sourceZone: Zone[zone]
+    }));
+    
+    // Store drag state for later use
+    draggedCards = player?.selectedCards || [card.id];
+    dragSourceZone = zone;
+}
+
+// Legacy event handlers (keeping for compatibility during transition)
 // Card interaction callbacks for the cardFactory
 function handleCardClick(e, card, cardEl, location) {
     e.stopPropagation();
