@@ -481,13 +481,6 @@ socket.on('connect', () => {
     // Auto-fill of saved game info is now handled by JoinGameUI class
 });
 
-// Handle successful join
-socket.on('joinSuccess', (data) => {
-    console.log('Successfully joined game:', data);
-    room = data.roomName; // Store the room name
-    showMessage(`Welcome to Vizzerdrix! Joined room: ${data.roomName}`);
-});
-
 // Handle successful rejoin
 socket.on('rejoinSuccess', (data) => {
     console.log('Successfully rejoined game:', data);
