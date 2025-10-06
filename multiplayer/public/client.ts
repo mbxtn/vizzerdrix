@@ -10,6 +10,7 @@ import { Card, ScryfallCardFactory } from './lib/state/card';
 import { Zone } from './lib/state/socketinterface';
 import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
 import { JoinGameUI } from './lib/ui/joinGameUI.js';
+import { DOMCardManager } from './lib/ui/index.js';
 
 // Cache for heart SVG content
 let heartSVGContent = "";
@@ -57,6 +58,7 @@ let vdClient = new VdClient(socket);
 let commanderModal = new CommanderSelectionModal(vdClient);
 let joinGameUI = new JoinGameUI(socket, commanderModal);
 let settingsManager = new SettingsManager();
+let cardManager = new DOMCardManager(); // DOM Card management system
 let room: string | null = null;
 let playerId: string | null = null;
 // Gamewide State, managed by the state classes
