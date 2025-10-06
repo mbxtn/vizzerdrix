@@ -139,6 +139,21 @@ body {
     background-position: 0 0; /* Reset to see actual alignment */
 }
 
+/* Battlefield container should only scroll when content overflows */
+#play-zones-container {
+    /* Remove default overflow behavior and let content determine scroll needs */
+    overflow: visible;
+    min-height: 0; /* Allow container to shrink */
+    height: 100%; /* Take full available height */
+}
+
+/* Individual play zones should handle their own overflow */
+.play-zone {
+    overflow: auto; /* Only scroll when content exceeds the zone size */
+    min-height: 200px; /* Minimum usable space */
+    position: relative;
+}
+
 /* Remove battlefield label from container - will use dedicated overlay */
 #play-zones-container::before {
     display: none;

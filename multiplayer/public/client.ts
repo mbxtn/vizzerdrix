@@ -1302,9 +1302,21 @@ function handleCardDoubleClick_New(card: Card, event: MouseEvent) {
     console.log('Card double-clicked:', card.cardName);
 }
 
-function handleCardDragStart_New(card: Card, event: DragEvent) {
-    // TODO: Implement modern card drag handling
+function handleCardDragStart_New(card: Card, element: HTMLElement, event: DragEvent) {
     console.log('Card drag started:', card.cardName);
+    
+    // Store drag information
+    draggedCards = [card.id];
+    dragSourceZone = card.zone;
+    
+    // Set transfer data for drop handling
+    if (event.dataTransfer) {
+        event.dataTransfer.setData('application/json', JSON.stringify({
+            cardIds: [card.id],
+            sourceZone: card.zone
+        }));
+        event.dataTransfer.effectAllowed = 'move';
+    }
 }
 
 // Card spacing and size functions (preserved from legacy)

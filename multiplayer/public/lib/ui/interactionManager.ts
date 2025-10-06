@@ -290,8 +290,51 @@ export class InteractionManager {
         let x = 0, y = 0;
         if (targetZone === 'battlefield') {
             const rect = dropElement.getBoundingClientRect();
-            x = event.clientX - rect.left;
-            y = event.clientY - rect.top;
+            
+            // Get current card width for centering calculation
+            const computedStyle = getComputedStyle(document.documentElement);
+            const cardWidth = parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+            const cardHeight = cardWidth * (107 / 80); // Magic card aspect ratio
+            
+            // Get container padding and borders
+            const containerStyle = getComputedStyle(dropElement);
+            const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+            const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
+            const borderLeft = parseFloat(containerStyle.borderLeftWidth) || 0;
+            const borderTop = parseFloat(containerStyle.borderTopWidth) || 0;
+            
+            // Account for container scroll position
+            const scrollLeft = dropElement.scrollLeft || 0;
+            const scrollTop = dropElement.scrollTop || 0;
+            
+            // Calculate position relative to drop element content area, centered on cursor
+            x = event.clientX - rect.left - paddingLeft - borderLeft + scrollLeft - (cardWidth / 2);
+            y = event.clientY - rect.top - paddingTop - borderTop - scrollTop - (cardHeight / 2);
+            
+            // Calculate the content area dimensions
+            const contentWidth = rect.width - paddingLeft - parseFloat(containerStyle.paddingRight || '0') - borderLeft - parseFloat(containerStyle.borderRightWidth || '0');
+            const contentHeight = rect.height - paddingTop - parseFloat(containerStyle.paddingBottom || '0') - borderTop - parseFloat(containerStyle.borderBottomWidth || '0');
+            
+            // Ensure the card doesn't go outside the content area bounds
+            x = Math.max(0, Math.min(x, contentWidth - cardWidth));
+            y = Math.max(0, Math.min(y, contentHeight - cardHeight));
+            
+            console.log('Drop positioning debug:', {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                rectLeft: rect.left,
+                rectTop: rect.top,
+                paddingLeft,
+                paddingTop,
+                borderLeft,
+                borderTop,
+                scrollLeft,
+                scrollTop,
+                cardWidth,
+                cardHeight,
+                finalX: x,
+                finalY: y
+            });
         }
         
         // Move cards from source to target zone

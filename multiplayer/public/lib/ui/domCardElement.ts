@@ -382,4 +382,54 @@ export class DOMCardElement {
         }
         this.element = newElement;
     }
+
+    /**
+     * Handle drag start - create proper drag image and center it
+     */
+    private handleDragStart(event: DragEvent): void {
+        // Get current card width from CSS variable
+        const computedStyle = getComputedStyle(document.documentElement);
+        const currentCardWidth = parseInt(computedStyle.getPropertyValue('--card-width')) || 80;
+        
+        // Create custom drag image
+        const customDragImage = this.createCustomDragImage(currentCardWidth);
+        
+        // Set the custom drag image, centered on cursor
+        const cardHeight = currentCardWidth * (107 / 80); // Magic the Gathering card aspect ratio
+        event.dataTransfer?.setDragImage(customDragImage, currentCardWidth / 2, cardHeight / 2);
+        
+        // Clean up the temporary drag image after drag operation starts
+        setTimeout(() => {
+            if (customDragImage && customDragImage.parentNode) {
+                customDragImage.parentNode.removeChild(customDragImage);
+            }
+        }, 1);
+    }
+
+    /**
+     * Create a custom drag image for the card
+     */
+    private createCustomDragImage(currentCardWidth: number): HTMLElement {
+        // Create a clone of the card element
+        const dragImage = this.element.cloneNode(true) as HTMLElement;
+
+        // Force the drag image to use the current card width
+        const cardHeight = currentCardWidth * (107 / 80);
+        dragImage.style.width = `${currentCardWidth}px`;
+        dragImage.style.height = `${cardHeight}px`;
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-9999px'; // Hide it off-screen
+        dragImage.style.left = '-9999px';
+        dragImage.style.pointerEvents = 'none';
+        dragImage.style.opacity = '0.9'; // Make it slightly transparent
+        dragImage.style.zIndex = '999999';
+
+        // Override CSS variables for this specific element
+        dragImage.style.setProperty('--card-width', `${currentCardWidth}px`);
+
+        // Add to document temporarily
+        document.body.appendChild(dragImage);
+
+        return dragImage;
+    }
 }
