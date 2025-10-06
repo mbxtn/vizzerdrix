@@ -211,14 +211,6 @@ export class CommanderSelectionModal {
             console.log('Selected commanders:', commanders);
         }
 
-        // TODO: Remove this Emit join event, once we've moved to the new interface. 
-        this.vdClient.socket.emit('join', {
-            roomName: this.pendingRoomName,
-            displayName: this.pendingDisplayName,
-            decklist,
-            commanders
-        });
-
         // Save game info for potential future rejoins
         localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
             roomName: this.pendingRoomName,

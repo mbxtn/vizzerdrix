@@ -875,6 +875,7 @@ joinGameUI.setCallbacks({
         console.log("Joined game");
         game = joinedGame;
         player = joinedPlayer;
+        room = game.roomName; // Store the room name
         console.log(player);
     },
     showMessage: showMessage
