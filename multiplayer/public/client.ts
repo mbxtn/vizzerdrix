@@ -35,7 +35,15 @@ async function loadHeartSVG() {
 }
 
 // Helper function to create heart icon with specific styling
-function createHeartIcon(size = '14px', color = '#ef4444') {
+async function createHeartIcon(size = '14px', color = '#ef4444') {
+    // Ensure SVG content is loaded
+    await loadHeartSVG();
+    
+    if (!heartSVGContent) {
+        // Fallback if loading failed
+        return `<img src="./icons/heart.svg" alt="♥" style="width: ${size}; height: ${size}; filter: hue-rotate(0deg) saturate(2) brightness(0.8);">`;
+    }
+    
     const parser = new DOMParser();
     const doc = parser.parseFromString(heartSVGContent, 'image/svg+xml');
     const svg = doc.querySelector('svg');
@@ -1268,7 +1276,360 @@ function markClientAction(action, cardId = null) {
     }, 2000);
 }
 
+// New clean render function using state classes
 async function render() {
+    console.log('New render called at:', new Date().toISOString());
+    
+    // Early exit if not ready
+    if (!game || !player || !cardManager) {
+        console.log('Render aborted: missing dependencies');
+        return;
+    }
+    
+    // Debounce render calls
+    if (renderTimeout) {
+        clearTimeout(renderTimeout);
+    }
+    
+    if (isRendering) {
+        renderTimeout = setTimeout(render, 16);
+        return;
+    }
+    
+    isRendering = true;
+    
+    try {
+        // Render all zones using new state system
+        await renderAllZones();
+        
+    } catch (error) {
+        console.error('Render error:', error);
+    } finally {
+        isRendering = false;
+    }
+}
+
+// Complete new zone rendering using state classes
+async function renderAllZones() {
+    if (!game || !cardManager) return;
+    
+    console.log('Rendering all zones with new system');
+    console.log('Current game state:', {
+        players: Object.keys(game.players),
+        activePlayZonePlayerId,
+        playerId,
+        playerExists: player ? 'yes' : 'no'
+    });
+    
+    // Render player tabs first (await since it's now async)
+    await updatePlayerUI();
+    
+    // Render battlefield
+    await renderBattlefield();
+    
+    // Render hand
+    await renderHand();
+    
+    // Render other zones (library, graveyard, etc.)
+    await renderOtherZones();
+}
+
+async function renderHand() {
+    if (!player) return;
+    
+    const handZoneEl = document.getElementById('hand-zone');
+    if (!handZoneEl) return;
+    
+    console.log('Rendering hand with new system');
+    
+    const handCards = player.getZone(Zone.hand);
+    const isOwnCards = true; // Hand is always own cards
+    
+    const handOptions = {
+        isMagnifyEnabled: true,
+        isInteractable: isOwnCards,
+        onCardClick: handleCardClick_New,
+        onCardDblClick: handleCardDoubleClick_New,
+        onCardDragStart: handleCardDragStart_New,
+        onCounterClick: undefined,
+        onTouchRelease: undefined,
+        showBack: false,
+        playerSelections: allPlayerSelections,
+        playerColors: playerColors
+    };
+    
+    // Clear and render hand
+    handZoneEl.innerHTML = '';
+    
+    // Add hand guideline
+    const handGuideline = document.createElement('div');
+    handGuideline.className = 'hand-guideline';
+    handZoneEl.appendChild(handGuideline);
+    
+    // Render cards using new system
+    cardManager.renderCardsToContainer(
+        handCards,
+        handZoneEl,
+        Zone.hand,
+        handOptions
+    );
+    
+    // Update card spacing for hand
+    updateCardSpacing();
+}
+
+async function renderOtherZones() {
+    if (!game || !player) return;
+    
+    console.log('Rendering other zones with new system');
+    
+    // Get the viewed player (might be different from current player)
+    const viewedPlayerId = currentlyViewedPlayerId || playerId;
+    const viewedPlayer = viewedPlayerId ? game.getPlayer(viewedPlayerId) : null;
+    if (!viewedPlayer) {
+        console.warn('No viewed player found');
+        return;
+    }
+    
+    // Render library
+    const libraryZone = document.getElementById('library-zone');
+    if (libraryZone) {
+        const libraryCards = viewedPlayer.getZone(Zone.library);
+        // For library, we typically show card backs or just count
+        libraryZone.innerHTML = `<div class="zone-label">Library (${libraryCards.length})</div>`;
+    }
+    
+    // Render graveyard  
+    const graveyardZone = document.getElementById('graveyard-zone');
+    if (graveyardZone) {
+        const graveyardCards = viewedPlayer.getZone(Zone.graveyard);
+        graveyardZone.innerHTML = `<div class="zone-label">Graveyard (${graveyardCards.length})</div>`;
+        
+        // Show top card if any
+        if (graveyardCards.length > 0) {
+            const topCard = graveyardCards[graveyardCards.length - 1];
+            const cardEl = document.createElement('div');
+            cardEl.className = 'card-preview';
+            cardEl.textContent = topCard.cardName;
+            graveyardZone.appendChild(cardEl);
+        }
+    }
+    
+    // Render exile
+    const exileZone = document.getElementById('exile-zone');
+    if (exileZone) {
+        const exileCards = viewedPlayer.getZone(Zone.exile);
+        exileZone.innerHTML = `<div class="zone-label">Exile (${exileCards.length})</div>`;
+    }
+    
+    // Render command zone
+    const commandZone = document.getElementById('command-zone');
+    if (commandZone) {
+        const commandCards = viewedPlayer.getZone(Zone.command);
+        commandZone.innerHTML = `<div class="zone-label">Command (${commandCards.length})</div>`;
+        
+        // Show commanders
+        commandCards.forEach(commander => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'commander-card';
+            cardEl.textContent = commander.cardName;
+            commandZone.appendChild(cardEl);
+        });
+    }
+}
+
+async function updatePlayerUI() {
+    // Update player list and other UI elements
+    console.log('Updating player UI');
+    
+    // Make sure we have an active player selected
+    if (!activePlayZonePlayerId && playerId) {
+        activePlayZonePlayerId = playerId;
+        console.log('Set initial active play zone player to:', playerId);
+    }
+    
+    // Render player tabs
+    if (game && playerTabsEl) {
+        playerTabsEl.innerHTML = '';
+        
+        // Determine player order - use turn order if set, otherwise just use Object.keys order
+        let playerOrder: string[] = [];
+        if (game.turnOrder.length > 0) {
+            playerOrder = game.turnOrder.map(p => p.id);
+        } else {
+            playerOrder = Object.keys(game.players);
+        }
+        
+        // Process each player and create tabs
+        for (const pid of playerOrder) {
+            const gamePlayer = game.getPlayer(pid);
+            if (!gamePlayer) continue;
+            
+            // Create player tab with proper styling like the legacy system
+            const playerTab = document.createElement('button');
+            playerTab.className = 'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2';
+            playerTab.setAttribute('data-player-id', pid);
+            
+            // Use display name for all players (including yourself)
+            const playerName = gamePlayer.name;
+            const isCurrentPlayer = pid === playerId;
+            const displayName = isCurrentPlayer ? `${playerName} (you)` : playerName;
+            const handCount = gamePlayer.getZone(Zone.hand).length;
+            const lifeTotal = gamePlayer.lifeTotal;
+            
+            // Get heart icon asynchronously
+            const heartIcon = await createHeartIcon('14px', '#ef4444');
+            
+            // Create the tab content with name, life (heart icon), and hand count
+            playerTab.innerHTML = `
+                <span>${displayName}</span>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1">
+                        ${heartIcon}
+                        <span class="text-xs font-bold">${lifeTotal}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <img src="./icons/playing_card.svg" alt="🖐️" class="w-3.5 h-3.5" style="filter: hue-rotate(200deg) saturate(1.5) brightness(0.7);">
+                        <span class="text-xs">${handCount}</span>
+                    </div>
+                </div>
+            `;
+            
+            // Highlight current turn player if turn order is set
+            if (game.turnOrder.length > 0 && game.currentTurn !== undefined) {
+                const currentTurnPlayer = game.turnOrder[game.currentTurn];
+                if (currentTurnPlayer?.id === pid) {
+                    playerTab.classList.add('ring-2', 'ring-yellow-400');
+                }
+            }
+            
+            // Set active/inactive styling
+            if (pid === activePlayZonePlayerId) {
+                playerTab.classList.add('bg-blue-600', 'text-white');
+            } else {
+                playerTab.classList.add('bg-gray-700', 'hover:bg-gray-600');
+            }
+            
+            // Click handler to switch active player
+            playerTab.addEventListener('click', () => {
+                if (activePlayZonePlayerId !== pid) {
+                    activePlayZonePlayerId = pid;
+                    currentlyViewedPlayerId = pid;
+                    console.log('Switched to player:', gamePlayer.name);
+                    debouncedRender();
+                }
+            });
+            
+            playerTabsEl.appendChild(playerTab);
+        }
+    }
+}
+
+// Hybrid approach: Use legacy render but with new battlefield system
+async function renderWithNewBattlefield() {
+    // Use the legacy render system for everything
+    await renderLegacy();
+    
+    // Then override just the battlefield with our new system
+    if (game && cardManager && activePlayZonePlayerId) {
+        console.log('Overlaying new battlefield rendering...');
+        await renderBattlefield();
+    }
+}
+
+// Stage 1: Clean battlefield rendering using state classes
+async function renderBattlefield() {
+    if (!game || !cardManager) return;
+    
+    console.log('Rendering battlefield with new system');
+    
+    // Ensure battlefield container exists
+    const playZonesContainer = document.getElementById('play-zones-container');
+    if (!playZonesContainer) {
+        console.error('Play zones container not found');
+        return;
+    }
+    
+    // Create or find player zone
+    let playerZoneEl = document.getElementById(`player-zone-${activePlayZonePlayerId}`);
+    if (!playerZoneEl) {
+        playerZoneEl = document.createElement('div');
+        playerZoneEl.id = `player-zone-${activePlayZonePlayerId}`;
+        playerZoneEl.className = 'player-zone';
+        playerZoneEl.style.position = 'relative';
+        playerZoneEl.style.width = '100%';
+        playerZoneEl.style.height = '100vh';
+        playerZoneEl.style.minWidth = '100%';
+        playerZoneEl.style.minHeight = '100%';
+        
+        // Clear container and add our player zone
+        playZonesContainer.innerHTML = '';
+        playZonesContainer.appendChild(playerZoneEl);
+        
+        console.log('Created new player zone for:', activePlayZonePlayerId);
+    } else {
+        console.log('Using existing player zone for:', activePlayZonePlayerId);
+    }
+    
+    // Get battlefield cards for active player zone
+    if (!activePlayZonePlayerId) {
+        console.log('No active play zone player ID');
+        return;
+    }
+    
+    const activePlayer = game.getPlayer(activePlayZonePlayerId);
+    if (!activePlayer) {
+        console.log('Active player not found:', activePlayZonePlayerId);
+        return;
+    }
+    
+    const battlefieldCards = activePlayer.getZone(Zone.battlefield);
+    console.log(`Rendering ${battlefieldCards.length} battlefield cards for player ${activePlayZonePlayerId}`);
+    
+    if (battlefieldCards.length === 0) {
+        console.log('No battlefield cards found. Player zones:', {
+            hand: activePlayer.getZone(Zone.hand).length,
+            library: activePlayer.getZone(Zone.library).length,
+            graveyard: activePlayer.getZone(Zone.graveyard).length,
+            exile: activePlayer.getZone(Zone.exile).length,
+            command: activePlayer.getZone(Zone.command).length
+        });
+    }
+    
+    // Configure rendering options
+    const isOwnCards = (activePlayZonePlayerId === playerId);
+    const battlefieldOptions = {
+        isMagnifyEnabled: true, // TODO: Get from settings
+        isInteractable: isOwnCards,
+        onCardClick: handleCardClick_New,
+        onCardDblClick: isOwnCards ? handleCardDoubleClick_New : undefined,
+        onCardDragStart: isOwnCards ? handleCardDragStart_New : undefined,
+        onCounterClick: undefined, // TODO: Implement
+        onTouchRelease: undefined, // TODO: Implement
+        showBack: false,
+        playerSelections: allPlayerSelections,
+        playerColors: playerColors
+    };
+    
+    // Render cards using new system
+    cardManager.renderCardsToContainer(
+        battlefieldCards,
+        playerZoneEl,
+        Zone.battlefield,
+        battlefieldOptions
+    );
+    
+    // Update selections
+    cardManager.updateSelections(player?.selectedCards || [], allPlayerSelections, playerColors);
+}
+
+// Temporary: Render non-battlefield zones using legacy system
+async function renderLegacyZones() {
+    // This function is no longer used - we've moved to full new system
+    console.log('Legacy zones rendering skipped - using new system');
+}
+
+async function renderLegacy() {
     console.log('Render called at:', new Date().toISOString());
     
     // Debounce render calls to prevent flickering
@@ -2482,7 +2843,9 @@ let currentCardSpacing = 0; // Default spacing (0 = no gap, negative = overlap)
 let shuffledLibraryCache = new Map();
 
 // New event handlers for DOMCardElement callbacks
-function handleCardClick_New(card: Card, element: HTMLElement) {
+function handleCardClick_New(card: Card, element: HTMLElement, event: MouseEvent) {
+    console.log('Card clicked:', card.cardName, card.id); // Debug logging
+    
     // Close both context menus when clicking on any card
     hideCardContextMenu();
     hideBottomBarContextMenu();
@@ -2495,7 +2858,9 @@ function handleCardClick_New(card: Card, element: HTMLElement) {
     if (!player) return;
     
     // Handle multi-selection with Ctrl key
-    const isCtrlPressed = false; // TODO: Add event parameter to get ctrl state
+    const isCtrlPressed = event.ctrlKey || event.metaKey; // Support both Ctrl and Cmd
+    
+    console.log('Selection state before:', player.selectedCards.slice()); // Debug logging
     
     if (isCtrlPressed) {
         // Toggle selection
@@ -2511,6 +2876,8 @@ function handleCardClick_New(card: Card, element: HTMLElement) {
         player.selectedCards.push(card.id);
     }
     
+    console.log('Selection state after:', player.selectedCards.slice()); // Debug logging
+    
     // Update visual selection state through DOMCardManager
     cardManager.updateSelections(player.selectedCards, allPlayerSelections, playerColors);
     
@@ -2518,7 +2885,7 @@ function handleCardClick_New(card: Card, element: HTMLElement) {
     debouncedSendSelectionUpdate();
 }
 
-function handleCardDoubleClick_New(card: Card, element: HTMLElement) {
+function handleCardDoubleClick_New(card: Card, element: HTMLElement, event: MouseEvent) {
     // Only allow double-click interactions on own cards
     const zone = card.zone;
     const isOwnCard = (zone === Zone.hand) || (zone === Zone.battlefield && activePlayZonePlayerId === playerId);

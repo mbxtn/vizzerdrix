@@ -4,11 +4,11 @@ import { Zone } from '../state/socketinterface.js';
 export type DOMCardElementOptions = {
     isMagnifyEnabled?: boolean;
     isInteractable?: boolean;
-    onCardClick?: (card: Card, element: HTMLElement) => void;
-    onCardDblClick?: (card: Card, element: HTMLElement) => void;
+    onCardClick?: (card: Card, element: HTMLElement, event: MouseEvent) => void;
+    onCardDblClick?: (card: Card, element: HTMLElement, event: MouseEvent) => void;
     onCardDragStart?: (card: Card, element: HTMLElement, event: DragEvent) => void;
-    onCounterClick?: (card: Card, element: HTMLElement, counterType: string) => void;
-    onTouchRelease?: (card: Card, element: HTMLElement) => void;
+    onCounterClick?: (card: Card, element: HTMLElement, counterType: string, event: MouseEvent) => void;
+    onTouchRelease?: (card: Card, element: HTMLElement, event: TouchEvent) => void;
     showBack?: boolean;
     isGhost?: boolean;
     isReverseGhost?: boolean;
@@ -153,35 +153,53 @@ export class DOMCardElement {
 
     private updateTemporaryCard(): void {
         this.element.className = 'card temporary-card';
+        
+        // Simple placeholder display
         this.element.innerHTML = `
             <div class="temporary-content">
                 <span class="temporary-text">${this.card.cardName}</span>
             </div>
         `;
+        
+        // Styling for temporary cards (slightly different to distinguish them)
+        this.element.style.border = '2px dashed #888';
+        this.element.style.borderRadius = '8px';
+        this.element.style.padding = '8px';
+        this.element.style.minHeight = '60px';
+        this.element.style.minWidth = '80px';
+        this.element.style.backgroundColor = '#e8e8e8';
+        this.element.style.display = 'flex';
+        this.element.style.alignItems = 'center';
+        this.element.style.justifyContent = 'center';
+        this.element.style.textAlign = 'center';
+        this.element.style.fontSize = '12px';
+        this.element.style.fontStyle = 'italic';
+        this.element.style.color = '#666';
     }
 
     private updateRegularCard(): void {
         this.element.className = 'card';
         
-        // This would integrate with your existing cardFactory system
-        // For now, create a basic structure
+        // Simple card name display for now - just like when card images aren't found
         this.element.innerHTML = `
             <div class="card-content">
-                <img src="${this.getCardImageUrl()}" alt="${this.card.cardName}" class="card-image" />
-                <div class="card-name">${this.card.cardName}</div>
+                <div class="card-name-display">${this.card.cardName}</div>
             </div>
         `;
-    }
-
-    private getCardImageUrl(): string {
-        // This would integrate with your Scryfall cache system
-        // Return appropriate image URL based on card data and options.showBack
-        if (this.options.showBack) {
-            return './cardback.png';
-        }
         
-        // Would normally get from ScryfallCache based on card.scryfallId
-        return `https://api.scryfall.com/cards/${this.card.scryfallId}?format=image&version=normal`;
+        // Add some basic styling to make it look like a card
+        this.element.style.border = '1px solid #ccc';
+        this.element.style.borderRadius = '8px';
+        this.element.style.padding = '8px';
+        this.element.style.minHeight = '60px';
+        this.element.style.minWidth = '80px';
+        this.element.style.backgroundColor = '#f9f9f9';
+        this.element.style.display = 'flex';
+        this.element.style.alignItems = 'center';
+        this.element.style.justifyContent = 'center';
+        this.element.style.textAlign = 'center';
+        this.element.style.fontSize = '12px';
+        this.element.style.fontWeight = 'bold';
     }
 
     private updateInteractability(): void {
@@ -275,7 +293,7 @@ export class DOMCardElement {
                     counterEl.style.cursor = 'pointer';
                     counterEl.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        this.options.onCounterClick?.(this.card, this.element, 'generic');
+                        this.options.onCounterClick?.(this.card, this.element, 'generic', e);
                     });
                 }
                 
@@ -302,7 +320,7 @@ export class DOMCardElement {
                             counterEl.style.cursor = 'pointer';
                             counterEl.addEventListener('click', (e) => {
                                 e.stopPropagation();
-                                this.options.onCounterClick?.(this.card, this.element, counterType);
+                                this.options.onCounterClick?.(this.card, this.element, counterType, e);
                             });
                         }
                         
@@ -317,14 +335,14 @@ export class DOMCardElement {
         if (this.options.onCardClick) {
             this.element.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.options.onCardClick?.(this.card, this.element);
+                this.options.onCardClick?.(this.card, this.element, e);
             });
         }
 
         if (this.options.onCardDblClick) {
             this.element.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                this.options.onCardDblClick?.(this.card, this.element);
+                this.options.onCardDblClick?.(this.card, this.element, e);
             });
         }
 
@@ -337,7 +355,7 @@ export class DOMCardElement {
 
         if (this.options.onTouchRelease) {
             this.element.addEventListener('touchend', (e) => {
-                this.options.onTouchRelease?.(this.card, this.element);
+                this.options.onTouchRelease?.(this.card, this.element, e);
             });
         }
     }
