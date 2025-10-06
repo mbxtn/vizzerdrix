@@ -237,8 +237,9 @@ export class CommanderSelectionModal {
                     console.log("We joined but weren't added - something terrible has happened");
                     return;
                 }
-
-                // Restore Player prototype
+                
+                // Restore Player and Game prototypes
+                Object.setPrototypeOf(joinedGame, Game.prototype);
                 Object.setPrototypeOf(player, Player.prototype);
                 
                 // Create deck and update state

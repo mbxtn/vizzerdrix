@@ -6,7 +6,8 @@ import { VdClient } from './lib/state/socketclient';
 import { Game } from './lib/state/game';
 import { ScryfallCard } from '@scryfall/api-types';
 import { Player } from './lib/state/player';
-import { ScryfallCardFactory } from './lib/state/card';
+import { Card, ScryfallCardFactory } from './lib/state/card';
+import { Zone } from './lib/state/socketinterface';
 import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
 import { JoinGameUI } from './lib/ui/joinGameUI.js';
 
@@ -56,16 +57,16 @@ let vdClient = new VdClient(socket);
 let commanderModal = new CommanderSelectionModal(vdClient);
 let joinGameUI = new JoinGameUI(socket, commanderModal);
 let settingsManager = new SettingsManager();
-let room = null;
-let playerId = null;
-let gameState = {};
-// Gamewide State, we should often ignore ourselves vdClient.getId() should cover this...
+let room: string | null = null;
+let playerId: string | null = null;
+// Gamewide State, managed by the state classes
 let game : Game | undefined;
 // Player State, won't be defined until a game is joined, we won't create these but we'll 
 // be the primary owner/editor of it.
 let player : Player | undefined;
-let activePlayZonePlayerId = null;
-let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
+let cardFactory : ScryfallCardFactory | undefined;
+let activePlayZonePlayerId: string | null = null;
+let currentlyViewedPlayerId: string | null = null; // Track which player's zones we're currently viewing
 
 // UI Elements
 // Join UI elements are now handled by JoinGameUI class
@@ -193,9 +194,9 @@ function generatePlayerColor(playerId, playerIndex) {
 }
 
 function updatePlayerColors() {
-    if (!gameState || !gameState.players) return;
+    if (!game || !game.players) return;
     
-    const playerIds = Object.keys(gameState.players);
+    const playerIds = Object.keys(game.players);
     playerIds.forEach((pid, index) => {
         if (!playerColors[pid]) {
             playerColors[pid] = generatePlayerColor(pid, index);
@@ -311,13 +312,145 @@ function debouncedRender() {
 
 // Note: Join button event listeners and attemptRejoin function are now handled by JoinGameUI class
 
+// Set up VdClient state update listener
+vdClient.addOnUpdateListener('main', (updatedGame: Game) => {
+    handleGameStateUpdate(updatedGame);
+});
+
+// Handle game state updates from the server via VdClient
+function handleGameStateUpdate(updatedGame: Game) {
+    console.log('Received game state update via VdClient:', updatedGame);
+    
+    // Check if state has actually changed
+    const stateChanged = !game || JSON.stringify(game) !== JSON.stringify(updatedGame);
+    
+    // Check for turn order changes
+    const turnOrderChanged = !game || 
+        game.currentTurn !== updatedGame.currentTurn ||
+        game.round !== updatedGame.round ||
+        JSON.stringify(game.turnOrder) !== JSON.stringify(updatedGame.turnOrder);
+    
+    // Handle auto-focus on turn change
+    const currentTurnChanged = game && (game.currentTurn !== updatedGame.currentTurn || game.round !== updatedGame.round);
+
+    if (currentTurnChanged && settingsManager.getSetting('isAutoFocusEnabled') && updatedGame.turnOrder.length > 0 && updatedGame.currentTurn !== undefined) {
+        const newCurrentTurnPlayer = updatedGame.turnOrder[updatedGame.currentTurn];
+        if (newCurrentTurnPlayer) {
+            console.log('Turn changed - auto-focusing on player:', newCurrentTurnPlayer.id);
+            activePlayZonePlayerId = newCurrentTurnPlayer.id;
+        }
+    }
+    
+    console.log('Game state update:', {
+        turnOrder: updatedGame.turnOrder.map(p => p.name),
+        currentTurn: updatedGame.currentTurn,
+        round: updatedGame.round,
+        stateChanged,
+        turnOrderChanged,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Update the global game reference
+    const previousGame = game;
+    game = updatedGame;
+    //player = game.getPlayer(playerId || '');
+    
+    // Update window references for backwards compatibility
+    window.gameState = game;
+    
+    // Handle auto-untap when it becomes the player's turn
+    if (currentTurnChanged && settingsManager.getSetting('isAutoUntapEnabled') && game.turnOrder.length > 0 && game.currentTurn !== undefined) {
+        const newCurrentTurnPlayer = game.turnOrder[game.currentTurn];
+        console.log('Auto-untap check:', {
+            currentTurnChanged,
+            isAutoUntapEnabled: settingsManager.getSetting('isAutoUntapEnabled'),
+            newCurrentTurnPlayerId: newCurrentTurnPlayer?.id,
+            playerId,
+            isMyTurn: newCurrentTurnPlayer?.id === playerId
+        });
+        if (newCurrentTurnPlayer?.id === playerId) {
+            console.log('Turn changed to yours - auto-untapping all cards');
+            autoUntapAllPlayerCards();
+        }
+    }
+    
+    // Sync local state with player state if needed
+    if (player && !previousGame) {
+        console.log('Syncing local state with player state');
+        syncLocalStateWithPlayer();
+    }
+    
+    // Trigger a render
+    debouncedRender();
+    
+    // Update player colors
+    updatePlayerColors();
+}
+
+// Sync local arrays with player state from the state classes
+function syncLocalStateWithPlayer() {
+    if (!player) return;
+    
+    console.log('Syncing local state with player:', player.name);
+    
+    // Get zones from player
+    const handCards = player.getZone(Zone.hand);
+    const libraryCards = player.getZone(Zone.library);
+    const graveyardCards = player.getZone(Zone.graveyard);
+    const exileCards = player.getZone(Zone.exile);
+    const commandCards = player.getZone(Zone.command);
+    const battlefieldCards = player.getZone(Zone.battlefield);
+    
+    // Convert state classes back to the format expected by the current UI
+    hand = handCards.map(convertCardToLegacyFormat);
+    library = libraryCards.map(convertCardToLegacyFormat);
+    graveyard = graveyardCards.map(convertCardToLegacyFormat);
+    exile = exileCards.map(convertCardToLegacyFormat);
+    command = commandCards.map(convertCardToLegacyFormat);
+    playZone = battlefieldCards.map(convertCardToLegacyFormat);
+    
+    // Update life total
+    currentLife = player.lifeTotal;
+    
+    console.log('Local state synced:', {
+        handCount: hand.length,
+        libraryCount: library.length,
+        graveyardCount: graveyard.length,
+        exileCount: exile.length,
+        commandCount: command.length,
+        playZoneCount: playZone.length,
+        life: currentLife
+    });
+}
+
+// Convert new Card class to legacy card format for UI compatibility
+function convertCardToLegacyFormat(card: Card): any {
+    return {
+        id: card.id,
+        name: card.cardName,
+        displayName: card.cardName,
+        x: card.location.x,
+        y: card.location.y,
+        rotation: card.tapped ? 90 : 0,
+        counters: card.counters,
+        faceShown: card.flipped ? 'back' : 'front',
+        zone: card.zone
+    };
+}
+
 socket.on('connect', () => {
-    playerId = socket.id;
-    window.playerId = playerId; // Expose playerId to window for cardFactory access
-    activePlayZonePlayerId = socket.id;
+    playerId = socket.id || null;
+    activePlayZonePlayerId = socket.id || null;
     console.log('Client connected. Player ID:', playerId);
     
-    gameState = {}; 
+    // Initialize card factory for this player
+    if (playerId) {
+        cardFactory = new ScryfallCardFactory(playerId);
+    }
+    
+    // Reset game state
+    game = undefined;
+    player = undefined;
     hand = [];
     library = [];
     graveyard = [];
@@ -326,7 +459,6 @@ socket.on('connect', () => {
     playZone = [];
     selectedCards = [];
     selectedCardIds = [];
-    isRejoinState = false;
     
     // Clear optimistic update state
     lastClientAction = null;
@@ -359,9 +491,6 @@ socket.on('joinSuccess', (data) => {
 // Handle successful rejoin
 socket.on('rejoinSuccess', (data) => {
     console.log('Successfully rejoined game:', data);
-    
-    // Set rejoin flag FIRST
-    isRejoinState = true;
     
     // Store the room name
     room = data.roomName;
@@ -409,8 +538,6 @@ socket.on('joinError', (error) => {
 
 socket.on('rejoinError', (error) => {
     console.error('Rejoin error:', error);
-    // Reset rejoin flag on error
-    isRejoinState = false;
     // UI message is handled by JoinGameUI
 });
 
@@ -433,279 +560,6 @@ socket.on('disconnect', (reason) => {
     }
 });
 
-socket.on('state', async (state) => {    
-    // Check if state has actually changed
-    const stateChanged = !gameState || JSON.stringify(gameState) !== JSON.stringify(state);
-    
-    // Check for turn order changes before updating gameState
-    const turnOrderChanged = !gameState || 
-        gameState.currentTurn !== state.currentTurn ||
-        gameState.turnOrderSet !== state.turnOrderSet ||
-        gameState.turnCounter !== state.turnCounter ||
-        JSON.stringify(gameState.turnOrder) !== JSON.stringify(state.turnOrder);
-    
-    // Handle auto-focus on turn change
-    const currentTurnChanged = gameState && (gameState.currentTurn !== state.currentTurn|| gameState.turnCounter !== state.turnCounter);
-
-    if (currentTurnChanged && settingsManager.getSetting('isAutoFocusEnabled') && state.turnOrderSet && state.turnOrder && state.currentTurn !== undefined) {
-        const newCurrentTurnPlayerId = state.turnOrder[state.currentTurn];
-        if (newCurrentTurnPlayerId && state.players[newCurrentTurnPlayerId]) {
-            console.log('Turn changed - auto-focusing on player:', newCurrentTurnPlayerId);
-            activePlayZonePlayerId = newCurrentTurnPlayerId;
-        }
-    }
-    
-    console.log('Received state update:', {
-        turnOrderSet: state.turnOrderSet,
-        turnOrder: state.turnOrder,
-        currentTurn: state.currentTurn,
-        turnCounter: state.turnCounter,
-        stateChanged,
-        turnOrderChanged,
-        isRejoin: isRejoinState,
-        timestamp: new Date().toISOString()
-    });
-    
-    // Log the full turn order state if it exists
-    if (state.turnOrderSet && state.turnOrder) {
-        console.log('Full turn order state:', {
-            players: state.turnOrder.map((pid, index) => ({
-                index,
-                playerId: pid,
-                displayName: state.players[pid]?.displayName,
-                isCurrentTurn: index === state.currentTurn
-            }))
-        });
-    }
-
-    // If this is a rejoin, force a complete state sync from server
-    if (isRejoinState && state.players[playerId]) {
-        console.log('Rejoin detected - forcing complete state sync from server');
-        const serverPlayer = state.players[playerId];
-        
-        // Completely replace local state with server state (no merging)
-        hand = [...(serverPlayer.hand || [])];
-        library = [...(serverPlayer.library || [])];
-        graveyard = [...(serverPlayer.graveyard || [])];
-        exile = [...(serverPlayer.exile || [])];
-        command = [...(serverPlayer.command || [])];
-        
-        // Also sync the play zone for the current player
-        if (state.playZones[playerId]) {
-            playZone = [...state.playZones[playerId]];
-        } else {
-            playZone = [];
-        }
-        
-        // Update life total from server
-        if (serverPlayer.life !== undefined) {
-            currentLife = serverPlayer.life;
-        }
-        
-        console.log('State sync complete. Local arrays updated:', {
-            handCount: hand.length,
-            libraryCount: library.length,
-            graveyardCount: graveyard.length,
-            exileCount: exile.length,
-            commandCount: command.length,
-            playZoneCount: playZone.length,
-            life: currentLife
-        });
-        
-        // Clear the rejoin flag after successful sync
-        isRejoinState = false;
-        console.log('Rejoin state reset after successful sync');
-        console.log('Final client state after rejoin sync:', {
-            playerId: playerId,
-            gameState: {
-                players: Object.keys(gameState.players),
-                turnOrder: gameState.turnOrder,
-                turnOrderSet: gameState.turnOrderSet,
-                myPlayerInPlayers: !!gameState.players[playerId],
-                myPlayerInTurnOrder: gameState.turnOrder?.includes(playerId)
-            }
-        });
-    }
-
-    gameState = state;
-    window.gameState = gameState; // Expose gameState to window for cardFactory access
-    
-    // Handle auto-untap when it becomes the player's turn (after gameState is updated)
-    if (currentTurnChanged && settingsManager.getSetting('isAutoUntapEnabled') && gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
-        const newCurrentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
-        console.log('Auto-untap check:', {
-            currentTurnChanged,
-            isAutoUntapEnabled,
-            newCurrentTurnPlayerId,
-            playerId,
-            isMyTurn: newCurrentTurnPlayerId === playerId
-        });
-        if (newCurrentTurnPlayerId === playerId) {
-            console.log('Turn changed to yours - auto-untapping all cards');
-            autoUntapAllPlayerCards();
-        }
-    }
-    
-    console.log('activePlayZonePlayerId management:', {
-        currentActivePlayZonePlayerId: activePlayZonePlayerId,
-        playerId: playerId,
-        playerExistsInState: !!(activePlayZonePlayerId && gameState.players[activePlayZonePlayerId]),
-        isRejoin: isRejoinState
-    });
-    
-    if (!activePlayZonePlayerId || !gameState.players[activePlayZonePlayerId]) {
-        console.log(`Setting activePlayZonePlayerId from ${activePlayZonePlayerId} to ${playerId}`);
-        activePlayZonePlayerId = playerId;
-    }
-    
-    // UI transition is now handled by JoinGameUI class
-    
-    // Load Scryfall images for all visible cards across all players and zones
-    const allCardNames = new Set();
-    
-    // Collect cards from all players' zones
-    Object.values(gameState.players).forEach(player => {
-        // Decklist (for newly joining players or unused cards)
-        if (player.decklist && Array.isArray(player.decklist)) {
-            player.decklist.forEach(cardName => {
-                if (typeof cardName === 'string') {
-                    allCardNames.add(cardName);
-                } else if (cardName && cardName.name) {
-                    allCardNames.add(cardName.name);
-                }
-            });
-        }
-        
-        // Hand cards
-        if (player.hand && Array.isArray(player.hand)) {
-            player.hand.forEach(cardItem => {
-                if (typeof cardItem === 'string') {
-                    allCardNames.add(cardItem);
-                } else if (cardItem && cardItem.name) {
-                    allCardNames.add(cardItem.name);
-                }
-            });
-        }
-        
-        // Library cards  
-        if (player.library && Array.isArray(player.library)) {
-            player.library.forEach(cardItem => {
-                if (typeof cardItem === 'string') {
-                    allCardNames.add(cardItem);
-                } else if (cardItem && cardItem.name) {
-                    allCardNames.add(cardItem.name);
-                }
-            });
-        }
-        
-        // Graveyard cards
-        if (player.graveyard && Array.isArray(player.graveyard)) {
-            player.graveyard.forEach(cardItem => {
-                if (typeof cardItem === 'string') {
-                    allCardNames.add(cardItem);
-                } else if (cardItem && cardItem.name) {
-                    allCardNames.add(cardItem.name);
-                }
-            });
-        }
-        
-        // Exile cards
-        if (player.exile && Array.isArray(player.exile)) {
-            player.exile.forEach(cardItem => {
-                if (typeof cardItem === 'string') {
-                    allCardNames.add(cardItem);
-                } else if (cardItem && cardItem.name) {
-                    allCardNames.add(cardItem.name);
-                }
-            });
-        }
-        
-        // Command cards
-        if (player.command && Array.isArray(player.command)) {
-            player.command.forEach(cardItem => {
-                if (typeof cardItem === 'string') {
-                    allCardNames.add(cardItem);
-                } else if (cardItem && cardItem.name) {
-                    allCardNames.add(cardItem.name);
-                }
-            });
-        }
-    });
-    
-    // Collect cards from all play zones
-    if (gameState.playZones) {
-        Object.values(gameState.playZones).forEach(playZoneCards => {
-            if (Array.isArray(playZoneCards)) {
-                playZoneCards.forEach(cardData => {
-                    if (cardData && cardData.name) {
-                        allCardNames.add(cardData.name);
-                    }
-                });
-            }
-        });
-    }
-    
-    if (allCardNames.size > 0) {
-        console.log(`Loading images for ${allCardNames.size} unique cards from all zones`);
-        
-        // Check how many cards are actually uncached
-        const cardNamesArray = Array.from(allCardNames) as string[];
-        
-        // Initialize cache and get stats
-        const cacheStats = scryfallCache.getCacheStats();
-        console.log('Cache stats before loading:', cacheStats);
-        
-        const uncachedCards = cardNamesArray.filter((name: string) => !scryfallCache.get(name));
-        const cachedCards = cardNamesArray.length - uncachedCards.length;
-        
-        console.log(`Cards status: ${cachedCards} cached, ${uncachedCards.length} need loading`);
-        
-        // Only show loading progress for loads with 3+ uncached cards that will take time
-        const showProgress = uncachedCards.length >= 100;
-        
-        // Note: Loading progress for in-game card loading is simpler than join-time loading
-        if (showProgress) {
-            console.log(`Loading ${uncachedCards.length} uncached cards...`);
-        }
-        
-        try {
-            await scryfallCache.load(cardNamesArray, null); // No progress callback for in-game loading
-            console.log('Finished loading card images');
-        } catch (error) {
-            console.error('Error loading card images:', error);
-            showMessage('Some card images failed to load. The game will continue with placeholders.');
-        }
-    }
-    
-    // Handle player selections if they exist in the state
-    if (state.playerSelections) {
-        allPlayerSelections = state.playerSelections;
-        updatePlayerColors();
-    }
-    
-    // Only render if state actually changed, or if this is a turn order update
-    // TEMPORARY: Force render on any state update to debug
-    console.log('Forcing render for debugging');
-    debouncedRender();
-    updateCascadedHandCardsInAreaCount(); // Call it here to update after server state
-    
-    // Apply auto-fit after the game starts and UI is visible (only once)
-    if (settingsManager.getSetting('isAutoFitEnabled') && !window.autoFitAppliedOnGameStart) {
-        console.log('Game UI is now visible - applying auto-fit');
-        // Use a small delay to ensure the render is complete
-        setTimeout(() => {
-            const handZone = document.getElementById('hand-zone');
-            if (handZone && handZone.getBoundingClientRect().width > 0) {
-                console.log('Applying auto-fit after game start');
-                autoFitSevenCards();
-                window.autoFitAppliedOnGameStart = true; // Prevent reapplying on subsequent state updates
-            } else {
-                console.warn('Hand zone still not ready after game start');
-            }
-        }, 100);
-    }
-});
-
 // Handle real-time selection updates
 socket.on('selectionUpdate', (data) => {
     if (data.playerSelections) {
@@ -714,7 +568,7 @@ socket.on('selectionUpdate', (data) => {
         updatePlayerColors();
         
         // Check if this is just our own selection echoing back from the server
-        const ourSelection = data.playerSelections[playerId] || [];
+        const ourSelection = playerId ? (data.playerSelections[playerId] || []) : [];
         const ourCurrentSelection = selectedCardIds.sort().join(',');
         const receivedOurSelection = ourSelection.sort().join(',');
         
@@ -1435,7 +1289,6 @@ function handleCardGroupMove(cardIds, sourceZone, targetZone) {
 // State tracking for optimistic updates
 let lastClientAction = null;
 let clientActionTimeout = null;
-let isRejoinState = false; // Track if we're in a rejoin state
 
 // Mark a client action to preserve optimistic updates
 function markClientAction(action, cardId = null) {
@@ -1469,8 +1322,8 @@ async function render() {
     await loadHeartSVG();
     
     try {
-        if (!gameState || !playerId) {
-            console.log('Render aborted: missing gameState or playerId');
+        if (!game || !playerId) {
+            console.log('Render aborted: missing game or playerId');
             return;
         }
 
@@ -1480,82 +1333,30 @@ async function render() {
         const isMagnifyEnabled = settingsManager.getSetting('isMagnifyEnabled');
         const currentCardWidth = settingsManager.getSetting('currentCardWidth');
 
-        // Smart merge: preserve recent client changes, use server for everything else
-        // Hand always shows current player's data
-        const serverHand = gameState.players[playerId]?.hand || [];
-        
-        // Get current player's actual game state (for sendMove())
-        const ourLibrary = gameState.players[playerId]?.library || [];
-        const ourGraveyard = gameState.players[playerId]?.graveyard || [];
-        const ourExile = gameState.players[playerId]?.exile || [];
-        const ourCommand = gameState.players[playerId]?.command || [];
-        const ourPlayZone = gameState.playZones[playerId] || [];
-        
-        // Other zones show data for the player whose play zone is currently being viewed
+        // Determine which player's zones we're viewing
         const viewedPlayerId = activePlayZonePlayerId || playerId;
         currentlyViewedPlayerId = viewedPlayerId; // Update the global tracking variable
-        const serverLibrary = gameState.players[viewedPlayerId]?.library || [];
-        const serverGraveyard = gameState.players[viewedPlayerId]?.graveyard || [];
-        const serverExile = gameState.players[viewedPlayerId]?.exile || [];
-        const serverCommand = gameState.players[viewedPlayerId]?.command || [];
-        const serverPlayZone = gameState.playZones[viewedPlayerId] || [];
         
-        // If we have a recent client action, preserve local state for a short time
-        // BUT if this is a rejoin, always use server state
-        const hasRecentClientAction = lastClientAction && (Date.now() - lastClientAction.timestamp < 1000) && !isRejoinState;
-        
-        if (hasRecentClientAction && viewedPlayerId === playerId) {
-            // Only preserve local state if we're viewing our own zones AND not rejoining
-            console.log('Preserving local state due to recent client action:', lastClientAction.action);
-            // Keep local state for recent actions, but merge other players' changes
-            // Only merge playZone from server if it has more cards (other players added cards)
-            if (ourPlayZone.length > playZone.length) {
-                // Merge server cards that aren't in our local state
-                ourPlayZone.forEach(serverCard => {
-                    if (!playZone.find(localCard => localCard.id === serverCard.id)) {
-                        playZone.push(serverCard);
-                    }
-                });
-            }
-        } else {
-            // No recent client action, viewing another player, or rejoining - use server state as source of truth
-            console.log('Using server state as source of truth', { 
-                isRejoin: isRejoinState, 
-                hasRecentClientAction, 
-                viewedPlayerId, 
-                playerId,
-                serverHandCount: serverHand.length,
-                ourLibraryCount: ourLibrary.length,
-                ourGraveyardCount: ourGraveyard.length,
-                ourExileCount: ourExile.length,
-                ourCommandCount: ourCommand.length,
-                ourPlayZoneCount: ourPlayZone.length
-            });
-            hand = serverHand; // Hand is always current player
+        // Get our player's current state (this is the authoritative client state)
+        const ourPlayer = player;
+        if (ourPlayer) {
+            // Always trust client-side player state - convert from state classes to legacy format
+            hand = ourPlayer.getZone(Zone.hand).map(convertCardToLegacyFormat);
+            library = ourPlayer.getZone(Zone.library).map(convertCardToLegacyFormat);
+            graveyard = ourPlayer.getZone(Zone.graveyard).map(convertCardToLegacyFormat);
+            exile = ourPlayer.getZone(Zone.exile).map(convertCardToLegacyFormat);
+            command = ourPlayer.getZone(Zone.command).map(convertCardToLegacyFormat);
+            playZone = ourPlayer.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
             
-            // Update life total from server for current player
-            if (gameState.players[playerId]?.life !== undefined) {
-                currentLife = gameState.players[playerId].life;
-                lifeTotalEl.textContent = currentLife;
-            }
-            
-            if (viewedPlayerId === playerId) {
-                // Viewing our own zones - use our data
-                library = ourLibrary;
-                graveyard = ourGraveyard;
-                exile = ourExile;
-                command = ourCommand;
-                playZone = ourPlayZone;
-            } else {
-                // Viewing another player's zones - still use OUR data for local state!
-                // This ensures sendMove() always sends our actual game state, not opponent's
-                library = ourLibrary;
-                graveyard = ourGraveyard;
-                exile = ourExile;
-                command = ourCommand;
-                playZone = ourPlayZone;
+            // Update life total from our player state
+            currentLife = ourPlayer.lifeTotal;
+            if (lifeTotalEl) {
+                lifeTotalEl.textContent = currentLife.toString();
             }
         }
+        
+        // Get viewed player's state for display purposes (when viewing other players)
+        const viewedPlayer = game.getPlayer(viewedPlayerId);
 
         // Update CardZone instances (these now have change detection)
         // Only allow interactions if we're viewing our own zones
@@ -1571,9 +1372,10 @@ async function render() {
             // Always use the correct data for display: our data when viewing ourselves, opponent's when viewing them
             const displayLibrary = viewedPlayerId === playerId ? library : (() => {
                 // For opponent's library, use cached shuffled version
-                const cacheKey = `${viewedPlayerId}-${serverLibrary.length}-${JSON.stringify(serverLibrary.slice(0, 3))}`;
+                const viewedPlayerLibrary = viewedPlayer?.getZone(Zone.library).map(convertCardToLegacyFormat) || [];
+                const cacheKey = `${viewedPlayerId}-${viewedPlayerLibrary.length}-${JSON.stringify(viewedPlayerLibrary.slice(0, 3))}`;
                 if (!shuffledLibraryCache.has(cacheKey)) {
-                    const shuffledCopy = [...serverLibrary];
+                    const shuffledCopy = [...viewedPlayerLibrary];
                     shuffleArray(shuffledCopy);
                     shuffledLibraryCache.set(cacheKey, shuffledCopy);
                     
@@ -1589,15 +1391,18 @@ async function render() {
             libraryZone.setInteractionEnabled(allowInteractions);
         }
         if (graveyardZone) {
-            graveyardZone.updateCards(viewedPlayerId === playerId ? graveyard : serverGraveyard);
+            const displayGraveyard = viewedPlayerId === playerId ? graveyard : (viewedPlayer?.getZone(Zone.graveyard).map(convertCardToLegacyFormat) || []);
+            graveyardZone.updateCards(displayGraveyard);
             graveyardZone.setInteractionEnabled(allowInteractions);
         }
         if (exileZone) {
-            exileZone.updateCards(viewedPlayerId === playerId ? exile : serverExile);
+            const displayExile = viewedPlayerId === playerId ? exile : (viewedPlayer?.getZone(Zone.exile).map(convertCardToLegacyFormat) || []);
+            exileZone.updateCards(displayExile);
             exileZone.setInteractionEnabled(allowInteractions);
         }
         if (commandZone) {
-            commandZone.updateCards(viewedPlayerId === playerId ? command : serverCommand);
+            const displayCommand = viewedPlayerId === playerId ? command : (viewedPlayer?.getZone(Zone.command).map(convertCardToLegacyFormat) || []);
+            commandZone.updateCards(displayCommand);
             commandZone.setInteractionEnabled(allowInteractions);
         }
 
@@ -1641,34 +1446,39 @@ async function render() {
     }
     
     // Update battlefield label for active player
-    if (gameState.players[activePlayZonePlayerId]) {
-        const playerDisplayName = gameState.players[activePlayZonePlayerId]?.displayName || 'Unknown Player';
+    if (activePlayZonePlayerId) {
+        const activePlayer = game.getPlayer(activePlayZonePlayerId);
+        const playerDisplayName = activePlayer?.name || 'Unknown Player';
         battlefieldLabelEl.textContent = `${playerDisplayName}'s Battlefield`;
         battlefieldLabelEl.style.display = 'block';
     } else {
         battlefieldLabelEl.style.display = 'none';
     }
     
-    playerTabsEl.innerHTML = '';
+    if (playerTabsEl) {
+        playerTabsEl.innerHTML = '';
+    }
     
     // Determine player order - use turn order if set, otherwise just use Object.keys order
-    let playerOrder = [];
-    if (gameState.turnOrderSet && gameState.turnOrder) {
-        playerOrder = gameState.turnOrder;
+    let playerOrder: string[] = [];
+    if (game.turnOrder.length > 0) {
+        playerOrder = game.turnOrder.map(p => p.id);
     } else {
-        playerOrder = Object.keys(gameState.players);
+        playerOrder = Object.keys(game.players);
     }
     
     playerOrder.forEach(pid => {
         // Only create elements for players that still exist
-        if (!gameState.players[pid]) return;
+        const pidPlayer = game.getPlayer(pid);
+        if (!pidPlayer) return;
         
         // Create play zone div
         const playerZoneEl = document.createElement('div');
         playerZoneEl.id = `play-zone-${pid}`;
         playerZoneEl.className = 'play-zone relative';
         
-        const playerZoneData = gameState.playZones[pid] || [];
+        // Get player's battlefield data
+        const playerZoneData = pidPlayer.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
         
         // Calculate the minimum size needed to contain all cards
         let minWidth = 100; // Very minimal default
@@ -1724,7 +1534,9 @@ async function render() {
         
         // Add ghost cards if ghost mode is enabled and we're viewing another player's battlefield
         if (settingsManager.getSetting('isGhostModeEnabled') && pid !== playerId && pid === activePlayZonePlayerId) {
-            const myPlayZoneData = gameState.playZones[playerId] || [];
+            // Get our own battlefield data for ghost cards
+            const ourPlayerBattlefield = ourPlayer?.getZone(Zone.battlefield) || [];
+            const myPlayZoneData = ourPlayerBattlefield.map(convertCardToLegacyFormat);
             myPlayZoneData.forEach(cardData => {
                 const ghostCardEl = createCardElement(cardData, 'play', {
                     isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for ghost cards
@@ -1787,10 +1599,12 @@ async function render() {
         // Add reverse ghost cards if reverse ghost mode is enabled and we're viewing our own battlefield
         if (settingsManager.getSetting('isReverseGhostModeEnabled') && pid === playerId && pid === activePlayZonePlayerId) {
             // Show ghost cards of the current turn player (if different from us)
-            if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
-                const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
-                if (currentTurnPlayerId && currentTurnPlayerId !== playerId && gameState.playZones[currentTurnPlayerId]) {
-                    const activePlayerZoneData = gameState.playZones[currentTurnPlayerId] || [];
+            if (game.turnOrder.length > 0 && game.currentTurn !== undefined) {
+                const currentTurnPlayer = game.turnOrder[game.currentTurn];
+                const currentTurnPlayerId = currentTurnPlayer?.id;
+                if (currentTurnPlayerId && currentTurnPlayerId !== playerId) {
+                    const currentTurnPlayerObj = game.getPlayer(currentTurnPlayerId);
+                    const activePlayerZoneData = currentTurnPlayerObj?.getZone(Zone.battlefield).map(convertCardToLegacyFormat) || [];
                     activePlayerZoneData.forEach(cardData => {
                         const reverseGhostCardEl = createCardElement(cardData, 'play', {
                             isMagnifyEnabled: isMagnifyEnabled, // Enable magnify for reverse ghost cards
@@ -1843,7 +1657,7 @@ async function render() {
                         reverseGhostIndicator.style.fontWeight = 'bold';
                         reverseGhostIndicator.style.pointerEvents = 'none'; // Indicator shouldn't interfere with hover
                         reverseGhostIndicator.textContent = '⚡'; // Lightning icon to indicate active player's card
-                        reverseGhostIndicator.title = `${gameState.players[currentTurnPlayerId]?.displayName || 'Active player'}'s card (reverse ghost view)`;
+                        reverseGhostIndicator.title = `${currentTurnPlayerObj?.name || 'Active player'}'s card (reverse ghost view)`;
                         
                         reverseGhostCardEl.appendChild(reverseGhostIndicator);
                         playerZoneEl.appendChild(reverseGhostCardEl);
@@ -1863,11 +1677,11 @@ async function render() {
         tabEl.className = 'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2';
         
         // Use display name for all players (including yourself)
-        const playerName = gameState.players[pid].displayName;
+        const playerName = pidPlayer.name;
         const isCurrentPlayer = pid === playerId;
         const displayName = isCurrentPlayer ? `${playerName} (you)` : playerName;
-        const handCount = gameState.players[pid].hand?.length || 0;
-        const lifeTotal = gameState.players[pid].life || 20;
+        const handCount = pidPlayer.getZone(Zone.hand).length;
+        const lifeTotal = pidPlayer.lifeTotal;
         
         // Create the tab content with name, life (heart icon), and hand count
         tabEl.innerHTML = `
@@ -1885,8 +1699,11 @@ async function render() {
         `;
         
         // Highlight current turn player if turn order is set
-        if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined && gameState.turnOrder[gameState.currentTurn] === pid) {
-            tabEl.classList.add('ring-2', 'ring-yellow-400');
+        if (game.turnOrder.length > 0 && game.currentTurn !== undefined) {
+            const currentTurnPlayer = game.turnOrder[game.currentTurn];
+            if (currentTurnPlayer?.id === pid) {
+                tabEl.classList.add('ring-2', 'ring-yellow-400');
+            }
         }
         
         if (pid === activePlayZonePlayerId) {
@@ -1950,51 +1767,51 @@ async function render() {
     
     // Update turn control UI
     console.log('Updating turn control UI:', {
-        turnOrderSet: gameState.turnOrderSet,
-        turnOrder: gameState.turnOrder,
-        currentTurn: gameState.currentTurn,
-        turnCounter: gameState.turnCounter
+        turnOrderLength: game.turnOrder.length,
+        currentTurn: game.currentTurn,
+        round: game.round
     });
     
-    if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
-        const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
-        const currentPlayer = gameState.players[currentTurnPlayerId];
-        const turnCounter = gameState.turnCounter || 1; // Default to 1 if not set
+    if (game.turnOrder.length > 0 && game.currentTurn !== undefined) {
+        const currentTurnPlayer = game.turnOrder[game.currentTurn];
+        const currentTurnPlayerId = currentTurnPlayer?.id;
+        const currentPlayer = currentTurnPlayerId ? game.getPlayer(currentTurnPlayerId) : null;
+        const turnCounter = game.round || 1; // Default to 1 if not set
         
         console.log('Turn control - current player:', currentTurnPlayerId, 'my player ID:', playerId, 'is my turn:', currentTurnPlayerId === playerId, 'turn:', turnCounter);
         
         if (currentPlayer) {
             // Player exists and is connected
-            turnIndicator.style.display = 'block';
+            turnIndicator!.style.display = 'block';
             
             // Display current player and turn counter
-            const playerText = currentTurnPlayerId === playerId ? 'You' : currentPlayer.displayName;
-            currentPlayerNameEl.textContent = `${playerText} (Turn ${turnCounter})`;
+            const playerText = currentTurnPlayerId === playerId ? 'You' : currentPlayer.name;
+            currentPlayerNameEl!.textContent = `${playerText} (Turn ${turnCounter})`;
             
             // Show end turn button only if it's the current player's turn
             if (currentTurnPlayerId === playerId) {
                 console.log('Showing end turn button for my turn');
-                endTurnBtn.style.display = 'block';
-                endTurnBtn.disabled = false;
+                endTurnBtn!.style.display = 'block';
+                (endTurnBtn as HTMLButtonElement)!.disabled = false;
             } else {
                 console.log('Hiding end turn button - not my turn');
-                endTurnBtn.style.display = 'none';
-                endTurnBtn.disabled = true;
+                endTurnBtn!.style.display = 'none';
+                (endTurnBtn as HTMLButtonElement)!.disabled = true;
             }
         } else {
             // Current turn player is disconnected - this shouldn't happen with server-side skipping
             // but handle it gracefully
             console.log('Current turn player is disconnected, hiding turn indicator');
-            turnIndicator.style.display = 'none';
-            endTurnBtn.style.display = 'none';
-            endTurnBtn.disabled = true;
+            turnIndicator!.style.display = 'none';
+            endTurnBtn!.style.display = 'none';
+            (endTurnBtn as HTMLButtonElement)!.disabled = true;
         }
     } else {
         console.log('No turn order set, hiding turn controls');
         // No turn order set yet
-        turnIndicator.style.display = 'none';
-        endTurnBtn.style.display = 'none';
-        endTurnBtn.disabled = true;
+        turnIndicator!.style.display = 'none';
+        endTurnBtn!.style.display = 'none';
+        (endTurnBtn as HTMLButtonElement)!.disabled = true;
     }
 
     // Re-apply selection and re-populate selectedCards array
