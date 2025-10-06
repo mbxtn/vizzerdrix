@@ -5,6 +5,10 @@ import onChange from 'on-change';
 import { io } from 'socket.io-client';
 import { VdClient } from './lib/state/socketclient';
 import { Game } from './lib/state/game';
+import { ScryfallCard } from '@scryfall/api-types';
+import { Player } from './lib/state/player';
+import { ScryfallCardFactory } from './lib/state/card';
+import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
 
 // Example usage of on-change (you can use this pattern for your game state)
 const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
@@ -55,9 +59,15 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
 
 const socket = io();
 let vdClient = new VdClient(socket);
+let commanderModal = new CommanderSelectionModal(vdClient);
 let room = null;
 let playerId = null;
 let gameState = onChange({}, () => {console.log('Game state updated');});
+// Gamewide State, we should often ignore ourselves vdClient.getId() should cover this...
+let game : Game | undefined;
+// Player State, won't be defined until a game is joined, we won't create these but we'll 
+// be the primary owner/editor of it.
+let player : Player | undefined;
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
 let isMagnifyEnabled = false; // New state variable for magnify on hover
@@ -142,9 +152,9 @@ const tabHoverPreviewToggleBtn = document.getElementById('tab-hover-preview-togg
 const tabHoverPreviewStatusEl = document.getElementById('tab-hover-preview-status');
 const joinBtn = document.getElementById('join-btn');
 const rejoinBtn = document.getElementById('rejoin-btn');
-const roomInput = document.getElementById('room-input');
-const displayNameInput = document.getElementById('display-name-input');
-const decklistInput = document.getElementById('decklist-input');
+const roomInput = <HTMLInputElement>document.getElementById('room-input');
+const displayNameInput = <HTMLInputElement>document.getElementById('display-name-input');
+const decklistInput = <HTMLInputElement>document.getElementById('decklist-input');
 const joinUI = document.getElementById('join-ui');
 const gameUI = document.getElementById('game-ui');
 const playZonesContainer = document.getElementById('play-zones-container');
@@ -239,11 +249,10 @@ let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
 const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cascade area
 
-// Commander selection state
-let pendingDecklistForCommander = [];
-let pendingRoomName = '';
-let pendingDisplayName = '';
-let selectedCommanderIndices = new Set();
+// Tab hover preview state
+let isHoveringTab = false;
+let originalActivePlayZonePlayerId = null;
+let hoverTimeoutId = null;
 
 function stateUpdated(path, value, previousValue, applyData) {
     console.log('Game state updated:', path, value, previousValue, applyData);
@@ -388,11 +397,6 @@ const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
 // Bottom bar state
 let isSpacingSliderVisible = true; // Default to visible
 
-// Tab hover preview state
-let isHoveringTab = false;
-let originalActivePlayZonePlayerId = null;
-let hoverTimeoutId = null;
-
 // Card Zone instances
 let libraryZone = null;
 let graveyardZone = null;
@@ -429,7 +433,7 @@ function attemptRejoin(roomName, displayName) {
 
 // Socket.IO event handlers
 joinBtn?.addEventListener('click', async () => {
-    const roomName = roomInput.value.trim();
+    const roomName = roomInput?.value?.trim();
     const displayName = displayNameInput.value.trim();
     const decklistRaw = decklistInput.value.trim();
     
@@ -490,11 +494,22 @@ joinBtn?.addEventListener('click', async () => {
         // Hide loading progress modal
         hideLoadingProgress();
     }
-
     // Log parsing summary
     console.log(`Decklist parsing complete: ${decklist.length} library cards`);
     if (roomName && displayName && decklist.length > 0) {
-        showCommanderSelectionModal([...decklist], roomName, displayName);
+        // Set up callbacks for the commander modal
+        commanderModal.setCallbacks({
+            onGameJoined: (joinedGame: Game, player: Player) => {
+                console.log("Joined game");
+                game = joinedGame;
+                player = player; // This is already properly typed from the modal
+                console.log(player);
+            },
+            showMessage: showMessage
+        });
+        
+        // Show the commander selection modal
+        commanderModal.show([...decklist], roomName, displayName);
     } else {
         showMessage("Please enter a room name, display name, and at least one card in your decklist.");
     }
@@ -506,188 +521,6 @@ rejoinBtn.addEventListener('click', () => {
     const displayName = displayNameInput.value.trim();
     attemptRejoin(roomName, displayName);
 });
-
-// Commander selection functions
-function showCommanderSelectionModal(allCardNames, roomName, displayName) {
-    console.log('showCommanderSelectionModal called with:', { cardCount: allCardNames.length, roomName, displayName });
-    console.log('Modal elements check:', {
-        commanderSelectionModal: !!commanderSelectionModal,
-        commanderSelectionList: !!commanderSelectionList,
-        selectedCommandersCount: !!selectedCommandersCount,
-        confirmCommanderSelectionBtn: !!confirmCommanderSelectionBtn
-    });
-    
-    if (!commanderSelectionModal) {
-        console.error('Commander selection modal element not found!');
-        return;
-    }
-    
-    pendingDecklistForCommander = [...allCardNames];
-    pendingRoomName = roomName;
-    pendingDisplayName = displayName;
-    selectedCommanderIndices.clear();
-    
-    // Populate the selection list
-    commanderSelectionList.innerHTML = '';
-    
-    // Group identical card names and show counts while preserving order
-    const cardCounts = {};
-    const uniqueCardOrder = []; // Track the order cards first appear
-    allCardNames.forEach(cardName => {
-        if (!cardCounts[cardName]) {
-            cardCounts[cardName] = 0;
-            uniqueCardOrder.push(cardName); // Add to order list when first encountered
-        }
-        cardCounts[cardName]++;
-    });
-    
-    // Use the original order instead of alphabetical
-    const uniqueCards = uniqueCardOrder;
-    console.log('Creating selection for', uniqueCards.length, 'unique cards');
-    
-    uniqueCards.forEach((cardName, index) => {
-        const count = cardCounts[cardName];
-        const cardItem = document.createElement('div');
-        cardItem.className = 'flex items-center justify-between p-3 border border-gray-600 rounded-md mb-2 cursor-pointer hover:bg-gray-600 transition-colors';
-        cardItem.dataset.cardIndex = index;
-        cardItem.dataset.cardName = cardName;
-        
-        const checkboxContainer = document.createElement('div');
-        checkboxContainer.className = 'flex items-center flex-1';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'mr-3 pointer-events-none'; // Disable direct checkbox interaction
-        checkbox.id = `commander-checkbox-${index}`;
-        
-        const label = document.createElement('label');
-        label.htmlFor = `commander-checkbox-${index}`;
-        label.className = 'flex-1 cursor-pointer select-none'; // Prevent text selection
-        label.textContent = count > 1 ? `${cardName} (${count}x)` : cardName;
-        
-        checkboxContainer.appendChild(checkbox);
-        checkboxContainer.appendChild(label);
-        cardItem.appendChild(checkboxContainer);
-        
-        // Add click handler to the entire row
-        cardItem.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Toggle the checkbox state
-            checkbox.checked = !checkbox.checked;
-            
-            // Update visual state
-            if (checkbox.checked) {
-                cardItem.classList.add('bg-blue-600', 'border-blue-400');
-                cardItem.classList.remove('hover:bg-gray-600');
-            } else {
-                cardItem.classList.remove('bg-blue-600', 'border-blue-400');
-                cardItem.classList.add('hover:bg-gray-600');
-            }
-            
-            // Update selection
-            toggleCommanderSelection(index, cardName, checkbox.checked);
-        });
-        
-        commanderSelectionList.appendChild(cardItem);
-    });
-    
-    updateSelectedCommandersCount();
-    
-    // Show the modal
-    commanderSelectionModal.classList.remove('hidden');
-}
-
-function toggleCommanderSelection(index, cardName, isSelected) {
-    if (isSelected) {
-        selectedCommanderIndices.add(index);
-    } else {
-        selectedCommanderIndices.delete(index);
-    }
-    updateSelectedCommandersCount();
-}
-
-function updateSelectedCommandersCount() {
-    selectedCommandersCount.textContent = selectedCommanderIndices.size;
-    
-    // Enable/disable the confirm button based on selection
-    if (selectedCommanderIndices.size > 0) {
-        confirmCommanderSelectionBtn.disabled = false;
-        confirmCommanderSelectionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    } else {
-        confirmCommanderSelectionBtn.disabled = true;
-        confirmCommanderSelectionBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    }
-}
-
-function processCommanderSelection() {
-    const decklist : string[] = [];
-    const commanders : string[] = [];
-    
-    // Group identical card names and show counts while preserving order
-    const cardCounts = {};
-    const uniqueCardOrder : string[] = []; // Track the order cards first appear
-    pendingDecklistForCommander.forEach(cardName => {
-        if (!cardCounts[cardName]) {
-            cardCounts[cardName] = 0;
-            uniqueCardOrder.push(cardName); // Add to order list when first encountered
-        }
-        cardCounts[cardName]++;
-    });
-    
-    const uniqueCards = uniqueCardOrder;
-    
-    selectedCommanderIndices.forEach(index => {
-        const cardName = uniqueCards[index];
-        const count = cardCounts[cardName];
-        
-        // Add all copies of this card as commanders
-        for (let i = 0; i < count; i++) {
-            commanders.push(cardName);
-        }
-        
-        // Remove from potential decklist
-        delete cardCounts[cardName];
-    });
-    
-    // Add remaining cards to decklist
-    Object.entries(cardCounts).forEach(([cardName, count]) => {
-        for (let i = 0; i < count; i++) {
-            decklist.push(cardName);
-        }
-    });
-    
-    console.log(`Commander selection complete: ${decklist.length} library cards, ${commanders.length} commanders`);
-    if (commanders.length > 0) {
-        console.log('Selected commanders:', commanders);
-    }
-    
-    // Save game info for potential future rejoins
-    localStorage.setItem('vizzerdrix-game-info', JSON.stringify({
-        roomName: pendingRoomName,
-        displayName: pendingDisplayName,
-        timestamp: Date.now()
-    }));
-    
-    // Emit join event
-    socket.emit('join', { 
-        roomName: pendingRoomName, 
-        displayName: pendingDisplayName, 
-        decklist, 
-        commanders 
-    });
-
-    vdClient.joinGame(pendingDisplayName, pendingRoomName, commanders, decklist).then( (game: Game) => {
-        console.log("Joined game");
-    }, (reason: any) => {
-        console.log("Failed to join game");
-    });
-    showMessage("Joining Vizzerdrix game...");
-    
-    // Hide the modal
-    commanderSelectionModal.classList.add('hidden');
-}
 
 socket.on('connect', () => {
     playerId = socket.id;
@@ -1205,17 +1038,8 @@ placeholderTextInput.addEventListener('keypress', (e) => {
     }
 });
 
-// Commander selection modal event listeners
-confirmCommanderSelectionBtn.addEventListener('click', () => {
-    if (selectedCommanderIndices.size > 0) {
-        processCommanderSelection();
-    }
-});
-
-cancelCommanderSelectionBtn.addEventListener('click', () => {
-    commanderSelectionModal.classList.add('hidden');
-    selectedCommanderIndices.clear();
-});
+// Commander selection modal event listeners - handled by CommanderSelectionModal class
+// confirmCommanderSelectionBtn and cancelCommanderSelectionBtn are now managed internally
 
 resetBtnModal.addEventListener('click', () => {
     // Collect all non-commander cards from hand, playZone, graveyard, and exile

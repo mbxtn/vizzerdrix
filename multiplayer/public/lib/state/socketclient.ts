@@ -48,6 +48,10 @@ export class VdClient {
         );
     }
 
+    getId() {
+        return this.socket.id?? "";
+    }
+
     updateState(player: Player) {
         this.socket.emit("updateState", player);
     }
