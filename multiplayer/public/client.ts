@@ -447,38 +447,6 @@ socket.on('connect', () => {
     if (playerId) {
         cardFactory = new ScryfallCardFactory(playerId);
     }
-    
-    // Reset game state
-    game = undefined;
-    player = undefined;
-    hand = [];
-    library = [];
-    graveyard = [];
-    exile = [];
-    command = [];
-    playZone = [];
-    selectedCards = [];
-    selectedCardIds = [];
-    
-    // Clear optimistic update state
-    lastClientAction = null;
-    if (clientActionTimeout) {
-        clearTimeout(clientActionTimeout);
-        clientActionTimeout = null;
-    }
-    
-    // Clear any cached shuffled libraries
-    if (typeof shuffledLibraryCache !== 'undefined') {
-        shuffledLibraryCache.clear();
-    }
-    
-    // Reset card zones to ensure they don't hold stale state
-    libraryZone = null;
-    graveyardZone = null;
-    exileZone = null;
-    commandZone = null;
-    
-    // Auto-fill of saved game info is now handled by JoinGameUI class
 });
 
 // Handle successful rejoin
@@ -650,9 +618,6 @@ placeholderTextInput.addEventListener('keypress', (e) => {
         }
     }
 });
-
-// Commander selection modal event listeners - handled by CommanderSelectionModal class
-// confirmCommanderSelectionBtn and cancelCommanderSelectionBtn are now managed internally
 
 resetBtnModal.addEventListener('click', () => {
     // Collect all non-commander cards from hand, playZone, graveyard, and exile
@@ -1332,18 +1297,17 @@ async function render() {
         currentlyViewedPlayerId = viewedPlayerId; // Update the global tracking variable
         
         // Get our player's current state (this is the authoritative client state)
-        const ourPlayer = player;
-        if (ourPlayer) {
+        if (player) {
             // Always trust client-side player state - convert from state classes to legacy format
-            hand = ourPlayer.getZone(Zone.hand).map(convertCardToLegacyFormat);
-            library = ourPlayer.getZone(Zone.library).map(convertCardToLegacyFormat);
-            graveyard = ourPlayer.getZone(Zone.graveyard).map(convertCardToLegacyFormat);
-            exile = ourPlayer.getZone(Zone.exile).map(convertCardToLegacyFormat);
-            command = ourPlayer.getZone(Zone.command).map(convertCardToLegacyFormat);
-            playZone = ourPlayer.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
+            hand = player.getZone(Zone.hand).map(convertCardToLegacyFormat);
+            library = player.getZone(Zone.library).map(convertCardToLegacyFormat);
+            graveyard = player.getZone(Zone.graveyard).map(convertCardToLegacyFormat);
+            exile = player.getZone(Zone.exile).map(convertCardToLegacyFormat);
+            command = player.getZone(Zone.command).map(convertCardToLegacyFormat);
+            playZone = player.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
             
             // Update life total from our player state
-            currentLife = ourPlayer.lifeTotal;
+            currentLife = player.lifeTotal;
             if (lifeTotalEl) {
                 lifeTotalEl.textContent = currentLife.toString();
             }
@@ -1529,7 +1493,7 @@ async function render() {
         // Add ghost cards if ghost mode is enabled and we're viewing another player's battlefield
         if (settingsManager.getSetting('isGhostModeEnabled') && pid !== playerId && pid === activePlayZonePlayerId) {
             // Get our own battlefield data for ghost cards
-            const ourPlayerBattlefield = ourPlayer?.getZone(Zone.battlefield) || [];
+            const ourPlayerBattlefield = player?.getZone(Zone.battlefield) || [];
             const myPlayZoneData = ourPlayerBattlefield.map(convertCardToLegacyFormat);
             myPlayZoneData.forEach(cardData => {
                 const ghostCardEl = createCardElement(cardData, 'play', {
