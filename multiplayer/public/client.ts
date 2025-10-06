@@ -1,7 +1,6 @@
 import { scryfallCache } from './lib/scryfallCache.js';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
-import onChange from 'on-change';
 import { io } from 'socket.io-client';
 import { VdClient } from './lib/state/socketclient';
 import { Game } from './lib/state/game';
@@ -10,14 +9,6 @@ import { Player } from './lib/state/player';
 import { ScryfallCardFactory } from './lib/state/card';
 import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
 import { JoinGameUI } from './lib/ui/joinGameUI.js';
-
-// Example usage of on-change (you can use this pattern for your game state)
-const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
-    console.log(`🔄 Setting changed: ${property} = ${value} (was ${previousValue})`);
-});
-
-// You can now use gameSettings.cardSize = 100; to trigger the onChange callback
-window.gameSettings = gameSettings; // Expose for testing in console
 
 // Cache for heart SVG content
 let heartSVGContent = "";
@@ -67,7 +58,7 @@ let joinGameUI = new JoinGameUI(socket, commanderModal);
 let settingsManager = new SettingsManager();
 let room = null;
 let playerId = null;
-let gameState = onChange({}, () => {console.log('Game state updated');});
+let gameState = {};
 // Gamewide State, we should often ignore ourselves vdClient.getId() should cover this...
 let game : Game | undefined;
 // Player State, won't be defined until a game is joined, we won't create these but we'll 
@@ -171,16 +162,6 @@ const CASCADE_AREA_MAX_Y = 300; // Example: Define the max Y for the initial cas
 let isHoveringTab = false;
 let originalActivePlayZonePlayerId = null;
 let hoverTimeoutId = null;
-
-function stateUpdated(path, value, previousValue, applyData) {
-    console.log('Game state updated:', path, value, previousValue, applyData);
-    if(path.includes(playerId) && path.includes('hand')) {
-        console.log("Hand updated, checking auto-fit");
-        if (settingsManager.getSetting('isAutoFitEnabled')) {
-            autoFitSevenCards(); // Pass the new hand size
-        }
-    }
-}
 
 // Player color generation for selection labels
 function generatePlayerColor(playerId, playerIndex) {
@@ -336,7 +317,7 @@ socket.on('connect', () => {
     activePlayZonePlayerId = socket.id;
     console.log('Client connected. Player ID:', playerId);
     
-    gameState = onChange({}, stateUpdated); 
+    gameState = {}; 
     hand = [];
     library = [];
     graveyard = [];
@@ -393,7 +374,7 @@ socket.on('rejoinSuccess', (data) => {
     }
     
     // Clear all local game state arrays and values
-    gameState = onChange({}, stateUpdated);
+    gameState = {};
     hand = [];
     library = [];
     graveyard = [];
@@ -546,7 +527,7 @@ socket.on('state', async (state) => {
         });
     }
 
-    gameState = onChange(state, stateUpdated);
+    gameState = state;
     window.gameState = gameState; // Expose gameState to window for cardFactory access
     
     // Handle auto-untap when it becomes the player's turn (after gameState is updated)
