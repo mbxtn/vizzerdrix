@@ -4,11 +4,12 @@ import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal.js';
 import { JoinGameUI } from './lib/ui/joinGameUI.js';
 import { SettingsManager } from './lib/ui/settingsManager.js';
 import { DOMCardManager } from './lib/ui/domCardManager.js';
+import { InteractionManager } from './lib/ui/interactionManager.js';
+import { ZoneManager } from './lib/ui/zoneManager.js';
 import { Game } from './lib/state/game.js';
 import { Player } from './lib/state/player.js';
 import { Card } from './lib/state/card.js';
 import { Zone } from './lib/state/socketinterface.js';
-import { CardZone } from './lib/ui/cardZone.js';
 import { io } from 'socket.io-client';
 
 // Global state
@@ -27,8 +28,9 @@ let player: Player | undefined;
 let activePlayZonePlayerId: string | null = null;
 let currentlyViewedPlayerId: string | null = null;
 
-// Modern zone management
-let zones: Map<Zone, CardZone> = new Map();
+// Managers
+let interactionManager: InteractionManager;
+let zoneManager: ZoneManager;
 
 // Declare window interface extensions
 declare global {
@@ -40,6 +42,9 @@ declare global {
 // Initialize the application
 async function init() {
     console.log('Initializing modern Vizzerdrix client...');
+    
+    // Initialize managers
+    initializeManagers();
     
     // Set up basic event listeners
     setupSocketHandlers();
@@ -67,6 +72,24 @@ async function init() {
     }, 5000); // Check every 5 seconds
     
     console.log('Modern client initialized successfully');
+}
+
+function initializeManagers() {
+    // Create interaction manager
+    interactionManager = new InteractionManager(vdClient, cardManager, {
+        render: render,
+        showMessage: showMessage,
+        getCurrentPlayer: () => player,
+        getCurrentGame: () => game,
+        getActivePlayZonePlayerId: () => activePlayZonePlayerId,
+        getCurrentlyViewedPlayerId: () => currentlyViewedPlayerId,
+        getPlayerId: () => playerId
+    });
+    
+    // Create zone manager
+    zoneManager = new ZoneManager(interactionManager, cardManager, settingsManager, {
+        showMessage: showMessage
+    });
 }
 
 function setupSocketHandlers() {
@@ -106,7 +129,10 @@ function setupUIEventHandlers() {
             hideAllModals();
             
             // Initialize zones after joining
-            initializeZones();
+            zoneManager.initializeZones();
+            
+            // Set up drop zones
+            zoneManager.setupDropZones();
             
             // Initial render
             render();
@@ -120,11 +146,11 @@ function setupUIEventHandlers() {
     settingsManager.setCallbacks({
         onMagnifyChange: (enabled: boolean) => {
             // Update all zones
-            zones.forEach(zone => zone.updateMagnifyEnabled(enabled));
+            zoneManager.updateSettings();
         },
         onCardWidthChange: (width: number) => {
             // Update all zones
-            zones.forEach(zone => zone.updateCardWidth(width));
+            zoneManager.updateSettings();
         },
         onSnapToGridChange: (enabled: boolean) => {
             // Update grid visuals
@@ -148,96 +174,6 @@ function setupUIEventHandlers() {
     });
 }
 
-function initializeZones() {
-    if (!player) return;
-    
-    console.log('Initializing modern card zones...');
-    
-    // Clear existing zones
-    zones.forEach(zone => zone.destroy());
-    zones.clear();
-    
-    // Initialize library zone
-    const libraryEl = document.getElementById('library');
-    const libraryCountEl = document.getElementById('library-count');
-    if (libraryEl) {
-        const libraryZone = new CardZone(libraryEl, 'library', {
-            countElement: libraryCountEl,
-            enablePeek: true,
-            peekHoldTime: 200,
-            currentCardWidth: settingsManager.getSetting('currentCardWidth'),
-            isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
-            showMessage: showMessage,
-            onCardDraw: handleCardDraw,
-            onStateChange: handleZoneStateChange,
-            cardManager: cardManager
-        });
-        zones.set(Zone.library, libraryZone);
-    }
-    
-    // Initialize graveyard zone
-    const graveyardEl = document.getElementById('graveyard-pile');
-    const graveyardCountEl = document.getElementById('graveyard-count');
-    if (graveyardEl) {
-        const graveyardZone = new CardZone(graveyardEl, 'graveyard', {
-            countElement: graveyardCountEl,
-            enablePeek: true,
-            peekHoldTime: 200,
-            showShuffle: false,
-            showTopCard: true,
-            currentCardWidth: settingsManager.getSetting('currentCardWidth'),
-            isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
-            showMessage: showMessage,
-            onCardDraw: handleCardDraw,
-            onStateChange: handleZoneStateChange,
-            cardManager: cardManager
-        });
-        zones.set(Zone.graveyard, graveyardZone);
-    }
-    
-    // Initialize exile zone
-    const exileEl = document.getElementById('exile-pile');
-    const exileCountEl = document.getElementById('exile-count');
-    if (exileEl) {
-        const exileZone = new CardZone(exileEl, 'exile', {
-            countElement: exileCountEl,
-            enablePeek: true,
-            peekHoldTime: 200,
-            showShuffle: false,
-            showTopCard: true,
-            currentCardWidth: settingsManager.getSetting('currentCardWidth'),
-            isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
-            showMessage: showMessage,
-            onCardDraw: handleCardDraw,
-            onStateChange: handleZoneStateChange,
-            cardManager: cardManager
-        });
-        zones.set(Zone.exile, exileZone);
-    }
-    
-    // Initialize command zone
-    const commandEl = document.getElementById('command-pile');
-    const commandCountEl = document.getElementById('command-count');
-    if (commandEl) {
-        const commandZone = new CardZone(commandEl, 'command', {
-            countElement: commandCountEl,
-            enablePeek: true,
-            peekHoldTime: 200,
-            showShuffle: false,
-            showTopCard: true,
-            currentCardWidth: settingsManager.getSetting('currentCardWidth'),
-            isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
-            showMessage: showMessage,
-            onCardDraw: handleCardDraw,
-            onStateChange: handleZoneStateChange,
-            cardManager: cardManager
-        });
-        zones.set(Zone.command, commandZone);
-    }
-    
-    console.log(`Initialized ${zones.size} card zones`);
-}
-
 function handleGameStateUpdate(updatedGame: Game) {
     console.log('Received game state update via VdClient:', updatedGame);
     
@@ -259,26 +195,6 @@ function handleGameStateUpdate(updatedGame: Game) {
     hideAllModals();
     
     // Trigger a render
-    render();
-}
-
-function handleCardDraw(card: any, targetZone: string, options: any = {}) {
-    console.log(`Drawing card from zone to ${targetZone}:`, card);
-    
-    // TODO: Implement card movement using vdClient
-    // This would send updates to the server through the state classes
-    
-    // For now, just re-render
-    render();
-}
-
-function handleZoneStateChange(action: string, cardIdOrIds: string | string[], sourceZone: string, targetZone: string) {
-    console.log(`Zone state change: ${action} from ${sourceZone} to ${targetZone}`, cardIdOrIds);
-    
-    // TODO: Implement zone state changes using vdClient
-    // This would update the state classes and send to server
-    
-    // For now, just re-render
     render();
 }
 
@@ -317,30 +233,8 @@ function updateZones() {
     const viewedPlayer = viewedPlayerId ? game?.getPlayer(viewedPlayerId) : null;
     if (!viewedPlayer) return;
     
-    // Update each zone with cards from the state classes
-    for (const [zoneType, cardZone] of zones) {
-        const cards = viewedPlayer.getZone(zoneType);
-        
-        // Convert Card objects to legacy format for CardZone compatibility
-        const legacyCards = cards.map(card => ({
-            id: card.id,
-            name: card.cardName,
-            displayName: card.cardName,
-            x: card.location.x,
-            y: card.location.y,
-            rotation: card.tapped ? 90 : 0,
-            counters: card.counters,
-            faceShown: card.flipped ? 'back' : 'front',
-            zone: card.zone,
-            isCommander: card.commander,
-            isTemporary: card.isTemporary
-        }));
-        
-        cardZone.updateCards(legacyCards);
-        cardZone.setInteractionEnabled(viewedPlayerId === playerId);
-        
-        console.log(`Updated ${zoneType} with ${legacyCards.length} cards`);
-    }
+    // Use zone manager to update zones
+    zoneManager.updateZones(player, viewedPlayer, playerId);
 }
 
 function renderHand() {
@@ -368,9 +262,9 @@ function renderHand() {
         {
             isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
             isInteractable: true,
-            onCardClick: handleCardClick,
-            onCardDblClick: handleCardDoubleClick,
-            onCardDragStart: handleCardDragStart,
+            onCardClick: interactionManager.handleCardClick,
+            onCardDblClick: interactionManager.handleCardDoubleClick,
+            onCardDragStart: interactionManager.handleCardDragStart,
             showBack: false,
             playerSelections: {},
             playerColors: {}
@@ -412,9 +306,9 @@ function renderBattlefield() {
         {
             isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
             isInteractable: activePlayZonePlayerId === playerId,
-            onCardClick: handleCardClick,
-            onCardDblClick: handleCardDoubleClick,
-            onCardDragStart: handleCardDragStart,
+            onCardClick: interactionManager.handleCardClick.bind(interactionManager),
+            onCardDblClick: interactionManager.handleCardDoubleClick.bind(interactionManager),
+            onCardDragStart: interactionManager.handleCardDragStart.bind(interactionManager),
             showBack: false,
             playerSelections: {},
             playerColors: {}
@@ -487,22 +381,6 @@ function updatePlayerUI() {
     }
 }
 
-// Event handlers
-function handleCardClick(card: Card, element: HTMLElement, event: MouseEvent) {
-    console.log('Card clicked:', card.cardName);
-    // TODO: Implement card selection
-}
-
-function handleCardDoubleClick(card: Card, element: HTMLElement, event: MouseEvent) {
-    console.log('Card double-clicked:', card.cardName);
-    // TODO: Implement card action (e.g., play from hand)
-}
-
-function handleCardDragStart(card: Card, element: HTMLElement, event: DragEvent) {
-    console.log('Card drag started:', card.cardName);
-    // TODO: Implement drag handling
-}
-
 // Utility functions
 function showMessage(message: string) {
     const messageModal = document.getElementById('message-modal');
@@ -572,11 +450,12 @@ if (document.readyState === 'loading') {
     init();
 }
 
-// Export for debugging
+// Export for debugging (only set managers if they exist)
 (window as any).modernClient = {
     game,
     player,
-    zones,
     vdClient,
-    render
+    render,
+    get zoneManager() { return zoneManager; },
+    get interactionManager() { return interactionManager; }
 };

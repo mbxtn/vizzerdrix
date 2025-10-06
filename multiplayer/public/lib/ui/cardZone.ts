@@ -98,6 +98,8 @@ export class CardZone {
     }
     
     initializeEventHandlers(): void {
+        console.log(`[CardZone] Initializing event handlers for ${this.zoneType} zone`);
+        
         // Since top card now handles its own interactions, we only need:
         // 1. Drop handlers for accepting drops from other zones
         // 2. Context menu on the zone background
@@ -106,65 +108,100 @@ export class CardZone {
         
         // Set up peek functionality if enabled
         if (this.enablePeek) {
+            console.log(`[CardZone] Setting up peek handlers for ${this.zoneType}`);
             this.setupPeekHandlers();
+        } else {
+            console.log(`[CardZone] Peek handlers disabled for ${this.zoneType}`);
         }
     }
     
     setupPeekHandlers(): void {
         // Peek functionality is now handled by long-pressing the top card
         this.element.addEventListener('mousedown', (e: MouseEvent) => {
+            console.log(`[CardZone] ${this.zoneType} mousedown event triggered`, e.button, e.target);
+            
             // Check if interactions are enabled
-            if (!this.interactionEnabled) return;
+            if (!this.interactionEnabled) {
+                console.log(`[CardZone] ${this.zoneType} interactions disabled`);
+                return;
+            }
             
             // Only handle mousedown if it's not on the top card
             if ((e.target as Element)?.closest('.card')) {
+                console.log(`[CardZone] ${this.zoneType} mousedown on card element, letting card handle it`);
                 return; // Let the card handle its own events
             }
             
             if (e.button === 2) {
+                console.log(`[CardZone] ${this.zoneType} right click detected`);
                 this.rightClickInProgress = true;
                 return;
             }
-            if (e.button !== 0) return; // Only left click for peek
+            if (e.button !== 0) {
+                console.log(`[CardZone] ${this.zoneType} non-left click (button: ${e.button})`);
+                return; // Only left click for peek
+            }
             
+            console.log(`[CardZone] ${this.zoneType} left click start, setting up peek timer`);
             this.rightClickInProgress = false;
             
             if (this.cards.length === 0) {
                 if (this.zoneType === 'library') {
+                    console.log(`[CardZone] ${this.zoneType} is empty, showing message`);
                     this.showMessage?.("Library is empty!");
                 }
                 return;
             }
             
             this.popTimer = setTimeout(() => {
+                console.log(`[CardZone] ${this.zoneType} peek timer triggered`);
                 this.startPeek(e);
             }, this.peekHoldTime);
         });
         
         this.element.addEventListener('mouseup', (e: MouseEvent) => {
+            console.log(`[CardZone] ${this.zoneType} mouseup event triggered`, e.button, e.target);
+            
             // Check if interactions are enabled
-            if (!this.interactionEnabled) return;
+            if (!this.interactionEnabled) {
+                console.log(`[CardZone] ${this.zoneType} interactions disabled on mouseup`);
+                return;
+            }
             
             if (this.popTimer) {
+                console.log(`[CardZone] ${this.zoneType} clearing pop timer on mouseup`);
                 clearTimeout(this.popTimer);
             }
             
             // Only handle mouseup if it's not on the top card
             if ((e.target as Element)?.closest('.card')) {
+                console.log(`[CardZone] ${this.zoneType} mouseup on card element, letting card handle it`);
                 return; // Let the card handle its own events
             }
             
             if (e.button === 2 || this.rightClickInProgress) {
+                console.log(`[CardZone] ${this.zoneType} right click processed, skipping draw`);
                 this.rightClickInProgress = false;
                 return;
             }
             
             if (!this.isPopping) {
-                // Background click - no action needed since card handles clicks
+                // Simple click (not a long press peek) - draw a card for library/command zones
                 if (this.contextMenuJustShown) {
+                    console.log(`[CardZone] ${this.zoneType} context menu just shown, skipping draw`);
                     this.contextMenuJustShown = false;
                     return;
                 }
+                
+                // Handle simple clicks to draw cards from library or command zone
+                if (this.zoneType === 'library' || this.zoneType === 'command') {
+                    console.log(`[CardZone] ${this.zoneType} click detected! Calling drawCard with ${this.cards.length} cards`);
+                    this.drawCard();
+                } else {
+                    console.log(`[CardZone] ${this.zoneType} click detected (no draw action for this zone type)`);
+                }
+            } else {
+                console.log(`[CardZone] ${this.zoneType} was in popping state, not drawing card`);
             }
             this.element.classList.remove('touch-pop-active');
         });
@@ -310,6 +347,7 @@ export class CardZone {
     }
     
     drawCard(): void {
+        console.log(`drawCard called on ${this.zoneType} with ${this.cards.length} cards`);
         if (this.cards.length === 0) {
             // Only show empty message for library, not for graveyard
             if (this.zoneType === 'library') {
@@ -318,6 +356,7 @@ export class CardZone {
             return;
         }
         const cardObj = this.removeTopCard();
+        console.log(`Drawing card:`, cardObj);
         this.onCardDraw?.(cardObj, 'hand');
     }
     
@@ -417,9 +456,97 @@ export class CardZone {
     
     // Placeholder methods that need to be implemented
     updateTopCardDisplay(): void {
-        // TODO: Implement top card display logic
-        console.log(`Updating top card display for ${this.zoneType}, ${this.cards.length} cards`);
+        console.log(`[CardZone] Updating top card display for ${this.zoneType}, ${this.cards.length} cards, showTopCard: ${this.showTopCard}`);
+        
+        // Remove existing top card element if any
+        if (this.topCardElement) {
+            this.topCardElement.remove();
+            this.topCardElement = null;
+        }
+        
+        // Only show top card if configured to do so and there are cards
+        if (!this.showTopCard || this.cards.length === 0) {
+            console.log(`[CardZone] ${this.zoneType} not showing top card (showTopCard: ${this.showTopCard}, cards: ${this.cards.length})`);
+            return;
+        }
+        
+        const topCard = this.cards[this.cards.length - 1];
+        if (!topCard) {
+            console.log(`[CardZone] ${this.zoneType} no top card found`);
+            return;
+        }
+        
+        console.log(`[CardZone] ${this.zoneType} creating top card element for:`, topCard.cardName || topCard.name);
+        
+        // Determine if we should show the back of the card
+        let shouldShowBack = !this.showTopCard;
+        if (this.zoneType === 'library') {
+            shouldShowBack = true; // Always show back for library cards
+        }
+        
+        // Create the top card element using DOMCardManager
+        if (this.cardManager) {
+            const domCardElement = this.cardManager.createOrUpdateCardElement(
+                topCard,
+                this.zoneType === 'library' ? Zone.library : (this.zoneType === 'graveyard' ? Zone.graveyard : (this.zoneType === 'exile' ? Zone.exile : Zone.command)),
+                {
+                    isMagnifyEnabled: this.isMagnifyEnabled,
+                    isInteractable: this.interactionEnabled,
+                    showBack: shouldShowBack,
+                    onCardClick: this.interactionEnabled ? this.handleTopCardClick.bind(this) : undefined,
+                    onCardDblClick: undefined, // No double-click support for zone cards
+                    onCardDragStart: this.interactionEnabled ? this.handleTopCardDragStart.bind(this) : undefined
+                }
+            );
+            
+            if (domCardElement.getElement()) {
+                this.topCardElement = domCardElement.getElement();
+                
+                // Position the top card centered within the zone
+                this.topCardElement.style.position = 'absolute';
+                this.topCardElement.style.top = '50%';
+                this.topCardElement.style.left = '50%';
+                this.topCardElement.style.transform = 'translate(-50%, -50%)';
+                this.topCardElement.classList.add('zone-top-card');
+                
+                // Add the top card to the zone element
+                this.element.appendChild(this.topCardElement);
+                
+                console.log(`[CardZone] ${this.zoneType} top card element created and added`);
+            } else {
+                console.error(`[CardZone] ${this.zoneType} failed to create top card element`);
+            }
+        }
     }
+    
+    handleTopCardClick = (card: any, element: HTMLElement, event: MouseEvent): void => {
+        console.log(`[CardZone] ${this.zoneType} top card clicked:`, card.cardName || card.name);
+        
+        // Close any open context menus
+        if ((window as any).hideCardContextMenu) (window as any).hideCardContextMenu();
+        if ((window as any).hideBottomBarContextMenu) (window as any).hideBottomBarContextMenu();
+        
+        // Only handle clicks if not in peek mode and interactions are enabled
+        if (!this.isPopping && !this.rightClickInProgress && !this.contextMenuJustShown && this.interactionEnabled) {
+            console.log(`[CardZone] ${this.zoneType} calling drawCard from top card click`);
+            this.drawCard();
+        } else {
+            console.log(`[CardZone] ${this.zoneType} top card click ignored (isPopping: ${this.isPopping}, rightClick: ${this.rightClickInProgress}, contextMenu: ${this.contextMenuJustShown}, enabled: ${this.interactionEnabled})`);
+        }
+    };
+    
+    handleTopCardDragStart = (card: any, element: HTMLElement, event: DragEvent): void => {
+        console.log(`[CardZone] ${this.zoneType} top card drag started:`, card.cardName || card.name);
+        
+        if (event.dataTransfer) {
+            event.dataTransfer.setData('text/plain', card.id);
+            event.dataTransfer.setData('sourceZone', this.zoneType);
+            event.dataTransfer.setData('cardName', card.displayName || card.name || card.cardName);
+            event.dataTransfer.effectAllowed = 'move';
+            
+            this.draggedCardId = card.id;
+        }
+    };
     
     updateSidePanel(): void {
         // TODO: Implement side panel update logic
