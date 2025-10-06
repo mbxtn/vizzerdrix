@@ -1,6 +1,6 @@
 import { scryfallCache } from './lib/scryfallCache.js';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
-import { CardZone } from './lib/cardZone.js';
+import { CardZone } from './lib/ui/cardZone.js';
 import { io } from 'socket.io-client';
 import { VdClient } from './lib/state/socketclient';
 import { Game } from './lib/state/game';
@@ -390,8 +390,7 @@ function handleGameStateUpdate(updatedGame: Game) {
     
     // Sync local state with player state if needed
     if (player && !previousGame) {
-        console.log('Syncing local state with player state');
-        syncLocalStateWithPlayer();
+        console.log('Player state ready - no sync needed with new architecture');
     }
     
     // Trigger a render
@@ -401,41 +400,7 @@ function handleGameStateUpdate(updatedGame: Game) {
     updatePlayerColors();
 }
 
-// Sync local arrays with player state from the state classes
-function syncLocalStateWithPlayer() {
-    if (!player) return;
-    
-    console.log('Syncing local state with player:', player.name);
-    
-    // Get zones from player
-    const handCards = player.getZone(Zone.hand);
-    const libraryCards = player.getZone(Zone.library);
-    const graveyardCards = player.getZone(Zone.graveyard);
-    const exileCards = player.getZone(Zone.exile);
-    const commandCards = player.getZone(Zone.command);
-    const battlefieldCards = player.getZone(Zone.battlefield);
-    
-    // Convert state classes back to the format expected by the current UI
-    hand = handCards.map(convertCardToLegacyFormat);
-    library = libraryCards.map(convertCardToLegacyFormat);
-    graveyard = graveyardCards.map(convertCardToLegacyFormat);
-    exile = exileCards.map(convertCardToLegacyFormat);
-    command = commandCards.map(convertCardToLegacyFormat);
-    playZone = battlefieldCards.map(convertCardToLegacyFormat);
-    
-    // Update life total
-    currentLife = player.lifeTotal;
-    
-    console.log('Local state synced:', {
-        handCount: hand.length,
-        libraryCount: library.length,
-        graveyardCount: graveyard.length,
-        exileCount: exile.length,
-        commandCount: command.length,
-        playZoneCount: playZone.length,
-        life: currentLife
-    });
-}
+// Sync function removed - using state classes directly now!
 
 // Convert new Card class to legacy card format for UI compatibility
 function convertCardToLegacyFormat(card: Card): any {
@@ -1299,7 +1264,24 @@ async function render() {
     isRendering = true;
     
     try {
-        // Render all zones using new state system
+        // First, populate legacy arrays from state classes
+        hand = player.getZone(Zone.hand).map(convertCardToLegacyFormat);
+        library = player.getZone(Zone.library).map(convertCardToLegacyFormat);
+        graveyard = player.getZone(Zone.graveyard).map(convertCardToLegacyFormat);
+        exile = player.getZone(Zone.exile).map(convertCardToLegacyFormat);
+        command = player.getZone(Zone.command).map(convertCardToLegacyFormat);
+        playZone = player.getZone(Zone.battlefield).map(convertCardToLegacyFormat);
+        
+        console.log('Populated legacy arrays:', {
+            hand: hand.length,
+            library: library.length,
+            graveyard: graveyard.length,
+            exile: exile.length,
+            command: command.length,
+            playZone: playZone.length
+        });
+        
+        // Render all zones using hybrid system
         await renderAllZones();
         
     } catch (error) {
@@ -1307,6 +1289,31 @@ async function render() {
     } finally {
         isRendering = false;
     }
+}
+
+// New event handlers for clean architecture
+function handleCardClick_New(card: Card, event: MouseEvent) {
+    // TODO: Implement modern card click handling
+    console.log('Card clicked:', card.cardName);
+}
+
+function handleCardDoubleClick_New(card: Card, event: MouseEvent) {
+    // TODO: Implement modern card double-click handling
+    console.log('Card double-clicked:', card.cardName);
+}
+
+function handleCardDragStart_New(card: Card, event: DragEvent) {
+    // TODO: Implement modern card drag handling
+    console.log('Card drag started:', card.cardName);
+}
+
+// Card spacing and size functions (preserved from legacy)
+let currentCardWidth = 80; // Default card width
+let currentCardSpacing = 0; // Default card spacing
+
+function updateCardSpacing() {
+    // TODO: Implement card spacing update
+    console.log('Updating card spacing to:', currentCardSpacing);
 }
 
 // Complete new zone rendering using state classes
@@ -1391,50 +1398,42 @@ async function renderOtherZones() {
         return;
     }
     
-    // Render library
-    const libraryZone = document.getElementById('library-zone');
+    // The CardZone instances should handle the rendering for library, graveyard, exile, command
+    // We just need to update their card data from the state classes
+    
+    // Initialize card zones if they don't exist
+    if (!libraryZone || !graveyardZone || !exileZone || !commandZone) {
+        console.log('Initializing card zones for other zones rendering');
+        initializeCardZones();
+    }
+    
+    // Update the CardZone instances with data from state classes
     if (libraryZone) {
-        const libraryCards = viewedPlayer.getZone(Zone.library);
-        // For library, we typically show card backs or just count
-        libraryZone.innerHTML = `<div class="zone-label">Library (${libraryCards.length})</div>`;
+        const libraryCards = viewedPlayer.getZone(Zone.library).map(convertCardToLegacyFormat);
+        console.log(`Updating library zone with ${libraryCards.length} cards`);
+        libraryZone.updateCards(libraryCards);
+        libraryZone.setInteractionEnabled(viewedPlayerId === playerId);
     }
     
-    // Render graveyard  
-    const graveyardZone = document.getElementById('graveyard-zone');
     if (graveyardZone) {
-        const graveyardCards = viewedPlayer.getZone(Zone.graveyard);
-        graveyardZone.innerHTML = `<div class="zone-label">Graveyard (${graveyardCards.length})</div>`;
-        
-        // Show top card if any
-        if (graveyardCards.length > 0) {
-            const topCard = graveyardCards[graveyardCards.length - 1];
-            const cardEl = document.createElement('div');
-            cardEl.className = 'card-preview';
-            cardEl.textContent = topCard.cardName;
-            graveyardZone.appendChild(cardEl);
-        }
+        const graveyardCards = viewedPlayer.getZone(Zone.graveyard).map(convertCardToLegacyFormat);
+        console.log(`Updating graveyard zone with ${graveyardCards.length} cards`);
+        graveyardZone.updateCards(graveyardCards);
+        graveyardZone.setInteractionEnabled(viewedPlayerId === playerId);
     }
     
-    // Render exile
-    const exileZone = document.getElementById('exile-zone');
     if (exileZone) {
-        const exileCards = viewedPlayer.getZone(Zone.exile);
-        exileZone.innerHTML = `<div class="zone-label">Exile (${exileCards.length})</div>`;
+        const exileCards = viewedPlayer.getZone(Zone.exile).map(convertCardToLegacyFormat);
+        console.log(`Updating exile zone with ${exileCards.length} cards`);
+        exileZone.updateCards(exileCards);
+        exileZone.setInteractionEnabled(viewedPlayerId === playerId);
     }
     
-    // Render command zone
-    const commandZone = document.getElementById('command-zone');
     if (commandZone) {
-        const commandCards = viewedPlayer.getZone(Zone.command);
-        commandZone.innerHTML = `<div class="zone-label">Command (${commandCards.length})</div>`;
-        
-        // Show commanders
-        commandCards.forEach(commander => {
-            const cardEl = document.createElement('div');
-            cardEl.className = 'commander-card';
-            cardEl.textContent = commander.cardName;
-            commandZone.appendChild(cardEl);
-        });
+        const commandCards = viewedPlayer.getZone(Zone.command).map(convertCardToLegacyFormat);
+        console.log(`Updating command zone with ${commandCards.length} cards`);
+        commandZone.updateCards(commandCards);
+        commandZone.setInteractionEnabled(viewedPlayerId === playerId);
     }
 }
 
@@ -2825,13 +2824,13 @@ function createDeck(cardNames) {
     }));
 }
 
-// Zones now store card objects
-let library = [];
-let hand = [];
-let graveyard = [];
-let exile = [];
-let command = [];
-let playZone = [];
+// Remove legacy arrays - using state classes only!
+// let library = [];
+// let hand = [];
+// let graveyard = [];
+// let exile = [];
+// let command = [];
+// let playZone = [];
 let currentLife = 40; // Track current life total
 let currentCardWidth = 80;
 const minCardWidth = 60;
