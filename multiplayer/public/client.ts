@@ -1,4 +1,4 @@
-import ScryfallCache, { scryfallCache } from './lib/scryfallCache';
+import { scryfallCache } from './lib/scryfallCache.js';
 import { createCardElement, updateImageQualityCutoffs } from './lib/cardFactory.js';
 import { CardZone } from './lib/cardZone.js';
 import onChange from 'on-change';
@@ -9,6 +9,7 @@ import { ScryfallCard } from '@scryfall/api-types';
 import { Player } from './lib/state/player';
 import { ScryfallCardFactory } from './lib/state/card';
 import { CommanderSelectionModal } from './lib/ui/commanderSelectionModal';
+import { JoinGameUI } from './lib/ui/joinGameUI.js';
 
 // Example usage of on-change (you can use this pattern for your game state)
 const gameSettings = onChange({ cardSize: 80, handSpacing: 0 }, (property, value, previousValue) => {
@@ -60,6 +61,7 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
 const socket = io();
 let vdClient = new VdClient(socket);
 let commanderModal = new CommanderSelectionModal(vdClient);
+let joinGameUI = new JoinGameUI(socket, commanderModal);
 let room = null;
 let playerId = null;
 let gameState = onChange({}, () => {console.log('Game state updated');});
@@ -150,12 +152,7 @@ const snapToGridToggleBtn = document.getElementById('snap-to-grid-toggle-btn');
 const snapToGridStatusEl = document.getElementById('snap-to-grid-status');
 const tabHoverPreviewToggleBtn = document.getElementById('tab-hover-preview-toggle-btn');
 const tabHoverPreviewStatusEl = document.getElementById('tab-hover-preview-status');
-const joinBtn = document.getElementById('join-btn');
-const rejoinBtn = document.getElementById('rejoin-btn');
-const roomInput = <HTMLInputElement>document.getElementById('room-input');
-const displayNameInput = <HTMLInputElement>document.getElementById('display-name-input');
-const decklistInput = <HTMLInputElement>document.getElementById('decklist-input');
-const joinUI = document.getElementById('join-ui');
+// Join UI elements are now handled by JoinGameUI class
 const gameUI = document.getElementById('game-ui');
 const playZonesContainer = document.getElementById('play-zones-container');
 const playerTabsContainer = document.getElementById('player-tabs-container');
@@ -171,37 +168,34 @@ const commandCountEl = document.getElementById('command-count');
 const messageModal = document.getElementById('message-modal');
 const messageText = document.getElementById('message-text');
 const closeModalBtn = document.getElementById('close-modal-btn');
-const optionsBtn = document.getElementById('options-btn'); // Options button reference                                                                         │
-const optionsModal = document.getElementById('options-modal'); // Options modal reference                                                                   │
-const resetBtnModal = document.getElementById('reset-btn-modal'); // New reset button reference           
-const pickTurnOrderBtn = document.getElementById('pick-turn-order-btn'); // Turn order button reference
-const endTurnBtn = document.getElementById('end-turn-btn'); // End turn button reference
-const turnIndicator = document.getElementById('turn-indicator'); // Turn indicator reference
-const currentPlayerNameEl = document.getElementById('current-player-name'); // Current player name element
-const playerTabsEl = document.getElementById('player-tabs'); // Player tabs container
-const increaseSizeBtn = document.getElementById('increase-size-btn'); // Card size controls
+const optionsBtn = document.getElementById('options-btn');
+const optionsModal = document.getElementById('options-modal');
+const resetBtnModal = document.getElementById('reset-btn-modal');
+const pickTurnOrderBtn = document.getElementById('pick-turn-order-btn');
+const endTurnBtn = document.getElementById('end-turn-btn');
+const turnIndicator = document.getElementById('turn-indicator');
+const currentPlayerNameEl = document.getElementById('current-player-name');
+const playerTabsEl = document.getElementById('player-tabs');
+const increaseSizeBtn = document.getElementById('increase-size-btn');
 const decreaseSizeBtn = document.getElementById('decrease-size-btn');
-const cardSpacingSlider = document.getElementById('card-spacing-slider'); // Card spacing slider
-const createPlaceholderBtn = document.getElementById('create-placeholder-btn'); // Placeholder card button
-const placeholderModal = document.getElementById('placeholder-modal'); // Placeholder modal
-const placeholderTextInput = document.getElementById('placeholder-text-input'); // Placeholder text input
-const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn'); // Confirm placeholder button
-const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn'); // Cancel placeholder button
-const commanderSelectionModal = document.getElementById('commander-selection-modal'); // Commander selection modal
-const commanderSelectionList = document.getElementById('commander-selection-list'); // Commander selection list
-const selectedCommandersCount = document.getElementById('selected-commanders-count'); // Selected commanders count
-const confirmCommanderSelectionBtn = document.getElementById('confirm-commander-selection-btn'); // Confirm commander selection button
-const cancelCommanderSelectionBtn = document.getElementById('cancel-commander-selection-btn'); // Cancel commander selection button
-const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container'); // Magnify size slider container
-const magnifySizeSlider = document.getElementById('magnify-size-slider'); // Magnify size slider
-const lifeTotalEl = document.getElementById('life-total'); // Life total display
-const handCountEl = document.getElementById('hand-count'); // Hand count display
-const increaseLifeBtn = document.getElementById('increase-life-btn'); // Increase life button
-const decreaseLifeBtn = document.getElementById('decrease-life-btn'); // Decrease life button
-const loadingModal = document.getElementById('loading-modal'); // Loading progress modal
-const loadingProgressBar = document.getElementById('loading-progress-bar'); // Progress bar
-const loadingProgressText = document.getElementById('loading-progress-text'); // Progress text
-const loadingCurrentCard = document.getElementById('loading-current-card'); // Current card text
+const cardSpacingSlider = document.getElementById('card-spacing-slider');
+const createPlaceholderBtn = document.getElementById('create-placeholder-btn');
+const placeholderModal = document.getElementById('placeholder-modal');
+const placeholderTextInput = document.getElementById('placeholder-text-input');
+const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn');
+const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn');
+const commanderSelectionModal = document.getElementById('commander-selection-modal');
+const commanderSelectionList = document.getElementById('commander-selection-list');
+const selectedCommandersCount = document.getElementById('selected-commanders-count');
+const confirmCommanderSelectionBtn = document.getElementById('confirm-commander-selection-btn');
+const cancelCommanderSelectionBtn = document.getElementById('cancel-commander-selection-btn');
+const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container');
+const magnifySizeSlider = document.getElementById('magnify-size-slider');
+const lifeTotalEl = document.getElementById('life-total');
+const handCountEl = document.getElementById('hand-count');
+const increaseLifeBtn = document.getElementById('increase-life-btn');
+const decreaseLifeBtn = document.getElementById('decrease-life-btn');
+// Loading modal elements are now handled by JoinGameUI class
 
 
 // Selection state
@@ -417,110 +411,7 @@ function debouncedRender() {
     }, 16); // ~60fps max
 }
 
-// Function to attempt rejoining a game
-function attemptRejoin(roomName, displayName) {
-    if (roomName && displayName) {
-        console.log('Attempting rejoin with:', { roomName, displayName });
-        // Set rejoin flag early
-        isRejoinState = true;
-        socket.emit('rejoin', { roomName, displayName });
-        showMessage("Attempting to rejoin Vizzerdrix game...");
-    } else {
-        console.error('Cannot rejoin: missing room name or display name');
-        showMessage("Please enter both room name and display name to rejoin.");
-    }
-}
-
-// Socket.IO event handlers
-joinBtn?.addEventListener('click', async () => {
-    const roomName = roomInput?.value?.trim();
-    const displayName = displayNameInput.value.trim();
-    const decklistRaw = decklistInput.value.trim();
-    
-    // Parse decklist into arrays of card names, separating commanders from library cards
-    const decklist : string[]= [];
-    const commanders : string[]= [];
-    
-    // Split by lines and handle empty lines to detect commander section
-    const lines = decklistRaw.split('\n').map(line => line.trim());
-    
-    lines.forEach((line, index) => {
-        if (!line) return; // Skip empty lines
-        
-        let cardName, count;
-        
-        // First, try to match count at the beginning
-        const countMatch = line.match(/^(\d+)\s*x?\s*(.+)$/);
-        
-        if (countMatch) {
-            count = parseInt(countMatch[1]);
-            cardName = countMatch[2];
-        } else {
-            // No count specified, assume 1 copy
-            count = 1;
-            cardName = line;
-        }        
-        // Remove any trailing/leading whitespace
-        cardName = cardName.trim();
-        
-        // Skip if card name is empty after cleaning
-        if (!cardName) {
-            console.warn('Empty card name after parsing:', line);
-            return;
-        }
-        
-        // Log parsing for debugging (only for first few cards to avoid spam)
-        if (index < 10) {
-            console.log(`Parsed line "${line}" -> Count: ${count}, Name: "${cardName}"`);
-        }
-        
-        // Add the specified number of copies to the appropriate zone
-        const targetArray = decklist;
-        for (let i = 0; i < count; i++) {
-            targetArray.push(cardName);
-        }
-    });
-
-    showLoadingProgress();
-    try {
-        await ScryfallCache.load(decklist, (loaded, total, currentCard) => {
-            updateLoadingProgress(loaded, total, currentCard);
-        });
-        console.log('Finished loading card images');
-    } catch (error) {
-        console.error('Error loading card images:', error);
-        showMessage('Some card images failed to load. The game will continue with placeholders.');
-    } finally {
-        // Hide loading progress modal
-        hideLoadingProgress();
-    }
-    // Log parsing summary
-    console.log(`Decklist parsing complete: ${decklist.length} library cards`);
-    if (roomName && displayName && decklist.length > 0) {
-        // Set up callbacks for the commander modal
-        commanderModal.setCallbacks({
-            onGameJoined: (joinedGame: Game, player: Player) => {
-                console.log("Joined game");
-                game = joinedGame;
-                player = player; // This is already properly typed from the modal
-                console.log(player);
-            },
-            showMessage: showMessage
-        });
-        
-        // Show the commander selection modal
-        commanderModal.show([...decklist], roomName, displayName);
-    } else {
-        showMessage("Please enter a room name, display name, and at least one card in your decklist.");
-    }
-});
-
-// Separate rejoin button handler
-rejoinBtn.addEventListener('click', () => {
-    const roomName = roomInput.value.trim();
-    const displayName = displayNameInput.value.trim();
-    attemptRejoin(roomName, displayName);
-});
+// Note: Join button event listeners and attemptRejoin function are now handled by JoinGameUI class
 
 socket.on('connect', () => {
     playerId = socket.id;
@@ -557,24 +448,7 @@ socket.on('connect', () => {
     exileZone = null;
     commandZone = null;
     
-    // Auto-fill form with saved game info if available (for convenience)
-    const savedGameInfo = localStorage.getItem('vizzerdrix-game-info');
-    if (savedGameInfo) {
-        try {
-            const gameInfo = JSON.parse(savedGameInfo);
-            // Only auto-fill if the save is recent (within 24 hours)
-            if (Date.now() - gameInfo.timestamp < 24 * 60 * 60 * 1000) {
-                roomInput.value = gameInfo.roomName;
-                displayNameInput.value = gameInfo.displayName;
-            } else {
-                // Remove old saved info
-                localStorage.removeItem('vizzerdrix-game-info');
-            }
-        } catch (error) {
-            console.error('Error parsing saved game info:', error);
-            localStorage.removeItem('vizzerdrix-game-info');
-        }
-    }
+    // Auto-fill of saved game info is now handled by JoinGameUI class
 });
 
 // Handle successful join
@@ -629,17 +503,17 @@ socket.on('rejoinSuccess', (data) => {
     showMessage(`Welcome back to Vizzerdrix! Rejoined room: ${data.roomName}`);
 });
 
-// Handle join/rejoin errors
+// Handle join/rejoin errors - JoinGameUI also handles these but these remain for any additional game logic
 socket.on('joinError', (error) => {
     console.error('Join error:', error);
-    showMessage(`Error joining game: ${error.message}`);
+    // UI message is handled by JoinGameUI
 });
 
 socket.on('rejoinError', (error) => {
     console.error('Rejoin error:', error);
     // Reset rejoin flag on error
     isRejoinState = false;
-    showMessage(`Error rejoining game: ${error.message}. You may need to create a new game.`);
+    // UI message is handled by JoinGameUI
 });
 
 // Handle disconnection
@@ -785,8 +659,8 @@ socket.on('state', async (state) => {
         console.log(`Setting activePlayZonePlayerId from ${activePlayZonePlayerId} to ${playerId}`);
         activePlayZonePlayerId = playerId;
     }
-    joinUI.style.display = 'none';
-    gameUI.style.display = '';
+    
+    // UI transition is now handled by JoinGameUI class
     
     // Load Scryfall images for all visible cards across all players and zones
     const allCardNames = new Set();
@@ -877,13 +751,13 @@ socket.on('state', async (state) => {
         console.log(`Loading images for ${allCardNames.size} unique cards from all zones`);
         
         // Check how many cards are actually uncached
-        const cardNamesArray = Array.from(allCardNames);
+        const cardNamesArray = Array.from(allCardNames) as string[];
         
         // Initialize cache and get stats
-        const cacheStats = ScryfallCache.getCacheStats();
+        const cacheStats = scryfallCache.getCacheStats();
         console.log('Cache stats before loading:', cacheStats);
         
-        const uncachedCards = cardNamesArray.filter(name => !ScryfallCache.get(name));
+        const uncachedCards = cardNamesArray.filter((name: string) => !scryfallCache.get(name));
         const cachedCards = cardNamesArray.length - uncachedCards.length;
         
         console.log(`Cards status: ${cachedCards} cached, ${uncachedCards.length} need loading`);
@@ -891,23 +765,17 @@ socket.on('state', async (state) => {
         // Only show loading progress for loads with 3+ uncached cards that will take time
         const showProgress = uncachedCards.length >= 100;
         
+        // Note: Loading progress for in-game card loading is simpler than join-time loading
         if (showProgress) {
-            showLoadingProgress();
+            console.log(`Loading ${uncachedCards.length} uncached cards...`);
         }
         
         try {
-            await ScryfallCache.load(cardNamesArray, showProgress ? (loaded, total, currentCard) => {
-                updateLoadingProgress(loaded, total, currentCard);
-            } : null);
+            await scryfallCache.load(cardNamesArray, null); // No progress callback for in-game loading
             console.log('Finished loading card images');
         } catch (error) {
             console.error('Error loading card images:', error);
             showMessage('Some card images failed to load. The game will continue with placeholders.');
-        } finally {
-            // Hide loading progress modal
-            if (showProgress) {
-                hideLoadingProgress();
-            }
         }
     }
     
@@ -1479,45 +1347,16 @@ function showMessage(message) {
     messageModal.classList.remove('hidden');
 }
 
-// Loading progress functions
-function showLoadingProgress() {
-    if (loadingModal && loadingProgressBar && loadingProgressText && loadingCurrentCard) {
-        loadingModal.classList.remove('hidden');
-        loadingProgressBar.style.width = '0%';
-        loadingProgressText.textContent = 'Preparing to load cards...';
-        loadingCurrentCard.textContent = '';
-    }
-}
-
-function updateLoadingProgress(loaded, total, currentCard) {
-    if (loadingModal && !loadingModal.classList.contains('hidden')) {
-        const percentage = Math.round((loaded / total) * 100);
-        loadingProgressBar.style.width = `${percentage}%`;
-        
-        if (total === 0) {
-            loadingProgressText.textContent = 'All cards already loaded!';
-            loadingCurrentCard.textContent = '';
-        } else {
-            loadingProgressText.textContent = `Loading ${loaded} of ${total} new cards (${percentage}%)`;
-            if (currentCard && currentCard !== 'Starting...' && !currentCard.includes('from cache')) {
-                // Truncate long card names
-                const displayName = currentCard.length > 30 ? currentCard.substring(0, 27) + '...' : currentCard;
-                loadingCurrentCard.textContent = `Current: ${displayName}`;
-            } else if (currentCard && currentCard.includes('from cache')) {
-                // Show cache completion message
-                loadingCurrentCard.textContent = currentCard;
-            } else {
-                loadingCurrentCard.textContent = currentCard || '';
-            }
-        }
-    }
-}
-
-function hideLoadingProgress() {
-    if (loadingModal) {
-        loadingModal.classList.add('hidden');
-    }
-}
+// Set up join game UI callbacks after showMessage is defined
+joinGameUI.setCallbacks({
+    onGameJoined: (joinedGame: Game, joinedPlayer: Player) => {
+        console.log("Joined game");
+        game = joinedGame;
+        player = joinedPlayer;
+        console.log(player);
+    },
+    showMessage: showMessage
+});
 
 // Send move debouncing
 let sendMoveTimeout = null;
@@ -3024,8 +2863,8 @@ async function createPlaceholderCard(text) {
     
     // Try to load Scryfall data for this card in the background
     try {
-        await ScryfallCache.load([text]);
-        const scryfallData = ScryfallCache.get(text);
+        await scryfallCache.load([text]);
+        const scryfallData = scryfallCache.get(text);
         if (scryfallData) {
             // Re-render to show the actual card image
             render();
@@ -3121,8 +2960,8 @@ async function createCopiesOfTargetCards() {
             
             // Try to load Scryfall data for this card in the background if not already cached
             try {
-                if (!ScryfallCache.get(originalCard.name)) {
-                    await ScryfallCache.load([originalCard.name]);
+                if (!scryfallCache.get(originalCard.name)) {
+                    await scryfallCache.load([originalCard.name]);
                 }
             } catch (error) {
                 console.error('Error loading Scryfall data for copy:', error);
@@ -3441,7 +3280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize Scryfall cache from localStorage
     console.log('Initializing Scryfall cache...');
-    const cacheStats = ScryfallCache.getCacheStats();
+    const cacheStats = scryfallCache.getCacheStats();
     console.log('Initial cache stats:', cacheStats);
     
     updateMagnifyStatusUI(); // Set initial status
@@ -4384,7 +4223,7 @@ function getRelatedCardsFromSelection() {
         console.log(`Checking card: ${cardObj.name}`);
         
         // Get Scryfall data for this card
-        const scryfallData = ScryfallCache.get(cardObj.name);
+        const scryfallData = scryfallCache.get(cardObj.name);
         if (!scryfallData) {
             console.log(`No Scryfall data found for: ${cardObj.name}`);
             return;
@@ -4488,7 +4327,7 @@ async function createRelatedCardPlaceholder(relatedCard) {
     // Try to load Scryfall data for this specific card using its ID
     try {
         console.log(`Loading specific card by ID: ${relatedCard.cardId} for ${relatedCard.name}`);
-        const scryfallData = await ScryfallCache.loadById(relatedCard.uri, relatedCard.name);
+        const scryfallData = await scryfallCache.loadById(relatedCard.uri, relatedCard.name);
         if (scryfallData) {
             console.log(`Successfully loaded card data for ${relatedCard.name}:`, scryfallData);
             // Re-render to show the actual card image

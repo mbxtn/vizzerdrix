@@ -10,6 +10,9 @@ export class Player {
     readonly commanders: string[];
     readonly library: string[];
 
+    // List of cards the player has selected. Will be by the cards id
+    selectedCards: string[] = [];
+
     // Flat map of all cards by ID
     cards: { [id: string]: Card } = {};
 
