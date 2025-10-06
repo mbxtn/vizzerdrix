@@ -1017,6 +1017,16 @@ settingsManager.setCallbacks({
         // Update global variable for backwards compatibility
         window.magnifyPreviewSize = { width, height };
     },
+    onCardWidthChange: (width: number) => {
+        // Update global variable for backwards compatibility
+        currentCardWidth = width;
+        updateCardSize();
+    },
+    onCardSpacingChange: (spacing: number) => {
+        // Update global variable for backwards compatibility
+        currentCardSpacing = spacing;
+        updateCardSpacing();
+    },
     showBottomBarContextMenu: showBottomBarContextMenu,
     autoFitSevenCards: autoFitSevenCards,
     updateImageQualityCutoffs: updateImageQualityCutoffs,
@@ -3347,26 +3357,29 @@ function updateCascadedHandCardsInAreaCount() {
 
 // Card size controls
 function updateCardSize() {
-    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
+    const newCardWidth = settingsManager.getSetting('currentCardWidth');
+    
+    // Update global variable for backwards compatibility
+    currentCardWidth = newCardWidth;
     
     // Update CSS variable globally for all cards
-    document.documentElement.style.setProperty('--card-width', `${currentCardWidth}px`);
+    document.documentElement.style.setProperty('--card-width', `${newCardWidth}px`);
     
     // Update CSS variable for hand cards (legacy support)
-    handZoneEl.style.setProperty('--hand-card-width', `${currentCardWidth}px`);
+    handZoneEl.style.setProperty('--hand-card-width', `${newCardWidth}px`);
     
     // Update CardZone instances
     if (libraryZone) {
-        libraryZone.updateCardWidth(currentCardWidth);
+        libraryZone.updateCardWidth(newCardWidth);
     }
     if (graveyardZone) {
-        graveyardZone.updateCardWidth(currentCardWidth);
+        graveyardZone.updateCardWidth(newCardWidth);
     }
     if (exileZone) {
-        exileZone.updateCardWidth(currentCardWidth);
+        exileZone.updateCardWidth(newCardWidth);
     }
     if (commandZone) {
-        commandZone.updateCardWidth(currentCardWidth);
+        commandZone.updateCardWidth(newCardWidth);
     }
     
     // Update grid visuals to match new card size
@@ -3386,17 +3399,20 @@ function updateCardSize() {
 function updateCardSpacing() {
     // Update hand zone spacing to allow for card overlapping
     const handZone = document.getElementById('hand-zone');
-    const currentCardSpacing = settingsManager.getSetting('currentCardSpacing');
+    const newCardSpacing = settingsManager.getSetting('currentCardSpacing');
     const currentCardWidth = settingsManager.getSetting('currentCardWidth');
+
+    // Update global variable for backwards compatibility
+    currentCardSpacing = newCardSpacing;
 
     // Calculate the actual width that 7 cards would occupy
     let sevenCardWidth;
-    if (currentCardSpacing >= 0) {
+    if (newCardSpacing >= 0) {
         // Positive spacing: 7 cards + 6 gaps
-        sevenCardWidth = (7 * currentCardWidth) + (6 * currentCardSpacing * 4); // Convert rem to px (0.25rem * 16px/rem = 4px)
+        sevenCardWidth = (7 * currentCardWidth) + (6 * newCardSpacing * 4); // Convert rem to px (0.25rem * 16px/rem = 4px)
     } else {
         // Negative spacing (overlap): 7 cards - total overlap amount
-        const overlapPerGap = Math.abs(currentCardSpacing) * 0.75 * 16; // Convert to pixels (0.75rem * 16px/rem)
+        const overlapPerGap = Math.abs(newCardSpacing) * 0.75 * 16; // Convert to pixels (0.75rem * 16px/rem)
         const totalOverlap = 6 * overlapPerGap; // 6 gaps between 7 cards
         sevenCardWidth = (7 * currentCardWidth) - totalOverlap;
     }
@@ -3435,9 +3451,9 @@ function updateCardSpacing() {
     if (handZone) {
         const cards = handZone.querySelectorAll('.card');
         
-        if (currentCardSpacing >= 0) {
+        if (newCardSpacing >= 0) {
             // Positive spacing: use gap property
-            handZone.style.gap = `${currentCardSpacing * 0.25}rem`;
+            handZone.style.gap = `${newCardSpacing * 0.25}rem`;
             // Reset any negative margins and z-index
             cards.forEach((card, index) => {
                 (card as HTMLElement).style.marginLeft = '';
@@ -3449,7 +3465,7 @@ function updateCardSpacing() {
             cards.forEach((card, index) => {
                 if (index > 0) {
                     // Convert negative spacing to negative margin for overlap
-                    const overlapAmount = Math.abs(currentCardSpacing) * 0.75; // Increased multiplier for more overlap
+                    const overlapAmount = Math.abs(newCardSpacing) * 0.75; // Increased multiplier for more overlap
                     (card as HTMLElement).style.marginLeft = `-${overlapAmount}rem`;
                 }
                 // Set z-index so later cards appear on top
@@ -3501,7 +3517,7 @@ function autoFitSevenCards(showNotification = false) {
     });
     
     // Calculate the width needed for 7 cards
-    const cardWidth = currentCardWidth; // Current card width in pixels
+    const cardWidth = settingsManager.getSetting('currentCardWidth'); // Current card width in pixels
     const totalCardWidth = numCards * cardWidth;
     
     console.log('Card calculations:', {
@@ -3569,7 +3585,6 @@ function increaseCardSize() {
     if (currentCardWidth < maxCardWidth) {
         const newWidth = Math.min(currentCardWidth + cardSizeStep, maxCardWidth);
         settingsManager.setSetting('currentCardWidth', newWidth);
-        updateCardSize();
     }
 }
 
@@ -3578,7 +3593,6 @@ function decreaseCardSize() {
     if (currentCardWidth > minCardWidth) {
         const newWidth = Math.max(currentCardWidth - cardSizeStep, minCardWidth);
         settingsManager.setSetting('currentCardWidth', newWidth);
-        updateCardSize();
     }
 }
 
@@ -3590,7 +3604,6 @@ decreaseSizeBtn.addEventListener('click', decreaseCardSize);
 cardSpacingSlider?.addEventListener('input', (e) => {
     const newSpacing = parseFloat((e.target as HTMLInputElement).value);
     settingsManager.setSetting('currentCardSpacing', newSpacing);
-    updateCardSpacing();
 });
 
 // Life tracker event listeners

@@ -34,6 +34,8 @@ export interface SettingsCallbacks {
     onTabHoverPreviewChange?: (enabled: boolean) => void;
     onEnhancedImageQualityChange?: (enabled: boolean) => void;
     onMagnifyPreviewSizeChange?: (width: number, height: number) => void;
+    onCardWidthChange?: (width: number) => void;
+    onCardSpacingChange?: (spacing: number) => void;
     savePersistentSettings?: () => void;
     showBottomBarContextMenu?: (event: any) => void;
     autoFitSevenCards?: (showNotification?: boolean) => void;
@@ -284,7 +286,56 @@ export class SettingsManager {
     public setSetting<K extends keyof GameSettings>(key: K, value: GameSettings[K]): void {
         this.settings[key] = value;
         this.updateAllUI();
+        
+        // Trigger specific callbacks
+        this.triggerCallback(key, value);
+        
         this.savePersistentSettings();
+    }
+
+    private triggerCallback<K extends keyof GameSettings>(key: K, value: GameSettings[K]): void {
+        switch (key) {
+            case 'isMagnifyEnabled':
+                this.callbacks.onMagnifyChange?.(value as boolean);
+                break;
+            case 'isAutoFitEnabled':
+                this.callbacks.onAutoFitChange?.(value as boolean);
+                break;
+            case 'isAutoFocusEnabled':
+                this.callbacks.onAutoFocusChange?.(value as boolean);
+                break;
+            case 'isGhostModeEnabled':
+                this.callbacks.onGhostModeChange?.(value as boolean);
+                break;
+            case 'isReverseGhostModeEnabled':
+                this.callbacks.onReverseGhostModeChange?.(value as boolean);
+                break;
+            case 'isAutoUntapEnabled':
+                this.callbacks.onAutoUntapChange?.(value as boolean);
+                break;
+            case 'isSnapToGridEnabled':
+                this.callbacks.onSnapToGridChange?.(value as boolean);
+                break;
+            case 'isTabHoverPreviewEnabled':
+                this.callbacks.onTabHoverPreviewChange?.(value as boolean);
+                break;
+            case 'isEnhancedImageQualityEnabled':
+                this.callbacks.onEnhancedImageQualityChange?.(value as boolean);
+                break;
+            case 'magnifyPreviewWidth':
+                // For backwards compatibility, assume height is proportional to width (1.4 ratio)
+                this.callbacks.onMagnifyPreviewSizeChange?.(
+                    this.settings.magnifyPreviewWidth,
+                    Math.round(this.settings.magnifyPreviewWidth * 1.4)
+                );
+                break;
+            case 'currentCardWidth':
+                this.callbacks.onCardWidthChange?.(value as number);
+                break;
+            case 'currentCardSpacing':
+                this.callbacks.onCardSpacingChange?.(value as number);
+                break;
+        }
     }
 
     private loadPersistentSettings(): void {
