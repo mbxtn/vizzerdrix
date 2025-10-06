@@ -49,9 +49,12 @@ async function init() {
     // Set up basic event listeners
     setupSocketHandlers();
     setupUIEventHandlers();
+    setupSettingsCallbacks();
     
     // Initialize settings
-    // settingsManager.loadSettings?.();
+    console.log('Initializing settings manager...');
+    console.log('Default card width:', settingsManager.getSetting('currentCardWidth'));
+    console.log('Magnify enabled:', settingsManager.getSetting('isMagnifyEnabled'));
     
     // Set up emergency modal cleanup (in case something gets stuck)
     setupEmergencyModalCloser();
@@ -112,6 +115,8 @@ function setupSocketHandlers() {
 }
 
 function setupUIEventHandlers() {
+    console.log('Setting up UI event handlers...');
+    
     // Set up join game UI callbacks
     joinGameUI.setCallbacks({
         onGameJoined: (joinedGame: Game, joinedPlayer: Player) => {
@@ -142,6 +147,162 @@ function setupUIEventHandlers() {
         showMessage: showMessage
     });
     
+    // Set up main menu/modal event handlers
+    setupModalEventHandlers();
+}
+
+function setupModalEventHandlers() {
+    console.log('Setting up modal event handlers...');
+    
+    // Get DOM elements
+    const optionsBtn = document.getElementById('options-btn');
+    const optionsModal = document.getElementById('options-modal');
+    const closeOptionsBtn = document.getElementById('close-options-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const messageModal = document.getElementById('message-modal');
+    const createPlaceholderBtn = document.getElementById('create-placeholder-btn');
+    const placeholderModal = document.getElementById('placeholder-modal');
+    const confirmPlaceholderBtn = document.getElementById('confirm-placeholder-btn');
+    const cancelPlaceholderBtn = document.getElementById('cancel-placeholder-btn');
+    const placeholderTextInput = document.getElementById('placeholder-text-input') as HTMLInputElement;
+    const resetBtnModal = document.getElementById('reset-btn-modal');
+    const pickTurnOrderBtn = document.getElementById('pick-turn-order-btn');
+    
+    // Options menu button
+    optionsBtn?.addEventListener('click', () => {
+        console.log('Options menu clicked');
+        optionsModal?.classList.remove('hidden');
+    });
+    
+    // Close options modal
+    closeOptionsBtn?.addEventListener('click', () => {
+        console.log('Close options clicked');
+        optionsModal?.classList.add('hidden');
+    });
+    
+    // Close message modal
+    closeModalBtn?.addEventListener('click', () => {
+        console.log('Close message modal clicked');
+        messageModal?.classList.add('hidden');
+    });
+    
+    // Create placeholder card
+    createPlaceholderBtn?.addEventListener('click', () => {
+        console.log('Create placeholder clicked');
+        
+        // Switch back to viewing our own playzone before starting placeholder creation
+        if (activePlayZonePlayerId !== playerId) {
+            activePlayZonePlayerId = playerId;
+            currentlyViewedPlayerId = playerId;
+            // Re-render to switch the view immediately
+            render();
+        }
+        
+        optionsModal?.classList.add('hidden');
+        placeholderModal?.classList.remove('hidden');
+        placeholderTextInput?.focus();
+    });
+    
+    // Confirm placeholder creation
+    confirmPlaceholderBtn?.addEventListener('click', () => {
+        console.log('Confirm placeholder clicked');
+        
+        if (placeholderTextInput?.value && player) {
+            const placeholderText = placeholderTextInput.value.trim();
+            console.log('Creating placeholder card:', placeholderText);
+            
+            // TODO: Implement placeholder card creation
+            showMessage(`Placeholder card "${placeholderText}" created (TODO: implement)`);
+            
+            placeholderTextInput.value = '';
+            placeholderModal?.classList.add('hidden');
+        }
+    });
+    
+    // Cancel placeholder creation
+    cancelPlaceholderBtn?.addEventListener('click', () => {
+        console.log('Cancel placeholder clicked');
+        placeholderTextInput && (placeholderTextInput.value = '');
+        placeholderModal?.classList.add('hidden');
+    });
+    
+    // Handle Enter key in placeholder input
+    placeholderTextInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            confirmPlaceholderBtn?.click();
+        }
+    });
+    
+    // Reset game button
+    resetBtnModal?.addEventListener('click', () => {
+        console.log('Reset game clicked');
+        
+        if (confirm('Are you sure you want to reset the game? This cannot be undone.')) {
+            // TODO: Implement game reset
+            showMessage('Game reset (TODO: implement)');
+            optionsModal?.classList.add('hidden');
+        }
+    });
+    
+    // Pick turn order button
+    pickTurnOrderBtn?.addEventListener('click', () => {
+        console.log('Pick turn order clicked');
+        
+        // TODO: Implement turn order picker
+        showMessage('Turn order randomized (TODO: implement)');
+        optionsModal?.classList.add('hidden');
+    });
+    
+    console.log('Modal event handlers set up successfully');
+}
+
+function showBottomBarContextMenu(e: any) {
+    console.log('Showing bottom bar context menu');
+    e.preventDefault();
+    
+    hideBottomBarContextMenu();
+    
+    const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
+    if (!bottomBarContextMenuEl) {
+        console.error('Bottom bar context menu element not found');
+        return;
+    }
+    
+    // Position the context menu
+    bottomBarContextMenuEl.style.left = `${e.clientX}px`;
+    bottomBarContextMenuEl.style.top = `${e.clientY}px`;
+    bottomBarContextMenuEl.classList.remove('hidden');
+    
+    // Ensure context menu stays within viewport
+    const rect = bottomBarContextMenuEl.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+        bottomBarContextMenuEl.style.left = `${e.clientX - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+        bottomBarContextMenuEl.style.top = `${e.clientY - rect.height}px`;
+    }
+    
+    // Set a flag to prevent immediate hiding
+    setTimeout(() => {
+        // Add click listener to hide menu when clicking outside
+        const hideOnClickOutside = (event: MouseEvent) => {
+            if (!bottomBarContextMenuEl.contains(event.target as Node)) {
+                hideBottomBarContextMenu();
+                document.removeEventListener('click', hideOnClickOutside);
+            }
+        };
+        document.addEventListener('click', hideOnClickOutside);
+    }, 10);
+}
+
+function hideBottomBarContextMenu() {
+    const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
+    if (bottomBarContextMenuEl) {
+        bottomBarContextMenuEl.classList.add('hidden');
+    }
+}
+
+function setupSettingsCallbacks() {
     // Set up settings manager callbacks
     settingsManager.setCallbacks({
         onMagnifyChange: (enabled: boolean) => {
@@ -156,8 +317,8 @@ function setupUIEventHandlers() {
             // Update grid visuals
             updateGridVisuals(enabled);
         },
-        showBottomBarContextMenu: () => {
-            // TODO: Implement context menu
+        showBottomBarContextMenu: (event: any) => {
+            showBottomBarContextMenu(event);
         },
         autoFitSevenCards: () => {
             // TODO: Implement auto-fit

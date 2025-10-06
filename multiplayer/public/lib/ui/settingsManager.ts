@@ -330,6 +330,7 @@ export class SettingsManager {
                 );
                 break;
             case 'currentCardWidth':
+                this.updateCSSVariables(); // Update CSS custom property
                 this.callbacks.onCardWidthChange?.(value as number);
                 break;
             case 'currentCardSpacing':
@@ -531,6 +532,13 @@ export class SettingsManager {
         this.updateTabHoverPreviewStatusUI();
         this.updateSpacingSliderVisibilityUI();
         this.updateAutoFitStatusUI();
+        this.updateCSSVariables();
+    }
+
+    private updateCSSVariables(): void {
+        // Update CSS custom properties
+        document.documentElement.style.setProperty('--card-width', `${this.settings.currentCardWidth}px`);
+        console.log(`Updated --card-width CSS variable to: ${this.settings.currentCardWidth}px`);
     }
 
     // Cleanup method
