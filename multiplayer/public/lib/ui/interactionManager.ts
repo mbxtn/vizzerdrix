@@ -332,7 +332,9 @@ export class InteractionManager {
             case 'graveyard': return Zone.graveyard;
             case 'exile': return Zone.exile;
             case 'command': return Zone.command;
-            default: return null;
+            default: 
+                console.warn(`Unknown zone string: ${zoneString}`);
+                return null;
         }
     }
 }

@@ -312,6 +312,12 @@ function setupSettingsCallbacks() {
         onCardWidthChange: (width: number) => {
             // Update all zones
             zoneManager.updateSettings();
+            // Update hand card spacing since width affects spacing calculations
+            updateCardSpacing();
+        },
+        onCardSpacingChange: (spacing: number) => {
+            // Update hand card spacing
+            updateCardSpacing();
         },
         onSnapToGridChange: (enabled: boolean) => {
             // Update grid visuals
@@ -320,8 +326,8 @@ function setupSettingsCallbacks() {
         showBottomBarContextMenu: (event: any) => {
             showBottomBarContextMenu(event);
         },
-        autoFitSevenCards: () => {
-            // TODO: Implement auto-fit
+        autoFitSevenCards: (showNotification: boolean = false) => {
+            autoFitSevenCards(showNotification);
         },
         updateImageQualityCutoffs: () => {
             // TODO: Implement image quality updates
@@ -407,15 +413,7 @@ function renderHand() {
     const handCards = player.getZone(Zone.hand);
     console.log(`Rendering hand with ${handCards.length} cards`);
     
-    // Clear and rebuild hand
-    handZoneEl.innerHTML = '';
-    
-    // Add hand guideline
-    const handGuideline = document.createElement('div');
-    handGuideline.className = 'hand-guideline';
-    handZoneEl.appendChild(handGuideline);
-    
-    // Render each card in hand using cardManager
+    // Render each card in hand using cardManager (this will clear the container)
     cardManager.renderCardsToContainer(
         handCards,
         handZoneEl,
@@ -431,6 +429,213 @@ function renderHand() {
             playerColors: {}
         }
     );
+    
+    // Add hand guideline after cards are rendered
+    const handGuideline = document.createElement('div');
+    handGuideline.className = 'hand-guideline';
+    handZoneEl.appendChild(handGuideline);
+    
+    // Update hand card spacing after rendering - use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+        updateCardSpacing();
+    });
+}
+
+function updateCardSpacing() {
+    // Update hand zone spacing to allow for card overlapping
+    const handZone = document.getElementById('hand-zone');
+    if (!handZone) return;
+    
+    const newCardSpacing = settingsManager.getSetting('currentCardSpacing');
+    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
+
+    console.log(`Updating card spacing: ${newCardSpacing}, card width: ${currentCardWidth}`);
+
+    // Calculate the actual width that 7 cards would occupy
+    let sevenCardWidth;
+    if (newCardSpacing >= 0) {
+        // Positive spacing: 7 cards + 6 gaps
+        sevenCardWidth = (7 * currentCardWidth) + (6 * newCardSpacing * 4); // Convert rem to px (0.25rem * 16px/rem = 4px)
+    } else {
+        // Negative spacing (overlap): 7 cards - total overlap amount
+        const overlapPerGap = Math.abs(newCardSpacing) * 0.75 * 16; // Convert to pixels (0.75rem * 16px/rem)
+        const totalOverlap = 6 * overlapPerGap; // 6 gaps between 7 cards
+        sevenCardWidth = (7 * currentCardWidth) - totalOverlap;
+    }
+    
+    // Get the actual available width of the hand zone
+    const handZoneRect = handZone.getBoundingClientRect();
+    
+    // Check if we have valid dimensions
+    if (handZoneRect.width <= 0) {
+        console.warn('Hand zone has no width, cannot calculate auto-fit');
+        return;
+    }
+    
+    const handZoneStyles = window.getComputedStyle(handZone);
+    const paddingLeft = parseFloat(handZoneStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(handZoneStyles.paddingRight) || 0;
+    const borderLeft = parseFloat(handZoneStyles.borderLeftWidth) || 0;
+    const borderRight = parseFloat(handZoneStyles.borderRightWidth) || 0;
+    
+    // Calculate the actual usable width
+    const handZoneWidth = handZoneRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+    if(Math.abs(sevenCardWidth - handZoneWidth) < 10) {
+        console.log('Hand limit guide shown');
+        const handLimitGuide = document.getElementById('hand-limit-guide');
+        if(handLimitGuide) {
+            console.log('Hand limit guide 1');
+            handLimitGuide.style.visibility = 'hidden';
+        }
+    } else {
+        const handLimitGuide = document.getElementById('hand-limit-guide');
+        if(handLimitGuide) {
+            handLimitGuide.style.visibility = 'visible';
+        }
+    }
+    document.documentElement.style.setProperty('--seven-card-width', `${sevenCardWidth + 12}px`);
+
+    const cards = handZone.querySelectorAll('.card');
+    console.log(`Found ${cards.length} cards in hand zone for spacing`);
+    
+    if (newCardSpacing >= 0) {
+        // Positive spacing: use gap property
+        handZone.style.gap = `${newCardSpacing * 0.25}rem`;
+        console.log(`Applied positive spacing: ${newCardSpacing * 0.25}rem`);
+        // Reset any negative margins and z-index
+        cards.forEach((card, index) => {
+            (card as HTMLElement).style.marginLeft = '';
+            (card as HTMLElement).style.zIndex = '';
+        });
+    } else {
+        // Negative spacing: use negative margins for overlapping
+        handZone.style.gap = '0';
+        cards.forEach((card, index) => {
+            if (index > 0) {
+                // Convert negative spacing to negative margin for overlap
+                const overlapAmount = Math.abs(newCardSpacing) * 0.75; // Increased multiplier for more overlap
+                (card as HTMLElement).style.marginLeft = `-${overlapAmount}rem`;
+                console.log(`Applied negative margin to card ${index}: -${overlapAmount}rem`);
+            } else {
+                // First card has no margin
+                (card as HTMLElement).style.marginLeft = '';
+            }
+            // Set z-index so later cards appear on top
+            (card as HTMLElement).style.zIndex = index.toString();
+        });
+    }
+}
+
+function autoFitSevenCards(showNotification: boolean = false) {
+    if (!player) return;
+    
+    const handCards = player.getZone(Zone.hand);
+    let numCards = Math.max(handCards.length, 7);
+    const handZone = document.getElementById('hand-zone');
+    if (!handZone) return;
+    
+    // Force a layout update to ensure we get accurate measurements
+    handZone.style.display = 'flex'; // Ensure it's displayed
+    
+    // Get the actual available width of the hand zone
+    const handZoneRect = handZone.getBoundingClientRect();
+    
+    // Check if we have valid dimensions
+    if (handZoneRect.width <= 0) {
+        console.warn('Hand zone has no width, cannot calculate auto-fit');
+        return;
+    }
+    
+    const handZoneStyles = window.getComputedStyle(handZone);
+    const paddingLeft = parseFloat(handZoneStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(handZoneStyles.paddingRight) || 0;
+    const borderLeft = parseFloat(handZoneStyles.borderLeftWidth) || 0;
+    const borderRight = parseFloat(handZoneStyles.borderRightWidth) || 0;
+    
+    // Calculate the actual usable width
+    const handZoneWidth = handZoneRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+    
+    // Additional check for valid usable width
+    if (handZoneWidth <= 0) {
+        console.warn('Hand zone has no usable width after accounting for padding/borders');
+        return;
+    }
+    
+    console.log('Hand zone measurements:', {
+        totalWidth: handZoneRect.width,
+        paddingLeft,
+        paddingRight,
+        borderLeft,
+        borderRight,
+        usableWidth: handZoneWidth
+    });
+    
+    // Calculate the width needed for cards
+    const cardWidth = settingsManager.getSetting('currentCardWidth'); // Current card width in pixels
+    const totalCardWidth = numCards * cardWidth;
+    
+    console.log('Card calculations:', {
+        cardWidth,
+        totalCardWidth,
+        handZoneWidth,
+        needsOverlap: totalCardWidth > handZoneWidth
+    });
+    
+    if (totalCardWidth <= handZoneWidth) {
+        // Cards fit without overlapping, set spacing to 0 (no gaps, no overlap)
+        settingsManager.setSetting('currentCardSpacing', 0);
+        // Also add a guide line for 7 cards so player can see if they're at hand-size
+        console.log('Cards fit without overlap, setting spacing to 0');
+    } else {
+        // Cards need to overlap, calculate negative spacing
+        const overlapNeeded = totalCardWidth - handZoneWidth;
+        const overlapPerGap = overlapNeeded / (numCards - 1); // Gaps between cards
+        
+        // Convert to spacing slider value 
+        // The overlap amount in CSS is calculated as: Math.abs(currentCardSpacing) * 0.75 rem
+        // So we need: overlapPerGap (in px) = Math.abs(currentCardSpacing) * 0.75 * 16 (px per rem)
+        // Therefore: currentCardSpacing = -(overlapPerGap / (0.75 * 16))
+        const calculatedSpacing = -(overlapPerGap / (0.75 * 16));
+        
+        // Allow much more overlap by increasing the minimum value from -6 to -15
+        const spacingValue = Math.max(-15, calculatedSpacing);
+        settingsManager.setSetting('currentCardSpacing', spacingValue);
+        
+        console.log('Overlap calculations:', {
+            overlapNeeded,
+            overlapPerGap,
+            calculatedSpacing,
+            finalSpacingValue: spacingValue,
+            hitMinimumLimit: calculatedSpacing < -15
+        });
+        
+        // If we hit the minimum limit, warn the user
+        if (calculatedSpacing < -15) {
+            console.warn('Maximum overlap reached - cards may not fit perfectly');
+        }
+    }
+    
+    // Update the slider to reflect the new value (if it exists)
+    const cardSpacingSlider = document.getElementById('card-spacing-slider') as HTMLInputElement;
+    if (cardSpacingSlider) {
+        cardSpacingSlider.value = settingsManager.getSetting('currentCardSpacing').toString();
+    }
+    
+    // Apply the new spacing
+    updateCardSpacing();
+    
+    // Settings are automatically saved by SettingsManager
+    
+    // Show a message to the user if requested
+    if (showNotification) {
+        const currentCardSpacing = settingsManager.getSetting('currentCardSpacing');
+        const fitMessage = currentCardSpacing === 0 ? 
+            'Hand spacing set to fit 7 cards without overlap' :
+            `Hand spacing adjusted to fit 7 cards (overlap: ${Math.abs(currentCardSpacing).toFixed(1)})`;
+        
+        console.log(fitMessage);
+        // TODO: Show actual notification UI if needed
+    }
 }
 
 function renderBattlefield() {

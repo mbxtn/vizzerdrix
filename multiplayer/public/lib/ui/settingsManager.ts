@@ -538,6 +538,13 @@ export class SettingsManager {
     private updateCSSVariables(): void {
         // Update CSS custom properties
         document.documentElement.style.setProperty('--card-width', `${this.settings.currentCardWidth}px`);
+        
+        // Update CSS variable for hand cards (legacy support)
+        const handZoneEl = document.getElementById('hand-zone');
+        if (handZoneEl) {
+            handZoneEl.style.setProperty('--hand-card-width', `${this.settings.currentCardWidth}px`);
+        }
+        
         console.log(`Updated --card-width CSS variable to: ${this.settings.currentCardWidth}px`);
     }
 

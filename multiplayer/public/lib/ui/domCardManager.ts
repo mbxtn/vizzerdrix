@@ -37,6 +37,7 @@ export class DOMCardManager {
             // Update existing DOM element
             domCard.updateFromCard(card);
             domCard.updateOptions(mergedOptions);
+            domCard.updateZone(zone); // Update zone to handle position styling
         }
         
         return domCard;

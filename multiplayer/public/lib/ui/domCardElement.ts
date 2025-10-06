@@ -65,6 +65,16 @@ export class DOMCardElement {
     }
 
     /**
+     * Update the zone for this card and handle position styling
+     */
+    updateZone(newZone: Zone): void {
+        this.zone = newZone;
+        this.element.setAttribute('data-zone', Zone[this.zone]);
+        this.element.setAttribute('data-location', Zone[this.zone]);
+        this.updateElement();
+    }
+
+    /**
      * Set position for battlefield cards
      */
     setPosition(x: number, y: number): void {
@@ -113,13 +123,10 @@ export class DOMCardElement {
 
     private createElement(): HTMLElement {
         const element = document.createElement('div');
-        element.className = 'card';
+        element.className = 'card flex-shrink-0 cursor-grab';
         element.setAttribute('data-id', this.card.id);
         element.setAttribute('data-zone', Zone[this.zone]); // Convert enum to string
-        
-        // Set base styles
-        element.style.position = 'relative';
-        element.style.display = 'inline-block';
+        element.setAttribute('data-location', Zone[this.zone]); // Also set location for legacy compatibility
         
         return element;
     }
@@ -132,10 +139,16 @@ export class DOMCardElement {
             this.updateRegularCard();
         }
 
-        // Update position if battlefield card
+        // Update position based on zone
         if (this.zone === Zone.battlefield) {
             this.setPosition(this.card.location.x, this.card.location.y);
             this.setRotation(this.card.tapped ? 90 : 0);
+        } else {
+            // Clear absolute positioning for non-battlefield cards
+            this.element.style.position = '';
+            this.element.style.left = '';
+            this.element.style.top = '';
+            this.element.style.transform = ''; // Clear any rotation too
         }
 
         // Update interaction state
@@ -166,7 +179,7 @@ export class DOMCardElement {
         this.element.style.borderRadius = '8px';
         this.element.style.padding = '8px';
         this.element.style.minHeight = '60px';
-        this.element.style.minWidth = '80px';
+        this.element.style.width = 'var(--card-width, 80px)'; // Use CSS variable
         this.element.style.backgroundColor = '#e8e8e8';
         this.element.style.display = 'flex';
         this.element.style.alignItems = 'center';
@@ -192,7 +205,7 @@ export class DOMCardElement {
         this.element.style.borderRadius = '8px';
         this.element.style.padding = '8px';
         this.element.style.minHeight = '60px';
-        this.element.style.minWidth = '80px';
+        this.element.style.width = 'var(--card-width, 80px)'; // Use CSS variable
         this.element.style.backgroundColor = '#f9f9f9';
         this.element.style.display = 'flex';
         this.element.style.alignItems = 'center';
@@ -349,6 +362,7 @@ export class DOMCardElement {
         if (this.options.onCardDragStart) {
             this.element.draggable = true;
             this.element.addEventListener('dragstart', (e) => {
+                this.handleDragStart(e);
                 this.options.onCardDragStart?.(this.card, this.element, e);
             });
         }
