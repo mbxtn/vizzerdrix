@@ -58,10 +58,13 @@ function createHeartIcon(size = '14px', color = '#ef4444') {
     return `<img src="./icons/heart.svg" alt="♥" style="width: ${size}; height: ${size}; filter: hue-rotate(0deg) saturate(2) brightness(0.8);">`;
 }
 
+import { SettingsManager } from './lib/ui/settingsManager.js';
+
 const socket = io();
 let vdClient = new VdClient(socket);
 let commanderModal = new CommanderSelectionModal(vdClient);
 let joinGameUI = new JoinGameUI(socket, commanderModal);
+let settingsManager = new SettingsManager();
 let room = null;
 let playerId = null;
 let gameState = onChange({}, () => {console.log('Game state updated');});
@@ -72,87 +75,10 @@ let game : Game | undefined;
 let player : Player | undefined;
 let activePlayZonePlayerId = null;
 let currentlyViewedPlayerId = null; // Track which player's zones we're currently viewing
-let isMagnifyEnabled = false; // New state variable for magnify on hover
-let isAutoFitEnabled = false; // Auto-fit hand spacing for 7 cards
-let isAutoFocusEnabled = true; // Auto-focus on turn change (enabled by default)
-let isGhostModeEnabled = false; // Ghost mode for showing your cards on other players' battlefields (disabled by default)
-let isReverseGhostModeEnabled = false; // Reverse ghost mode for showing active player's cards in your playzone (disabled by default)
-let isAutoUntapEnabled = false; // Auto untap all cards when your turn begins (disabled by default)
-let isSnapToGridEnabled = false; // Snap to grid for card movement in play zone (disabled by default)
-let isTabHoverPreviewEnabled = false; // Tab hover preview for showing player zones on tab hover (disabled by default)
-let isEnhancedImageQualityEnabled = false; // Enhanced image quality for better clarity on certain browser/OS combinations (disabled by default)
-let magnifyPreviewWidth = 320; // Default magnify preview width
-
-// Load persistent settings from localStorage
-function loadPersistentSettings() {
-    try {
-        const savedSettings = localStorage.getItem('vizzerdrix-settings');
-        if (savedSettings) {
-            const settings = JSON.parse(savedSettings);
-            isMagnifyEnabled = settings.isMagnifyEnabled ?? false;
-            isAutoFitEnabled = settings.isAutoFitEnabled ?? false;
-            isAutoFocusEnabled = settings.isAutoFocusEnabled ?? true;
-            isGhostModeEnabled = settings.isGhostModeEnabled ?? false;
-            isReverseGhostModeEnabled = settings.isReverseGhostModeEnabled ?? false;
-            isAutoUntapEnabled = settings.isAutoUntapEnabled ?? false;
-            isSnapToGridEnabled = settings.isSnapToGridEnabled ?? false;
-            isTabHoverPreviewEnabled = settings.isTabHoverPreviewEnabled ?? false;
-            isEnhancedImageQualityEnabled = settings.isEnhancedImageQualityEnabled ?? false;
-            magnifyPreviewWidth = settings.magnifyPreviewWidth ?? 320;
-            currentCardSpacing = settings.currentCardSpacing ?? 0;
-            currentCardWidth = settings.currentCardWidth ?? 80;
-            isSpacingSliderVisible = settings.isSpacingSliderVisible ?? true;
-            console.log('Loaded persistent settings:', settings);
-        }
-    } catch (error) {
-        console.error('Error loading persistent settings:', error);
-    }
-}
-
-// Save persistent settings to localStorage
-function savePersistentSettings() {
-    try {
-        const settings = {
-            isMagnifyEnabled,
-            isAutoFitEnabled,
-            isAutoFocusEnabled,
-            isGhostModeEnabled,
-            isReverseGhostModeEnabled,
-            isAutoUntapEnabled,
-            isSnapToGridEnabled,
-            isTabHoverPreviewEnabled,
-            isEnhancedImageQualityEnabled,
-            magnifyPreviewWidth,
-            currentCardSpacing,
-            currentCardWidth,
-            isSpacingSliderVisible
-        };
-        localStorage.setItem('vizzerdrix-settings', JSON.stringify(settings));
-        console.log('Saved persistent settings:', settings);
-    } catch (error) {
-        console.error('Error saving persistent settings:', error);
-    }
-}
-let magnifyPreviewHeight = 430; // Default magnify preview height (calculated based on card aspect ratio)
 
 // UI Elements
-const magnifyToggleBtn = document.getElementById('magnify-toggle-btn');
-const magnifyStatusEl = document.getElementById('magnify-status');
-const autoFocusToggleBtn = document.getElementById('auto-focus-toggle-btn');
-const autoFocusStatusEl = document.getElementById('auto-focus-status');
-const ghostModeToggleBtn = document.getElementById('ghost-mode-toggle-btn');
-const ghostModeStatusEl = document.getElementById('ghost-mode-status');
-const reverseGhostModeToggleBtn = document.getElementById('reverse-ghost-mode-toggle-btn');
-const reverseGhostModeStatusEl = document.getElementById('reverse-ghost-mode-status');
-const autoUntapToggleBtn = document.getElementById('auto-untap-toggle-btn');
-const autoUntapStatusEl = document.getElementById('auto-untap-status');
-const enhancedImageQualityToggleBtn = document.getElementById('enhanced-image-quality-toggle-btn');
-const enhancedImageQualityStatusEl = document.getElementById('enhanced-image-quality-status');
-const snapToGridToggleBtn = document.getElementById('snap-to-grid-toggle-btn');
-const snapToGridStatusEl = document.getElementById('snap-to-grid-status');
-const tabHoverPreviewToggleBtn = document.getElementById('tab-hover-preview-toggle-btn');
-const tabHoverPreviewStatusEl = document.getElementById('tab-hover-preview-status');
 // Join UI elements are now handled by JoinGameUI class
+// Settings UI elements are now handled by SettingsManager class
 const gameUI = document.getElementById('game-ui');
 const playZonesContainer = document.getElementById('play-zones-container');
 const playerTabsContainer = document.getElementById('player-tabs-container');
@@ -189,8 +115,6 @@ const commanderSelectionList = document.getElementById('commander-selection-list
 const selectedCommandersCount = document.getElementById('selected-commanders-count');
 const confirmCommanderSelectionBtn = document.getElementById('confirm-commander-selection-btn');
 const cancelCommanderSelectionBtn = document.getElementById('cancel-commander-selection-btn');
-const magnifySizeSliderContainer = document.getElementById('magnify-size-slider-container');
-const magnifySizeSlider = document.getElementById('magnify-size-slider');
 const lifeTotalEl = document.getElementById('life-total');
 const handCountEl = document.getElementById('hand-count');
 const increaseLifeBtn = document.getElementById('increase-life-btn');
@@ -237,7 +161,7 @@ window.clearHoveredCard = function() {
 
 // Global functions for snap-to-grid functionality
 window.snapToGrid = snapToGrid;
-window.isSnapToGridEnabled = false; // Will be updated when settings load
+window.isSnapToGridEnabled = settingsManager.getSetting('isSnapToGridEnabled'); // Will be updated when settings load
 
 let cascadedHandCardsInAreaCount = 0;
 const CASCADE_AREA_MAX_X = 300; // Example: Define the max X for the initial cascade area
@@ -252,7 +176,9 @@ function stateUpdated(path, value, previousValue, applyData) {
     console.log('Game state updated:', path, value, previousValue, applyData);
     if(path.includes(playerId) && path.includes('hand')) {
         console.log("Hand updated, checking auto-fit");
-        autoFitSevenCards(); // Pass the new hand size
+        if (settingsManager.getSetting('isAutoFitEnabled')) {
+            autoFitSevenCards(); // Pass the new hand size
+        }
     }
 }
 
@@ -301,11 +227,11 @@ const GRID_SIZE_BASE = 20; // Base grid spacing in pixels for 80px card width
 
 // Utility function to snap coordinates to grid (scales with card width)
 function snapToGrid(x, y, playZoneElement = null) {
-    if (!isSnapToGridEnabled) {
+    if (!settingsManager.getSetting('isSnapToGridEnabled')) {
         return { x, y };
     }
     // Scale grid size based on current card width (80px is the base size)
-    const scaledGridSize = Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
+    const scaledGridSize = Math.round(GRID_SIZE_BASE * (settingsManager.getSetting('currentCardWidth') / 80));
     
     // Get the play zones container and its scroll position
     const playZonesContainer = document.getElementById('play-zones-container');
@@ -349,7 +275,7 @@ function snapToGrid(x, y, playZoneElement = null) {
 
 // Function to get the current scaled grid size for CSS updates
 function getScaledGridSize() {
-    return Math.round(GRID_SIZE_BASE * (currentCardWidth / 80));
+    return Math.round(GRID_SIZE_BASE * (settingsManager.getSetting('currentCardWidth') / 80));
 }
 
 // Function to update grid visual size
@@ -361,7 +287,7 @@ function updateGridVisuals() {
     document.documentElement.style.setProperty('--grid-size', `${gridSize}px`);
     document.documentElement.style.setProperty('--major-grid-size', `${majorGridSize}px`);
     
-    if (isSnapToGridEnabled) {
+    if (settingsManager.getSetting('isSnapToGridEnabled')) {
         // Force update of play zones container grid
         const playZonesContainer = document.getElementById('play-zones-container');
         if (playZonesContainer && playZonesContainer.classList.contains('snap-grid-enabled')) {
@@ -378,18 +304,9 @@ let contextMenuJustShown = false;
 let bottomBarContextMenu = null;
 let bottomBarContextMenuJustShown = false;
 
-// Bottom bar elements
+// Bottom bar elements - now handled by SettingsManager
 const bottomBarEl = document.getElementById('bottom-bar');
 const bottomBarContextMenuEl = document.getElementById('bottom-bar-context-menu');
-const toggleSpacingSliderBtn = document.getElementById('toggle-spacing-slider');
-const autoFitSevenCardsBtn = document.getElementById('auto-fit-seven-cards-btn');
-const autoFitStatus = document.getElementById('auto-fit-status');
-const spacingSliderStatusEl = document.getElementById('spacing-slider-status');
-const cardSpacingSliderContainer = document.getElementById('card-spacing-slider-container');
-const bottomBarSettingsBtn = document.getElementById('bottom-bar-settings-btn');
-
-// Bottom bar state
-let isSpacingSliderVisible = true; // Default to visible
 
 // Card Zone instances
 let libraryZone = null;
@@ -549,7 +466,7 @@ socket.on('state', async (state) => {
     // Handle auto-focus on turn change
     const currentTurnChanged = gameState && (gameState.currentTurn !== state.currentTurn|| gameState.turnCounter !== state.turnCounter);
 
-    if (currentTurnChanged && isAutoFocusEnabled && state.turnOrderSet && state.turnOrder && state.currentTurn !== undefined) {
+    if (currentTurnChanged && settingsManager.getSetting('isAutoFocusEnabled') && state.turnOrderSet && state.turnOrder && state.currentTurn !== undefined) {
         const newCurrentTurnPlayerId = state.turnOrder[state.currentTurn];
         if (newCurrentTurnPlayerId && state.players[newCurrentTurnPlayerId]) {
             console.log('Turn changed - auto-focusing on player:', newCurrentTurnPlayerId);
@@ -633,7 +550,7 @@ socket.on('state', async (state) => {
     window.gameState = gameState; // Expose gameState to window for cardFactory access
     
     // Handle auto-untap when it becomes the player's turn (after gameState is updated)
-    if (currentTurnChanged && isAutoUntapEnabled && gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
+    if (currentTurnChanged && settingsManager.getSetting('isAutoUntapEnabled') && gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
         const newCurrentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
         console.log('Auto-untap check:', {
             currentTurnChanged,
@@ -792,7 +709,7 @@ socket.on('state', async (state) => {
     updateCascadedHandCardsInAreaCount(); // Call it here to update after server state
     
     // Apply auto-fit after the game starts and UI is visible (only once)
-    if (isAutoFitEnabled && !window.autoFitAppliedOnGameStart) {
+    if (settingsManager.getSetting('isAutoFitEnabled') && !window.autoFitAppliedOnGameStart) {
         console.log('Game UI is now visible - applying auto-fit');
         // Use a small delay to ensure the render is complete
         setTimeout(() => {
@@ -1027,182 +944,11 @@ resetBtnModal.addEventListener('click', () => {
     optionsModal.classList.add('hidden'); // Close options modal after reset
 });
 
-function updateMagnifyStatusUI() {
-    if (isMagnifyEnabled) {
-        magnifyStatusEl.textContent = 'On';
-        magnifyStatusEl.classList.remove('bg-red-600');
-        magnifyStatusEl.classList.add('bg-green-600');
-        magnifyToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        magnifyToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-        // Show the magnify size slider
-        magnifySizeSliderContainer.classList.remove('hidden');
-    } else {
-        magnifyStatusEl.textContent = 'Off';
-        magnifyStatusEl.classList.remove('bg-green-600');
-        magnifyStatusEl.classList.add('bg-red-600');
-        magnifyToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        magnifyToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-        // Hide the magnify size slider
-        magnifySizeSliderContainer.classList.add('hidden');
-    }
-}
-
-function updateAutoFocusStatusUI() {
-    if (isAutoFocusEnabled) {
-        autoFocusStatusEl.textContent = 'On';
-        autoFocusStatusEl.classList.remove('bg-red-600');
-        autoFocusStatusEl.classList.add('bg-green-600');
-        autoFocusToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        autoFocusToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        autoFocusStatusEl.textContent = 'Off';
-        autoFocusStatusEl.classList.remove('bg-green-600');
-        autoFocusStatusEl.classList.add('bg-red-600');
-        autoFocusToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        autoFocusToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateGhostModeStatusUI() {
-    if (isGhostModeEnabled) {
-        ghostModeStatusEl.textContent = 'On';
-        ghostModeStatusEl.classList.remove('bg-red-600');
-        ghostModeStatusEl.classList.add('bg-green-600');
-        ghostModeToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        ghostModeToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        ghostModeStatusEl.textContent = 'Off';
-        ghostModeStatusEl.classList.remove('bg-green-600');
-        ghostModeStatusEl.classList.add('bg-red-600');
-        ghostModeToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        ghostModeToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateReverseGhostModeStatusUI() {
-    if (isReverseGhostModeEnabled) {
-        reverseGhostModeStatusEl.textContent = 'On';
-        reverseGhostModeStatusEl.classList.remove('bg-red-600');
-        reverseGhostModeStatusEl.classList.add('bg-green-600');
-        reverseGhostModeToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        reverseGhostModeToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        reverseGhostModeStatusEl.textContent = 'Off';
-        reverseGhostModeStatusEl.classList.remove('bg-green-600');
-        reverseGhostModeStatusEl.classList.add('bg-red-600');
-        reverseGhostModeToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        reverseGhostModeToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateAutoUntapStatusUI() {
-    if (isAutoUntapEnabled) {
-        autoUntapStatusEl.textContent = 'On';
-        autoUntapStatusEl.classList.remove('bg-red-600');
-        autoUntapStatusEl.classList.add('bg-green-600');
-        autoUntapToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        autoUntapToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        autoUntapStatusEl.textContent = 'Off';
-        autoUntapStatusEl.classList.remove('bg-green-600');
-        autoUntapStatusEl.classList.add('bg-red-600');
-        autoUntapToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        autoUntapToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateEnhancedImageQualityStatusUI() {
-    if (isEnhancedImageQualityEnabled) {
-        enhancedImageQualityStatusEl.textContent = 'On';
-        enhancedImageQualityStatusEl.classList.remove('bg-red-600');
-        enhancedImageQualityStatusEl.classList.add('bg-green-600');
-        enhancedImageQualityToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        enhancedImageQualityToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        enhancedImageQualityStatusEl.textContent = 'Off';
-        enhancedImageQualityStatusEl.classList.remove('bg-green-600');
-        enhancedImageQualityStatusEl.classList.add('bg-red-600');
-        enhancedImageQualityToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        enhancedImageQualityToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateSnapToGridStatusUI() {
-    if (isSnapToGridEnabled) {
-        snapToGridStatusEl.textContent = 'On';
-        snapToGridStatusEl.classList.remove('bg-red-600');
-        snapToGridStatusEl.classList.add('bg-green-600');
-        snapToGridToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        snapToGridToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        snapToGridStatusEl.textContent = 'Off';
-        snapToGridStatusEl.classList.remove('bg-green-600');
-        snapToGridStatusEl.classList.add('bg-red-600');
-        snapToGridToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        snapToGridToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-    
-    // Update play zones container grid class
-    const playZonesContainer = document.getElementById('play-zones-container');
-    if (playZonesContainer) {
-        if (isSnapToGridEnabled) {
-            playZonesContainer.classList.add('snap-grid-enabled');
-        } else {
-            playZonesContainer.classList.remove('snap-grid-enabled');
-        }
-    }
-}
-
-function updateTabHoverPreviewStatusUI() {
-    if (isTabHoverPreviewEnabled) {
-        tabHoverPreviewStatusEl.textContent = 'On';
-        tabHoverPreviewStatusEl.classList.remove('bg-red-600');
-        tabHoverPreviewStatusEl.classList.add('bg-green-600');
-        tabHoverPreviewToggleBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        tabHoverPreviewToggleBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        tabHoverPreviewStatusEl.textContent = 'Off';
-        tabHoverPreviewStatusEl.classList.remove('bg-green-600');
-        tabHoverPreviewStatusEl.classList.add('bg-red-600');
-        tabHoverPreviewToggleBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        tabHoverPreviewToggleBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
-function updateSpacingSliderVisibilityUI() {
-    if (isSpacingSliderVisible) {
-        cardSpacingSliderContainer.classList.remove('hidden');
-        spacingSliderStatusEl.textContent = 'On';
-        spacingSliderStatusEl.classList.remove('bg-red-600');
-        spacingSliderStatusEl.classList.add('bg-green-600');
-    } else {
-        cardSpacingSliderContainer.classList.add('hidden');
-        spacingSliderStatusEl.textContent = 'Off';
-        spacingSliderStatusEl.classList.remove('bg-green-600');
-        spacingSliderStatusEl.classList.add('bg-red-600');
-    }
-}
-
-function updateAutoFitStatusUI() {
-    if (isAutoFitEnabled) {
-        autoFitStatus.textContent = 'On';
-        autoFitStatus.classList.remove('bg-red-600');
-        autoFitStatus.classList.add('bg-green-600');
-        autoFitSevenCardsBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
-        autoFitSevenCardsBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
-    } else {
-        autoFitStatus.textContent = 'Off';
-        autoFitStatus.classList.remove('bg-green-600');
-        autoFitStatus.classList.add('bg-red-600');
-        autoFitSevenCardsBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
-        autoFitSevenCardsBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
-    }
-}
-
 function applyMagnifyEffectToAllCards() {
     // Since magnify effect is now handled in cardFactory, 
     // we need to re-render to apply the new setting
     // and update CardZone magnify settings
+    const isMagnifyEnabled = settingsManager.getSetting('isMagnifyEnabled');
     if (libraryZone) {
         libraryZone.updateMagnifyEnabled(isMagnifyEnabled);
     }
@@ -1218,134 +964,65 @@ function applyMagnifyEffectToAllCards() {
     render();
 }
 
-magnifyToggleBtn.addEventListener('click', () => {
-    isMagnifyEnabled = !isMagnifyEnabled;
-    updateMagnifyStatusUI();
-    applyMagnifyEffectToAllCards();
-    savePersistentSettings(); // Save settings when changed
-});
-
-autoFocusToggleBtn.addEventListener('click', () => {
-    isAutoFocusEnabled = !isAutoFocusEnabled;
-    updateAutoFocusStatusUI();
-    savePersistentSettings(); // Save settings when changed
-});
-
-ghostModeToggleBtn.addEventListener('click', () => {
-    isGhostModeEnabled = !isGhostModeEnabled;
-    updateGhostModeStatusUI();
-    // Re-render to apply ghost mode changes
-    debouncedRender();
-    savePersistentSettings(); // Save settings when changed
-});
-
-reverseGhostModeToggleBtn.addEventListener('click', () => {
-    isReverseGhostModeEnabled = !isReverseGhostModeEnabled;
-    updateReverseGhostModeStatusUI();
-    // Re-render to apply reverse ghost mode changes
-    debouncedRender();
-    savePersistentSettings(); // Save settings when changed
-});
-
-autoUntapToggleBtn.addEventListener('click', () => {
-    
-    savePersistentSettings(); // Save settings when changed
-    isAutoUntapEnabled = !isAutoUntapEnabled;
-    updateAutoUntapStatusUI();
-    savePersistentSettings(); // Save settings when changed
-});
-
-enhancedImageQualityToggleBtn.addEventListener('click', () => {
-    isEnhancedImageQualityEnabled = !isEnhancedImageQualityEnabled;
-    updateEnhancedImageQualityStatusUI();
-    
-    // Update the cutoffs in cardFactory
-    updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
-});
-
-snapToGridToggleBtn.addEventListener('click', () => {
-    isSnapToGridEnabled = !isSnapToGridEnabled;
-    window.isSnapToGridEnabled = isSnapToGridEnabled; // Update global reference
-    updateSnapToGridStatusUI();
-    
-    // Update play zones container with grid class for broader coverage
-    const playZonesContainer = document.getElementById('play-zones-container');
-    if (playZonesContainer) {
-        if (isSnapToGridEnabled) {
-            playZonesContainer.classList.add('snap-grid-enabled');
-        } else {
-            playZonesContainer.classList.remove('snap-grid-enabled');
-        }
-    }
-    
-    // Update grid visuals with current card size
-    updateGridVisuals();
-    
-    savePersistentSettings(); // Save settings when changed
-});
-
-// Tab hover preview toggle
-tabHoverPreviewToggleBtn.addEventListener('click', () => {
-    isTabHoverPreviewEnabled = !isTabHoverPreviewEnabled;
-    updateTabHoverPreviewStatusUI();
-    savePersistentSettings(); // Save settings when changed
-});
-
-// Toggle spacing slider visibility
-toggleSpacingSliderBtn.addEventListener('click', () => {
-    isSpacingSliderVisible = !isSpacingSliderVisible;
-    updateSpacingSliderVisibilityUI();
-    savePersistentSettings(); // Save settings when changed
-});
-
-// Auto-fit 7 cards functionality
-autoFitSevenCardsBtn.addEventListener('click', () => {
-    isAutoFitEnabled = !isAutoFitEnabled;
-    updateAutoFitStatusUI();
-    if (isAutoFitEnabled) {
-        autoFitSevenCards(false); // Show notification when manually enabled
-    }
-    savePersistentSettings();
-});
-
-// Bottom bar settings gear button
-bottomBarSettingsBtn.addEventListener('click', (e) => {
-    // Create a fake context menu event at the gear button's position
-    const rect = bottomBarSettingsBtn.getBoundingClientRect();
-    const fakeEvent = {
-        clientX: rect.left,
-        clientY: rect.bottom + 5, // Position slightly below the button
-        preventDefault: () => {}
-    };
-    showBottomBarContextMenu(fakeEvent);
-});
-
-// Magnify size slider event listeners
-magnifySizeSlider.addEventListener('input', (e) => {
-    const width = parseInt(e.target.value);
-    magnifyPreviewWidth = width;
-    // Calculate height maintaining card aspect ratio (80:107, which is standard Magic card ratio)
-    magnifyPreviewHeight = Math.round(width * (107 / 80));
-    // Update the global variable that cardFactory.js will use immediately
-    window.magnifyPreviewSize = {
-        width: magnifyPreviewWidth,
-        height: magnifyPreviewHeight
-    };
-});
-
-magnifySizeSlider.addEventListener('change', (e) => {
-    // Update the global variable that cardFactory.js will use
-    window.magnifyPreviewSize = {
-        width: magnifyPreviewWidth,
-        height: magnifyPreviewHeight
-    };
-    savePersistentSettings(); // Save settings when magnify size changes
-});
-
 function showMessage(message) {
     messageText.textContent = message;
     messageModal.classList.remove('hidden');
 }
+
+// Set up settings manager callbacks
+settingsManager.setCallbacks({
+    onMagnifyChange: (enabled: boolean) => {
+        applyMagnifyEffectToAllCards();
+    },
+    onAutoFitChange: (enabled: boolean) => {
+        if (enabled) {
+            autoFitSevenCards(false); // Show notification when manually enabled
+        }
+    },
+    onAutoFocusChange: (enabled: boolean) => {
+        // Auto focus logic is checked in real-time from settings
+    },
+    onGhostModeChange: (enabled: boolean) => {
+        debouncedRender();
+    },
+    onReverseGhostModeChange: (enabled: boolean) => {
+        debouncedRender();
+    },
+    onAutoUntapChange: (enabled: boolean) => {
+        // Auto untap logic is checked in real-time from settings
+    },
+    onSnapToGridChange: (enabled: boolean) => {
+        // Update global reference for backwards compatibility
+        window.isSnapToGridEnabled = enabled;
+        
+        // Update play zones container with grid class
+        const playZonesContainer = document.getElementById('play-zones-container');
+        if (playZonesContainer) {
+            if (enabled) {
+                playZonesContainer.classList.add('snap-grid-enabled');
+            } else {
+                playZonesContainer.classList.remove('snap-grid-enabled');
+            }
+        }
+        
+        updateGridVisuals();
+    },
+    onTabHoverPreviewChange: (enabled: boolean) => {
+        // Tab hover logic is checked in real-time from settings
+    },
+    onEnhancedImageQualityChange: (enabled: boolean) => {
+        updateImageQualityCutoffs(enabled);
+    },
+    onMagnifyPreviewSizeChange: (width: number, height: number) => {
+        // Update global variable for backwards compatibility
+        window.magnifyPreviewSize = { width, height };
+    },
+    showBottomBarContextMenu: showBottomBarContextMenu,
+    autoFitSevenCards: autoFitSevenCards,
+    updateImageQualityCutoffs: updateImageQualityCutoffs,
+    updateGridVisuals: updateGridVisuals,
+    debouncedRender: debouncedRender
+});
 
 // Set up join game UI callbacks after showMessage is defined
 joinGameUI.setCallbacks({
@@ -1403,8 +1080,8 @@ function initializeCardZones() {
         countElement: libraryCountEl,
         enablePeek: true,
         peekHoldTime: 200,
-        currentCardWidth: currentCardWidth,
-        isMagnifyEnabled: isMagnifyEnabled,
+        currentCardWidth: settingsManager.getSetting('currentCardWidth'),
+        isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
         showMessage: showMessage,
         onCardDraw: (cardObj, targetZone, options = {}) => {
             // Mark this as a client action to preserve optimistic updates
@@ -1454,8 +1131,8 @@ function initializeCardZones() {
         countElement: discardCountEl,
         enablePeek: true,
         peekHoldTime: 200,
-        currentCardWidth: currentCardWidth,
-        isMagnifyEnabled: isMagnifyEnabled,
+        currentCardWidth: settingsManager.getSetting('currentCardWidth'),
+        isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
         showMessage: showMessage,
         showShuffle: false, // Disable shuffle for graveyard
         showTopCard: true, // Show the top card face up for graveyard
@@ -1505,8 +1182,8 @@ function initializeCardZones() {
         countElement: exileCountEl,
         enablePeek: true,
         peekHoldTime: 200,
-        currentCardWidth: currentCardWidth,
-        isMagnifyEnabled: isMagnifyEnabled,
+        currentCardWidth: settingsManager.getSetting('currentCardWidth'),
+        isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
         showMessage: showMessage,
         showShuffle: false, // Disable shuffle for exile
         showTopCard: true, // Show the top card face up for exile
@@ -1556,8 +1233,8 @@ function initializeCardZones() {
         countElement: commandCountEl,
         enablePeek: true,
         peekHoldTime: 200,
-        currentCardWidth: currentCardWidth,
-        isMagnifyEnabled: isMagnifyEnabled,
+        currentCardWidth: settingsManager.getSetting('currentCardWidth'),
+        isMagnifyEnabled: settingsManager.getSetting('isMagnifyEnabled'),
         showMessage: showMessage,
         showShuffle: false, // Disable shuffle for command zone
         showTopCard: true, // Show the top card face up for command zone
@@ -1806,6 +1483,12 @@ async function render() {
             return;
         }
 
+        // Get settings values used throughout render function
+        const isGhostModeEnabled = settingsManager.getSetting('isGhostModeEnabled');
+        const isReverseGhostModeEnabled = settingsManager.getSetting('isReverseGhostModeEnabled');
+        const isMagnifyEnabled = settingsManager.getSetting('isMagnifyEnabled');
+        const currentCardWidth = settingsManager.getSetting('currentCardWidth');
+
         // Smart merge: preserve recent client changes, use server for everything else
         // Hand always shows current player's data
         const serverHand = gameState.players[playerId]?.hand || [];
@@ -2049,7 +1732,7 @@ async function render() {
         });
         
         // Add ghost cards if ghost mode is enabled and we're viewing another player's battlefield
-        if (isGhostModeEnabled && pid !== playerId && pid === activePlayZonePlayerId) {
+        if (settingsManager.getSetting('isGhostModeEnabled') && pid !== playerId && pid === activePlayZonePlayerId) {
             const myPlayZoneData = gameState.playZones[playerId] || [];
             myPlayZoneData.forEach(cardData => {
                 const ghostCardEl = createCardElement(cardData, 'play', {
@@ -2111,7 +1794,7 @@ async function render() {
         }
         
         // Add reverse ghost cards if reverse ghost mode is enabled and we're viewing our own battlefield
-        if (isReverseGhostModeEnabled && pid === playerId && pid === activePlayZonePlayerId) {
+        if (settingsManager.getSetting('isReverseGhostModeEnabled') && pid === playerId && pid === activePlayZonePlayerId) {
             // Show ghost cards of the current turn player (if different from us)
             if (gameState.turnOrderSet && gameState.turnOrder && gameState.currentTurn !== undefined) {
                 const currentTurnPlayerId = gameState.turnOrder[gameState.currentTurn];
@@ -2229,6 +1912,7 @@ async function render() {
         
         // Add hover functionality for tab preview
         tabEl.addEventListener('mouseenter', () => {
+            let isTabHoverPreviewEnabled = settingsManager.getSetting("isTabHoverPreviewEnabled");
             if (isTabHoverPreviewEnabled && pid !== activePlayZonePlayerId) {
                 // Clear any existing hover timeout
                 if (hoverTimeoutId) {
@@ -2250,6 +1934,7 @@ async function render() {
         });
         
         tabEl.addEventListener('mouseleave', () => {
+            let isTabHoverPreviewEnabled = settingsManager.getSetting("isTabHoverPreviewEnabled");
             if (isTabHoverPreviewEnabled && isHoveringTab) {
                 // Clear the hover timeout
                 if (hoverTimeoutId) {
@@ -3268,41 +2953,31 @@ function flipCards(targetCardElements) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Load persistent settings first
-    loadPersistentSettings();
+    // Settings are automatically loaded by SettingsManager constructor
     
     // Apply loaded card width
     updateCardSize();
     updateCardSpacing();
     
     // Apply loaded image quality settings to cardFactory
-    updateImageQualityCutoffs(isEnhancedImageQualityEnabled);
+    updateImageQualityCutoffs(settingsManager.getSetting('isEnhancedImageQualityEnabled'));
     
     // Initialize Scryfall cache from localStorage
     console.log('Initializing Scryfall cache...');
     const cacheStats = scryfallCache.getCacheStats();
     console.log('Initial cache stats:', cacheStats);
     
-    updateMagnifyStatusUI(); // Set initial status
-    updateAutoFocusStatusUI(); // Set initial auto-focus status
-    updateGhostModeStatusUI(); // Set initial ghost mode status
-    updateReverseGhostModeStatusUI(); // Set initial reverse ghost mode status
-    updateAutoUntapStatusUI(); // Set initial auto-untap status
-    updateEnhancedImageQualityStatusUI(); // Set initial enhanced image quality status
-    updateSnapToGridStatusUI(); // Set initial snap to grid status
-    updateTabHoverPreviewStatusUI(); // Set initial tab hover preview status
-    updateSpacingSliderVisibilityUI(); // Set initial spacing slider visibility
-    updateAutoFitStatusUI(); // Set initial auto-fit status
+    // All UI status updates are now handled by SettingsManager automatically
     
     // Initialize card spacing slider with loaded settings
     if (cardSpacingSlider) {
-        cardSpacingSlider.value = currentCardSpacing;
+        (cardSpacingSlider as HTMLInputElement).value = settingsManager.getSetting('currentCardSpacing').toString();
         updateCardSpacing(); // Apply the loaded spacing immediately
     }
     
     // Initialize commander selection modal button state
     if (confirmCommanderSelectionBtn) {
-        confirmCommanderSelectionBtn.disabled = true;
+        (confirmCommanderSelectionBtn as HTMLButtonElement).disabled = true;
         confirmCommanderSelectionBtn.classList.add('opacity-50', 'cursor-not-allowed');
         console.log('Commander selection modal elements initialized successfully');
     } else {
@@ -3317,19 +2992,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Update global variables for other modules
-    window.isSnapToGridEnabled = isSnapToGridEnabled;
+    window.isSnapToGridEnabled = settingsManager.getSetting('isSnapToGridEnabled');
     
     // Initialize grid visuals with current card size
     updateGridVisuals();
     
     initializeCardZones(); // Initialize the card zones
     
-    // Initialize magnify size slider and global variable with loaded settings
-    magnifySizeSlider.value = magnifyPreviewWidth; // Set slider to saved value
-    magnifyPreviewHeight = Math.round(magnifyPreviewWidth * (107 / 80)); // Recalculate height based on loaded width
+    // Initialize magnify size global variable with loaded settings (slider is handled by SettingsManager)
+    const magnifyWidth = settingsManager.getSetting('magnifyPreviewWidth');
+    const magnifyHeight = Math.round(magnifyWidth * (107 / 80));
     window.magnifyPreviewSize = {
-        width: magnifyPreviewWidth,
-        height: magnifyPreviewHeight
+        width: magnifyWidth,
+        height: magnifyHeight
     };
     
     // Check if turn control elements exist
@@ -3369,7 +3044,7 @@ window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
     }
     resizeTimeout = setTimeout(() => {
-        if (isAutoFitEnabled) {
+        if (settingsManager.getSetting('isAutoFitEnabled')) {
             autoFitSevenCards();
         }
     }, 250); // Wait 250ms after resize stops before auto-fitting
@@ -3672,6 +3347,8 @@ function updateCascadedHandCardsInAreaCount() {
 
 // Card size controls
 function updateCardSize() {
+    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
+    
     // Update CSS variable globally for all cards
     document.documentElement.style.setProperty('--card-width', `${currentCardWidth}px`);
     
@@ -3695,11 +3372,10 @@ function updateCardSize() {
     // Update grid visuals to match new card size
     updateGridVisuals();
     
-    // Save the new card width to persistent settings
-    savePersistentSettings();
+    // Card width is automatically saved by settings manager when set
     
     // Auto-fit if enabled
-    if (isAutoFitEnabled) {
+    if (settingsManager.getSetting('isAutoFitEnabled')) {
         autoFitSevenCards();
     }
     
@@ -3710,7 +3386,8 @@ function updateCardSize() {
 function updateCardSpacing() {
     // Update hand zone spacing to allow for card overlapping
     const handZone = document.getElementById('hand-zone');
-    
+    const currentCardSpacing = settingsManager.getSetting('currentCardSpacing');
+    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
 
     // Calculate the actual width that 7 cards would occupy
     let sevenCardWidth;
@@ -3763,8 +3440,8 @@ function updateCardSpacing() {
             handZone.style.gap = `${currentCardSpacing * 0.25}rem`;
             // Reset any negative margins and z-index
             cards.forEach((card, index) => {
-                card.style.marginLeft = '';
-                card.style.zIndex = '';
+                (card as HTMLElement).style.marginLeft = '';
+                (card as HTMLElement).style.zIndex = '';
             });
         } else {
             // Negative spacing: use negative margins for overlapping
@@ -3773,10 +3450,10 @@ function updateCardSpacing() {
                 if (index > 0) {
                     // Convert negative spacing to negative margin for overlap
                     const overlapAmount = Math.abs(currentCardSpacing) * 0.75; // Increased multiplier for more overlap
-                    card.style.marginLeft = `-${overlapAmount}rem`;
+                    (card as HTMLElement).style.marginLeft = `-${overlapAmount}rem`;
                 }
                 // Set z-index so later cards appear on top
-                card.style.zIndex = index.toString();
+                (card as HTMLElement).style.zIndex = index.toString();
             });
         }
     }
@@ -3836,7 +3513,7 @@ function autoFitSevenCards(showNotification = false) {
     
     if (totalCardWidth <= handZoneWidth) {
         // Cards fit without overlapping, set spacing to 0 (no gaps, no overlap)
-        currentCardSpacing = 0;
+        settingsManager.setSetting('currentCardSpacing', 0);
         // Also add a guide line for 7 cards so player can see if they're at hand-size
         console.log('Cards fit without overlap, setting spacing to 0');
     } else {
@@ -3852,7 +3529,7 @@ function autoFitSevenCards(showNotification = false) {
         
         // Allow much more overlap by increasing the minimum value from -6 to -15
         const spacingValue = Math.max(-15, calculatedSpacing);
-        currentCardSpacing = spacingValue;
+        settingsManager.setSetting('currentCardSpacing', spacingValue);
         
         console.log('Overlap calculations:', {
             overlapNeeded,
@@ -3870,16 +3547,16 @@ function autoFitSevenCards(showNotification = false) {
     
     // Update the slider to reflect the new value
     if (cardSpacingSlider) {
-        cardSpacingSlider.value = currentCardSpacing;
+        (cardSpacingSlider as HTMLInputElement).value = settingsManager.getSetting('currentCardSpacing').toString();
     }
      // Apply the new spacing
     updateCardSpacing();
     
-    // Save the new setting
-    savePersistentSettings();
+    // Settings are automatically saved by SettingsManager
     
     // Show a message to the user if requested
     if (showNotification) {
+        const currentCardSpacing = settingsManager.getSetting('currentCardSpacing');
         const fitMessage = currentCardSpacing === 0 ? 
             'Hand spacing set to fit 7 cards without overlap' :
             `Hand spacing adjusted to fit 7 cards (overlap: ${Math.abs(currentCardSpacing).toFixed(1)})`;
@@ -3888,15 +3565,19 @@ function autoFitSevenCards(showNotification = false) {
 }
 
 function increaseCardSize() {
+    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
     if (currentCardWidth < maxCardWidth) {
-        currentCardWidth = Math.min(currentCardWidth + cardSizeStep, maxCardWidth);
+        const newWidth = Math.min(currentCardWidth + cardSizeStep, maxCardWidth);
+        settingsManager.setSetting('currentCardWidth', newWidth);
         updateCardSize();
     }
 }
 
 function decreaseCardSize() {
+    const currentCardWidth = settingsManager.getSetting('currentCardWidth');
     if (currentCardWidth > minCardWidth) {
-        currentCardWidth = Math.max(currentCardWidth - cardSizeStep, minCardWidth);
+        const newWidth = Math.max(currentCardWidth - cardSizeStep, minCardWidth);
+        settingsManager.setSetting('currentCardWidth', newWidth);
         updateCardSize();
     }
 }
@@ -3906,10 +3587,10 @@ increaseSizeBtn.addEventListener('click', increaseCardSize);
 decreaseSizeBtn.addEventListener('click', decreaseCardSize);
 
 // Add event listener for card spacing slider
-cardSpacingSlider.addEventListener('input', (e) => {
-    currentCardSpacing = parseFloat(e.target.value);
+cardSpacingSlider?.addEventListener('input', (e) => {
+    const newSpacing = parseFloat((e.target as HTMLInputElement).value);
+    settingsManager.setSetting('currentCardSpacing', newSpacing);
     updateCardSpacing();
-    savePersistentSettings();
 });
 
 // Life tracker event listeners
@@ -4804,6 +4485,7 @@ function moveSelectedCardsToZone(targetZone) {
 // Add global event listeners for tab hover preview functionality
 if (playerTabsEl) {
     playerTabsEl.addEventListener('mouseleave', () => {
+        let isTabHoverPreviewEnabled = settingsManager.getSetting("isTabHoverPreviewEnabled")
         if (isTabHoverPreviewEnabled && isHoveringTab) {
             // Clear any pending hover timeout
             if (hoverTimeoutId) {
