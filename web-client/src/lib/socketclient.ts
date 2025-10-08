@@ -3,8 +3,20 @@ import { ClientToServerEvents, ServerToClientEvents, StatusOr, Game, Player, Car
 
 // Factory function to create a VdClient with socket connection
 export function createVdClient(serverUrl?: string): VdClient {
-    // Default to same origin if no server URL provided (for production)
-    const url = serverUrl || window.location.origin;
+    let url: string;
+    
+    if (serverUrl) {
+        // Explicit server URL provided
+        url = serverUrl;
+    } else if (window.location.port === '4200') {
+        // Development mode: Angular dev server is on 4200, so connect to server on 3000
+        url = 'http://localhost:3000';
+    } else {
+        // Production mode: same origin (server serves both static files and WebSocket)
+        url = window.location.origin;
+    }
+    
+    console.log(`Connecting to server at: ${url}`);
     const socket = io(url) as Socket<ServerToClientEvents, ClientToServerEvents>;
     return new VdClient(socket);
 }

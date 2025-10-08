@@ -18,6 +18,14 @@
         "command": "tsx server.ts",
         "cwd": "server"
       },
+      "dependsOn": ["web-client:build"]
+    },
+    "serve:dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx server.dev.ts",
+        "cwd": "server"
+      },
       "dependsOn": ["shared:build"]
     }
   }
