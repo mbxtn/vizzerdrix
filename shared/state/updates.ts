@@ -32,11 +32,11 @@ export abstract class Update {
 }
 
 export class EmptyUpdate extends Update {
-    describe(): string {
+    override describe(): string {
         return "";
     }
 
-    combineWith(other: Update): Update | undefined {
+    override combineWith(other: Update): Update | undefined {
         return;
     }
 }
@@ -78,7 +78,7 @@ export class CardMoved extends Update {
     }
 
     // I don't really care about original starting position, but we do care about original zone I think?
-    combineWith(other: Update): Update | undefined {
+    override combineWith(other: Update): Update | undefined {
         if (other instanceof CardMoved) {
             // Don't combine if they're outside a time threshold. 
             if(!this.canCombineWithTime(other)) return;
@@ -111,7 +111,7 @@ export class CardsMoved extends Update {
         return "";
     }
 
-    combineWith(other: Update) : Update | undefined  {
+    override combineWith(other: Update) : Update | undefined  {
         // If the timestamps are too far do nothing, I think this is wrong perf wise, but cleanest code wise
         if(!this.canCombineWithTime(other)) return;
         // First case, a CardMovedUpdate: We add that card to this update
@@ -147,7 +147,7 @@ export class CardCreated extends Update {
         this.cardsCreated = 1;
     }
 
-    combineWith(other: Update): Update | undefined {
+    override combineWith(other: Update): Update | undefined {
         if (other instanceof CardCreated) {
             if(!this.canCombineWithTime(other)) return
             // If the card names match, increment by the others created count and dedupe

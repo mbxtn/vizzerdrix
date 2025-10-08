@@ -1,5 +1,4 @@
-import { Card, CardFactory, Point } from '../../shared/state/card.js';
-import { Zone } from '@shared/socketinterface.js';
+import { Card, CardFactory, Point, Zone } from '@vizzerdrix/shared';
 import { ScryfallCache } from './scryfallCache.js';
 
 export class ScryfallCardFactory implements CardFactory {

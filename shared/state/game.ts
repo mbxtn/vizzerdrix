@@ -22,9 +22,7 @@ export class Game {
 
     getPlayerByName(name: string) : Player | undefined {
         return Object.values(this.players).find( (player: Player) => {
-            if (player.name === name) {
-                return true;
-            }
+            return player.name === name;
         });
     }
 

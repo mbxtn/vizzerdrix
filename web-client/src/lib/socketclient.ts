@@ -1,8 +1,5 @@
 import { Socket } from "socket.io-client";
-import { ClientToServerEvents, ServerToClientEvents, StatusOr } from "./socketinterface";
-import { Game } from "./game";
-import { Player } from "./player";
-import { Card } from "./card";
+import { ClientToServerEvents, ServerToClientEvents, StatusOr, Game, Player, Card } from "@vizzerdrix/shared";
 
 export class VdClient {
     socket: Socket<ServerToClientEvents, ClientToServerEvents>;
