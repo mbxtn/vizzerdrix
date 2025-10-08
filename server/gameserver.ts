@@ -1,6 +1,4 @@
-import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData, StatusOr, Zone } from "../shared/state/socketinterface";
-import { Game } from "../shared/state/game";
-import { Player } from "../shared/state/player";
+import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData, StatusOr, Zone, Game, Player } from "@vizzerdrix/shared";
 import { Server } from "socket.io";
 
 

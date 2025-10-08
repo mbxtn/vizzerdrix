@@ -2,20 +2,23 @@
   "name": "server",
   "projectType": "application",
   "sourceRoot": "server",
+  "implicitDependencies": ["shared"],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
       "options": {
         "command": "tsc",
         "cwd": "server"
-      }
+      },
+      "dependsOn": ["shared:build"]
     },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
         "command": "tsx server.ts",
         "cwd": "server"
-      }
+      },
+      "dependsOn": ["shared:build"]
     }
   }
 }

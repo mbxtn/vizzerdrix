@@ -7,7 +7,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@vizzerdrix/shared": ["../shared/state/index.ts"]
+    }
   },
   "include": ["**/*.ts", "../shared/state/**/*.ts"],
   "exclude": ["dist", "node_modules", "../shared/state/**/*.test.ts"]
