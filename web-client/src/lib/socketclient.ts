@@ -1,5 +1,13 @@
-import { Socket } from "socket.io-client";
+import { Socket, io } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, StatusOr, Game, Player, Card } from "@vizzerdrix/shared";
+
+// Factory function to create a VdClient with socket connection
+export function createVdClient(serverUrl?: string): VdClient {
+    // Default to same origin if no server URL provided (for production)
+    const url = serverUrl || window.location.origin;
+    const socket = io(url) as Socket<ServerToClientEvents, ClientToServerEvents>;
+    return new VdClient(socket);
+}
 
 export class VdClient {
     socket: Socket<ServerToClientEvents, ClientToServerEvents>;
