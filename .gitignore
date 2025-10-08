@@ -2,8 +2,23 @@
 /cardgame.html
 /cardgame.js
 /styles.css
-/multiplayer/node_modules/
-/multiplayer/dist/
-.nvmrc
 node_modules/
+dist/
+.nvmrc
+
+# Legacy folders
+/multiplayer/
+
+# New structure
+/server/node_modules/
+/server/dist/
+/web-client/node_modules/
+/web-client/dist/
+/legacy-client/
+
+# Platform tools
 /platform-tools/
+
+.nx/installation
+.nx/cache
+.nx/workspace-data

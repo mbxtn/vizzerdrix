@@ -1,0 +1,14 @@
+{
+  "name": "@vizzerdrix/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./state/index.js",
+  "types": "./state/index.d.ts",
+  "exports": {
+    ".": "./state/index.js",
+    "./game": "./state/game.js",
+    "./player": "./state/player.js",
+    "./card": "./state/card.js",
+    "./socketinterface": "./state/socketinterface.js"
+  }
+}
