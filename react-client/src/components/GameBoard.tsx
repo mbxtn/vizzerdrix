@@ -9,11 +9,14 @@ import {
   useSensors,
   DragOverEvent,
 } from '@dnd-kit/core';
+import { defaultUIConfig, generateCSSVariables, UIConfig } from '../config/ui';
 import { Hand, handStyles } from './Hand';
 import { Battlefield, battlefieldStyles } from './Battlefield';
+import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
+import { Settings, settingsStyles } from './Settings';
 import type { Card as CardType, Player } from '@vizzerdrix/shared';
-import { Zone } from '@vizzerdrix/shared';
+import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 
 interface GameBoardProps {
   localPlayer: Player;
@@ -22,6 +25,8 @@ interface GameBoardProps {
 
 export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
+  const [uiConfig, setUIConfig] = useState<UIConfig>(defaultUIConfig);
+  const [showSettings, setShowSettings] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -33,8 +38,18 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
 
   // Get cards by zone
   const allCards = Object.values(localPlayer.cards);
-  const handCards = allCards.filter(card => card.zone === Zone.hand);
-  const battlefieldCards = allCards.filter(card => card.zone === Zone.battlefield);
+  const handCards = allCards.filter(card => card.zone === ZoneEnum.hand);
+  const battlefieldCards = allCards.filter(card => card.zone === ZoneEnum.battlefield);
+  const commandCards = allCards.filter(card => card.zone === ZoneEnum.command);
+  const libraryCards = allCards.filter(card => card.zone === ZoneEnum.library);
+  const graveyardCards = allCards.filter(card => card.zone === ZoneEnum.graveyard);
+  const exileCards = allCards.filter(card => card.zone === ZoneEnum.exile);
+
+  // Debug logging
+  console.log('GameBoard - Total cards:', allCards.length);
+  console.log('GameBoard - Hand cards:', handCards.length, handCards);
+  console.log('GameBoard - Battlefield cards:', battlefieldCards.length, battlefieldCards);
+  console.log('GameBoard - All cards with zones:', allCards.map(c => ({ cardName: c.cardName, zone: c.zone })));
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -62,18 +77,30 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
     if (!updatedCard) return;
 
     // Handle zone transitions
-    if (targetZone === 'battlefield' && card.zone !== Zone.battlefield) {
-      updatedCard.zone = Zone.battlefield;
+    if (targetZone === 'battlefield' && card.zone !== ZoneEnum.battlefield) {
+      updatedCard.zone = ZoneEnum.battlefield;
       // Position card where dropped on battlefield
       const delta = event.delta;
       updatedCard.location = {
         x: Math.max(0, (event.activatorEvent as PointerEvent).clientX - 31.5 + delta.x),
         y: Math.max(0, (event.activatorEvent as PointerEvent).clientY - 44 + delta.y),
       };
-    } else if (targetZone === 'hand' && card.zone !== Zone.hand) {
-      updatedCard.zone = Zone.hand;
+    } else if (targetZone === 'hand' && card.zone !== ZoneEnum.hand) {
+      updatedCard.zone = ZoneEnum.hand;
       updatedCard.location = { x: 0, y: 0 }; // Reset position for hand
-    } else if (targetZone === 'battlefield' && card.zone === Zone.battlefield) {
+    } else if (targetZone === 'command' && card.zone !== ZoneEnum.command) {
+      updatedCard.zone = ZoneEnum.command;
+      updatedCard.location = { x: 0, y: 0 }; // Reset position for command
+    } else if (targetZone === 'library' && card.zone !== ZoneEnum.library) {
+      updatedCard.zone = ZoneEnum.library;
+      updatedCard.location = { x: 0, y: 0 }; // Reset position for library
+    } else if (targetZone === 'graveyard' && card.zone !== ZoneEnum.graveyard) {
+      updatedCard.zone = ZoneEnum.graveyard;
+      updatedCard.location = { x: 0, y: 0 }; // Reset position for graveyard
+    } else if (targetZone === 'exile' && card.zone !== ZoneEnum.exile) {
+      updatedCard.zone = ZoneEnum.exile;
+      updatedCard.location = { x: 0, y: 0 }; // Reset position for exile
+    } else if (targetZone === 'battlefield' && card.zone === ZoneEnum.battlefield) {
       // Moving within battlefield - update position
       const delta = event.delta;
       updatedCard.location = {
@@ -104,7 +131,15 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
 
   return (
     <>
-      <style>{cardStyles + handStyles + battlefieldStyles + gameBoardStyles}</style>
+      <style>{generateCSSVariables(uiConfig) + cardStyles + handStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
+      
+      <button 
+        className="settings-button" 
+        onClick={() => setShowSettings(true)}
+        title="UI Settings"
+      >
+        ⚙️
+      </button>
       
       <DndContext
         sensors={sensors}
@@ -115,28 +150,105 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
         <div className="game-board">
           <Battlefield
             cards={battlefieldCards}
+            activeCardId={activeCard?.id}
             onCardClick={handleCardClick}
             onCardDoubleClick={handleCardDoubleClick}
           />
           
-          <Hand
-            cards={handCards}
-            onCardClick={handleCardClick}
-            onCardDoubleClick={handleCardDoubleClick}
-          />
+          <div className="bottom-zones">
+            <Zone
+              zoneName="Command"
+              zoneId="command"
+              cards={commandCards}
+              activeCardId={activeCard?.id}
+              displayMode="top-card"
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+            
+            <Hand
+              cards={handCards}
+              activeCardId={activeCard?.id}
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+            
+            <Zone
+              zoneName="Library"
+              zoneId="library"
+              cards={libraryCards}
+              activeCardId={activeCard?.id}
+              displayMode="stack"
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+            
+            <Zone
+              zoneName="Graveyard"
+              zoneId="graveyard"
+              cards={graveyardCards}
+              activeCardId={activeCard?.id}
+              displayMode="top-card"
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+            
+            <Zone
+              zoneName="Exile"
+              zoneId="exile"
+              cards={exileCards}
+              activeCardId={activeCard?.id}
+              displayMode="top-card"
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+          </div>
         </div>
 
         <DragOverlay>
           {activeCard ? (
-            <Card card={activeCard} isDragging />
+            <Card card={activeCard} />
           ) : null}
         </DragOverlay>
       </DndContext>
+      
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        config={uiConfig}
+        onConfigChange={setUIConfig}
+      />
     </>
   );
 }
 
 const gameBoardStyles = `
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  .settings-button {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #444;
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 100;
+    transition: background-color 0.2s ease;
+  }
+
+  .settings-button:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: #666;
+  }
+  
   .game-board {
     display: flex;
     flex-direction: column;
@@ -144,5 +256,26 @@ const gameBoardStyles = `
     background: #1a1a1a;
     color: white;
     font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .bottom-zones {
+    display: flex;
+    height: var(--zone-height, 150px);
+    flex-shrink: 0;
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .bottom-zones > .zone {
+    width: calc(var(--card-width, 63px) + 6px);
+    flex-shrink: 0;
+  }
+
+  .bottom-zones > .hand {
+    flex: 1;
+    width: auto;
   }
 `;

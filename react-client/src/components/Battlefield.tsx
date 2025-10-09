@@ -5,12 +5,13 @@ import type { Card as CardType } from '@vizzerdrix/shared';
 
 interface BattlefieldProps {
   cards: CardType[];
+  activeCardId?: string;
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
   onCardMove?: (card: CardType, position: { x: number; y: number }) => void;
 }
 
-export function Battlefield({ cards, onCardClick, onCardDoubleClick }: BattlefieldProps) {
+export function Battlefield({ cards, activeCardId, onCardClick, onCardDoubleClick }: BattlefieldProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'battlefield',
     data: {
@@ -34,6 +35,7 @@ export function Battlefield({ cards, onCardClick, onCardDoubleClick }: Battlefie
             key={card.id}
             card={card}
             position={{ x: card.location.x, y: card.location.y }}
+            isDragging={card.id === activeCardId}
             onClick={() => onCardClick?.(card)}
             onDoubleClick={() => onCardDoubleClick?.(card)}
           />
@@ -55,15 +57,13 @@ export const battlefieldStyles = `
     flex: 1;
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     border: 2px solid #333;
-    margin: 10px;
     border-radius: 8px;
     transition: border-color 0.2s ease;
     overflow: hidden;
   }
 
   .battlefield.drag-over {
-    border-color: rgba(79, 195, 247, 0.8);
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 80%, rgba(79, 195, 247, 0.1) 100%);
+    border-color: rgba(79, 195, 247, 0.5);
   }
 
   .battlefield-header {

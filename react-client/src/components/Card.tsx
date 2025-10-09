@@ -30,6 +30,7 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick }: Car
     top: position?.y || 0,
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     zIndex: isDragging ? 1000 : 1,
+    opacity: isDragging ? 0 : 1, // Hide original card while dragging
   };
 
   return (
@@ -55,8 +56,8 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick }: Car
 // CSS styles as a separate object for now
 export const cardStyles = `
   .card {
-    width: 63px;
-    height: 88px;
+    width: var(--card-width, 63px);
+    height: var(--card-height, 88px);
     border-radius: 6px;
     border: 2px solid #333;
     background: #1a1a1a;

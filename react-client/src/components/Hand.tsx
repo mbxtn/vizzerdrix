@@ -5,11 +5,12 @@ import type { Card as CardType } from '@vizzerdrix/shared';
 
 interface HandProps {
   cards: CardType[];
+  activeCardId?: string;
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
 }
 
-export function Hand({ cards, onCardClick, onCardDoubleClick }: HandProps) {
+export function Hand({ cards, activeCardId, onCardClick, onCardDoubleClick }: HandProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'hand',
     data: {
@@ -17,6 +18,9 @@ export function Hand({ cards, onCardClick, onCardDoubleClick }: HandProps) {
       accepts: ['card'],
     },
   });
+
+  // Debug logging
+  console.log('Hand component - cards received:', cards.length, cards);
 
   return (
     <div
@@ -32,6 +36,7 @@ export function Hand({ cards, onCardClick, onCardDoubleClick }: HandProps) {
           <div key={card.id} className="hand-card" style={{ left: index * 15 }}>
             <Card
               card={card}
+              isDragging={card.id === activeCardId}
               onClick={() => onCardClick?.(card)}
               onDoubleClick={() => onCardDoubleClick?.(card)}
             />
@@ -48,14 +53,12 @@ export function Hand({ cards, onCardClick, onCardDoubleClick }: HandProps) {
 
 export const handStyles = `
   .hand {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 150px;
+    position: relative;
+    height: var(--zone-height, 150px);
     background: rgba(0, 0, 0, 0.8);
     border-top: 2px solid #333;
     transition: background-color 0.2s ease;
+    flex-shrink: 0;
   }
 
   .hand.drag-over {
@@ -93,7 +96,8 @@ export const handStyles = `
 
   .hand-card:hover {
     z-index: 20;
-    transform: translateY(-20px);
+    transform: translateY(-8px);
+    transition: transform 0.2s ease;
   }
 
   .empty-hand {

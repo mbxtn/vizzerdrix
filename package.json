@@ -38,6 +38,7 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@esbuild/win32-x64": "^0.25.10",
+    "@scryfall/api-types": "^1.0.0-alpha.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "socket.io-client": "^4.8.1"

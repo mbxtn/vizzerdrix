@@ -75,12 +75,17 @@ export class Player {
             }
         )
 
-        // Put the rest in the library
+        // Put the rest in the library, but put first 7 in hand for testing
         let library = cardFactory.createCardsFromNames(this.library);
         library.forEach(
-            card => {
+            (card, index) => {
                 this.cards[card.id] = card;
-                card.zone = Zone.library;
+                // Put first 7 cards in hand for testing drag/drop
+                if (index < 7) {
+                    card.zone = Zone.hand;
+                } else {
+                    card.zone = Zone.library;
+                }
             }
         )
     }

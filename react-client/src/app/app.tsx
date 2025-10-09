@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GameBoard } from '../components/GameBoard';
 import { createVdClient, VdClient } from '../lib/socketclient';
+import { ScryfallCardFactory } from '../lib/cardFactory';
 import type { Game, Player } from '@vizzerdrix/shared';
 
 export function App() {
@@ -55,7 +56,7 @@ export function App() {
     try {
       // Simple test with minimal commanders and library
       const commanders = ['Sol Ring']; // Test commander
-      const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains']; // Test library
+      const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes', 'Giant Growth', 'Counterspell', 'Dark Ritual']; // Test library with more cards
       
       const game = await client.joinGame(playerName, roomName, commanders, library);
       setMessage(`Successfully joined game! Room: ${game.roomName}`);
@@ -64,7 +65,13 @@ export function App() {
       // Get the current player
       const playerId = client.getId();
       if (playerId && game.players[playerId]) {
-        setCurrentPlayer(game.players[playerId]);
+        const player = game.players[playerId];
+        
+        // Create the deck on the client side
+        const cardFactory = new ScryfallCardFactory(playerId);
+        player.createDeck(cardFactory);
+        
+        setCurrentPlayer(player);
         setShowGame(true);
       }
     } catch (error) {
@@ -90,10 +97,22 @@ export function App() {
           color: 'white', 
           padding: '10px', 
           borderRadius: '4px',
-          zIndex: 1000 
+          zIndex: 1000,
+          maxWidth: '300px',
+          maxHeight: '400px',
+          overflow: 'auto'
         }}>
           <div>{currentPlayer.name} - Life: {currentPlayer.lifeTotal}</div>
           <button onClick={() => setShowGame(false)}>Back to Lobby</button>
+          
+          <div style={{ marginTop: '10px', fontSize: '11px' }}>
+            <strong>Debug - Cards by Zone:</strong>
+            <pre style={{ fontSize: '10px', maxHeight: '200px', overflow: 'auto', background: 'rgba(255,255,255,0.1)', padding: '5px', marginTop: '5px' }}>
+              {gameState && Object.values(currentPlayer.cards).map(card => 
+                `${card.cardName}: Zone ${card.zone}`
+              ).join('\n')}
+            </pre>
+          </div>
         </div>
         <GameBoard 
           localPlayer={currentPlayer} 
