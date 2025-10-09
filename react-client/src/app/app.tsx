@@ -1,71 +1,111 @@
 import { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
-import type { 
-  ServerToClientEvents, 
-  ClientToServerEvents, 
-  StatusOr,
-  Game
-} from '@vizzerdrix/shared';
-
-// Type the socket connection
-type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+import { GameBoard } from '../components/GameBoard';
+import { createVdClient, VdClient } from '../lib/socketclient';
+import type { Game, Player } from '@vizzerdrix/shared';
 
 export function App() {
-  const [socket, setSocket] = useState<TypedSocket | null>(null);
+  const [client, setClient] = useState<VdClient | null>(null);
   const [connected, setConnected] = useState(false);
   const [message, setMessage] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [roomName, setRoomName] = useState('test-room');
   const [gameState, setGameState] = useState<Game | null>(null);
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+  const [showGame, setShowGame] = useState(false);
 
   useEffect(() => {
-    // Connect to your server (adjust port if needed)
-    const newSocket: TypedSocket = io('http://localhost:3000');
+    // Create VdClient connection
+    const vdClient = createVdClient();
     
-    newSocket.on('connect', () => {
+    vdClient.socket.on('connect', () => {
       setConnected(true);
       setMessage('Connected to server!');
     });
 
-    newSocket.on('disconnect', () => {
+    vdClient.socket.on('disconnect', () => {
       setConnected(false);
       setMessage('Disconnected from server');
     });
 
-    newSocket.on('StateUpdate', (game) => {
+    // Add game state update listener
+    vdClient.addOnUpdateListener('app', (game: Game) => {
       setGameState(game);
-      setMessage(`Game state updated! Players: ${game.players?.length || 0}`);
+      setMessage(`Game state updated! Players: ${Object.keys(game.players || {}).length}`);
+      
+      // Update current player if we're in a game
+      const playerId = vdClient.getId();
+      if (playerId && game.players[playerId]) {
+        setCurrentPlayer(game.players[playerId]);
+      }
     });
 
-    setSocket(newSocket);
+    setClient(vdClient);
 
     return () => {
-      newSocket.close();
+      vdClient.remmoveOnUpdateListener('app');
+      vdClient.socket.close();
     };
   }, []);
 
-  const joinGame = () => {
-    if (!socket || !playerName.trim()) return;
+  const joinGame = async () => {
+    if (!client || !playerName.trim()) return;
 
     setMessage('Joining game...');
     
-    // Simple test with minimal commanders and library
-    const commanders = ['Sol Ring']; // Test commander
-    const library = ['Lightning Bolt', 'Forest', 'Island']; // Test library
-    
-    socket.emit('joinGame', playerName, roomName, commanders, library, (result: StatusOr<Game>) => {
-      if (result.status === 'success') {
-        setMessage(`Successfully joined game! Room: ${result.value.roomName}`);
-        setGameState(result.value);
-      } else {
-        setMessage(`Failed to join: ${result.message}`);
+    try {
+      // Simple test with minimal commanders and library
+      const commanders = ['Sol Ring']; // Test commander
+      const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains']; // Test library
+      
+      const game = await client.joinGame(playerName, roomName, commanders, library);
+      setMessage(`Successfully joined game! Room: ${game.roomName}`);
+      setGameState(game);
+      
+      // Get the current player
+      const playerId = client.getId();
+      if (playerId && game.players[playerId]) {
+        setCurrentPlayer(game.players[playerId]);
+        setShowGame(true);
       }
-    });
+    } catch (error) {
+      setMessage(`Failed to join: ${error}`);
+    }
   };
+
+  const handlePlayerUpdate = (player: Player) => {
+    if (client) {
+      client.updateState(player);
+      setCurrentPlayer(player);
+    }
+  };
+
+  if (showGame && currentPlayer) {
+    return (
+      <div>
+        <div style={{ 
+          position: 'fixed', 
+          top: 10, 
+          right: 10, 
+          background: 'rgba(0,0,0,0.8)', 
+          color: 'white', 
+          padding: '10px', 
+          borderRadius: '4px',
+          zIndex: 1000 
+        }}>
+          <div>{currentPlayer.name} - Life: {currentPlayer.lifeTotal}</div>
+          <button onClick={() => setShowGame(false)}>Back to Lobby</button>
+        </div>
+        <GameBoard 
+          localPlayer={currentPlayer} 
+          onPlayerUpdate={handlePlayerUpdate} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Vizzerdrix React Client - Connection Test</h1>
+      <h1>Vizzerdrix React Client</h1>
       
       <div style={{ marginBottom: '20px' }}>
         <strong>Connection Status:</strong> 
@@ -114,7 +154,8 @@ export function App() {
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: connected ? 'pointer' : 'not-allowed'
+            cursor: connected ? 'pointer' : 'not-allowed',
+            marginRight: '10px'
           }}
         >
           Join Game
@@ -124,7 +165,7 @@ export function App() {
       {gameState && (
         <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
           <h3>Game State Preview:</h3>
-          <pre style={{ fontSize: '12px', overflow: 'auto' }}>
+          <pre style={{ fontSize: '12px', overflow: 'auto', maxHeight: '200px' }}>
             {JSON.stringify(gameState, null, 2)}
           </pre>
         </div>
