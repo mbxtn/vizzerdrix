@@ -156,16 +156,6 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
           
           <div className="bottom-zones">
             <Zone
-              zoneName="Command"
-              zoneId="command"
-              cards={commandCards}
-              activeCardId={activeCard?.id}
-              displayMode="top-card"
-              onCardClick={handleCardClick}
-              onCardDoubleClick={handleCardDoubleClick}
-            />
-            
-            <Zone
               zoneName="Hand"
               zoneId="hand"
               cards={handCards}
@@ -174,7 +164,6 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
-            
             <Zone
               zoneName="Library"
               zoneId="library"
@@ -184,7 +173,6 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
-            
             <Zone
               zoneName="Graveyard"
               zoneId="graveyard"
@@ -194,11 +182,19 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
-            
             <Zone
               zoneName="Exile"
               zoneId="exile"
               cards={exileCards}
+              activeCardId={activeCard?.id}
+              displayMode="top-card"
+              onCardClick={handleCardClick}
+              onCardDoubleClick={handleCardDoubleClick}
+            />
+            <Zone
+              zoneName="Command"
+              zoneId="command"
+              cards={commandCards}
               activeCardId={activeCard?.id}
               displayMode="top-card"
               onCardClick={handleCardClick}

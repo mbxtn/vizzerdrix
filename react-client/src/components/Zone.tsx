@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { Card } from './Card';
 import type { Card as CardType } from '@vizzerdrix/shared';
 
@@ -31,23 +31,50 @@ export function Zone({
   });
 
   const renderContent = () => {
-    if (cards.length === 0) {
-      return <div className="empty-zone">Empty</div>;
-    }
-
     switch (displayMode) {
-      case 'stack':
-        // Show a card back with count (for library)
+      case 'stack': {
+        // Always call useDraggable, even if empty
+        const stackTopCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
+        const isLibrary = zoneId === 'library';
+        const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
+          id: stackTopCard?.id || `${zoneId}-empty`,
+          data: { card: stackTopCard },
+          disabled: !stackTopCard,
+        });
+        const stackStyle = transform ? {
+          transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        } : {};
+        const cardBackStyle = isLibrary
+          ? { width: 'var(--card-width)', height: 'var(--card-height)' }
+          : { width: 'var(--stack-card-width)', height: 'var(--stack-card-height)' };
+        const cardBackImgStyle = isLibrary
+          ? { width: 'var(--card-width)', height: 'var(--card-height)', objectFit: 'cover' as const, borderRadius: '3px' }
+          : { width: 'var(--stack-card-width)', height: 'var(--stack-card-height)', objectFit: 'cover' as const, borderRadius: '3px' };
         return (
-          <div className="card-stack">
-            <div className="card-back">📚</div>
+          <div 
+            ref={setDragRef}
+            className="card-stack"
+            style={isLibrary ? { ...stackStyle, width: 'var(--card-width)', height: 'var(--card-height)' } : { ...stackStyle } }
+            onClick={() => stackTopCard && onCardClick?.(stackTopCard)}
+            onDoubleClick={() => stackTopCard && onCardDoubleClick?.(stackTopCard)}
+            {...listeners}
+            {...attributes}
+          >
+            {isLibrary && cards.length === 0 ? (
+              <div className="empty-library-placeholder" />
+            ) : (
+              <div className="card-back" style={cardBackStyle}>
+                <img src="/cardback.png" alt="Card Back" style={cardBackImgStyle} />
+              </div>
+            )}
           </div>
         );
+      }
       
-      case 'top-card':
+      case 'top-card': {
         // Show the most recent card (for graveyard/exile)
-        const topCard = cards[cards.length - 1];
-        return (
+        const topCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
+        return topCard ? (
           <div className="zone-top-card">
             <Card
               card={topCard}
@@ -56,24 +83,35 @@ export function Zone({
               onDoubleClick={() => onCardDoubleClick?.(topCard)}
             />
           </div>
+        ) : (
+          <div className="empty-zone">Empty</div>
         );
+      }
       
-      case 'all-cards':
-        // Show all cards (for command zone)
+      case 'all-cards': {
+        // Show all cards (for hand zone)
+        const isHand = zoneId === 'hand';
         return (
           <div className="zone-cards">
-            {cards.map((card) => (
-              <div key={card.id} className="zone-card">
-                <Card
-                  card={card}
-                  isDragging={card.id === activeCardId}
-                  onClick={() => onCardClick?.(card)}
-                  onDoubleClick={() => onCardDoubleClick?.(card)}
-                />
-              </div>
-            ))}
+            {cards.length === 0
+              ? (isHand
+                  ? <div className="empty-hand-placeholder" />
+                  : <div className="card-back"><img src="/cardback.png" alt="Card Back" style={{ width: 'var(--card-width)', height: 'var(--card-height)', objectFit: 'cover', borderRadius: '3px' }} /></div>
+                )
+              : cards.map((card) => (
+                  <div key={card.id} className="zone-card">
+                    <Card
+                      card={card}
+                      isDragging={card.id === activeCardId}
+                      onClick={() => onCardClick?.(card)}
+                      onDoubleClick={() => onCardDoubleClick?.(card)}
+                    />
+                  </div>
+                ))
+            }
           </div>
         );
+      }
       
       default:
         return null;
@@ -151,16 +189,21 @@ export const zoneStyles = `
   }
 
   .card-back {
-    width: 100%;
-    height: 100%;
-    background: #2c3e50;
+    width: var(--stack-card-width, 45px);
+    height: var(--stack-card-height, 60px);
     border: 1px solid #444;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    color: #ccc;
+    overflow: hidden;
+  }
+
+  .card-back img {
+    width: var(--stack-card-width, 45px);
+    height: var(--stack-card-height, 60px);
+    object-fit: cover;
+    border-radius: 3px;
   }
 
   .zone-top-card {
@@ -182,6 +225,26 @@ export const zoneStyles = `
     color: rgba(255, 255, 255, 0.4);
     font-style: italic;
     font-size: 11px;
+  }
+
+  .empty-hand-placeholder {
+    width: var(--card-width, 63px);
+    height: var(--card-height, 88px);
+    background: #e0e0e0;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    margin: 0 auto;
+    display: block;
+  }
+
+  .empty-library-placeholder {
+    width: var(--card-width, 63px);
+    height: var(--card-height, 88px);
+    background: #e0e0e0;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    margin: 0 auto;
+    display: block;
   }
 
   /* Zone-specific styling */
