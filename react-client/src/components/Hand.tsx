@@ -28,12 +28,13 @@ export function Hand({ cards, activeCardId, onCardClick, onCardDoubleClick }: Ha
       className={`hand ${isOver ? 'drag-over' : ''}`}
     >
       <div className="hand-header">
-        <h3>Hand ({cards.length})</h3>
+        <h4>Hand</h4>
+        <span className="card-count">{cards.length}</span>
       </div>
       
       <div className="hand-cards">
-        {cards.map((card, index) => (
-          <div key={card.id} className="hand-card" style={{ left: index * 15 }}>
+        {cards.map((card) => (
+          <div key={card.id} className="hand-card">
             <Card
               card={card}
               isDragging={card.id === activeCardId}
@@ -59,6 +60,7 @@ export const handStyles = `
     border-top: 2px solid #333;
     transition: background-color 0.2s ease;
     flex-shrink: 0;
+    overflow: visible;
   }
 
   .hand.drag-over {
@@ -67,17 +69,23 @@ export const handStyles = `
   }
 
   .hand-header {
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 8px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #555;
+    padding-bottom: 4px;
   }
 
-  .hand-header h3 {
+  .hand-header h4 {
     margin: 0;
-    font-size: 14px;
+    font-size: 12px;
+    color: #ccc;
+  }
+
+  .hand-header .card-count {
+    font-size: 11px;
+    color: #999;
   }
 
   .hand-cards {
@@ -85,13 +93,15 @@ export const handStyles = `
     height: calc(100% - 40px);
     padding: 10px;
     overflow-x: auto;
-    white-space: nowrap;
+    overflow-y: visible;
+    display: flex;
+    gap: 2px;
+    align-items: flex-start;
   }
 
   .hand-card {
-    position: relative;
-    display: inline-block;
-    margin-right: 5px;
+    flex-shrink: 0;
+    isolation: isolate;
   }
 
   .hand-card:hover {

@@ -10,7 +10,6 @@ import {
   DragOverEvent,
 } from '@dnd-kit/core';
 import { defaultUIConfig, generateCSSVariables, UIConfig } from '../config/ui';
-import { Hand, handStyles } from './Hand';
 import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
@@ -131,7 +130,7 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
 
   return (
     <>
-      <style>{generateCSSVariables(uiConfig) + cardStyles + handStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
+      <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
       
       <button 
         className="settings-button" 
@@ -161,14 +160,17 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               zoneId="command"
               cards={commandCards}
               activeCardId={activeCard?.id}
-              displayMode="top-card"
+              displayMode="all-cards"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
             
-            <Hand
+            <Zone
+              zoneName="Hand"
+              zoneId="hand"
               cards={handCards}
               activeCardId={activeCard?.id}
+              displayMode="all-cards"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
@@ -267,6 +269,7 @@ const gameBoardStyles = `
     flex-shrink: 0;
     gap: 4px;
     padding: 4px;
+    overflow: visible;
   }
 
   .bottom-zones > .zone {
@@ -274,7 +277,7 @@ const gameBoardStyles = `
     flex-shrink: 0;
   }
 
-  .bottom-zones > .hand {
+  .bottom-zones > .zone.hand {
     flex: 1;
     width: auto;
   }

@@ -68,8 +68,10 @@ export const cardStyles = `
   }
 
   .card:hover {
-    z-index: 10;
+    position: absolute;
+    z-index: 9999;
     transform: scale(1.05);
+    transform-origin: center bottom;
   }
 
   .card.tapped {
