@@ -8,9 +8,11 @@ interface CardProps {
   isDragging?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
+  style?: React.CSSProperties;
+  imageUrl?: string;
 }
 
-export function Card({ card, position, isDragging, onClick, onDoubleClick }: CardProps) {
+export function Card({ card, position, isDragging, onClick, onDoubleClick, style, imageUrl }: CardProps) {
   const {
     attributes,
     listeners,
@@ -24,27 +26,61 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick }: Car
     },
   });
 
-  const style: React.CSSProperties = {
+  // If tapped, swap width/height and use flex row
+  // imageUrl is now properly destructured from props
+  const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
+  const imgSrc = imageUrl && imageUrl.length > 0 ? imageUrl : defaultImage;
+  const isTapped = card.tapped;
+  const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
+  const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
+  const mergedStyle: React.CSSProperties = {
     position: position ? 'absolute' : 'relative',
     left: position?.x || 0,
     top: position?.y || 0,
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    width: isTapped ? cardHeight : cardWidth,
+    height: isTapped ? cardWidth : cardHeight,
+    display: 'flex',
+    flexDirection: isTapped ? 'row' : 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: isDragging ? 1000 : 1,
-    opacity: isDragging ? 0 : 1, // Hide original card while dragging
+    opacity: isDragging ? 0 : 1,
+    ...(typeof (arguments[0] as any)?.style === 'object' ? (arguments[0] as any).style : {}),
   };
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={mergedStyle}
       {...listeners}
       {...attributes}
-      className={`card ${card.tapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`card ${isTapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
-      <div className="card-image">
-        <div className="card-name">{card.cardName}</div>
+      <div
+        className="card-image"
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <img
+          src={imgSrc}
+          alt={card.cardName}
+           style={{
+             width: `${cardWidth}px`, 
+             height: `${cardHeight}px`,
+             objectFit: 'cover',
+             borderRadius: '4px',
+             transform: isTapped ? 'rotate(90deg)' : undefined,
+           }}
+        />
+        <div className="card-name" style={{ position: 'absolute', bottom: 2, left: 2, right: 2 }}>{card.cardName}</div>
         {card.counters > 0 && (
           <div className="counters">{card.counters}</div>
         )}
@@ -64,23 +100,21 @@ export const cardStyles = `
     cursor: pointer;
     transition: transform 0.2s ease;
     user-select: none;
-    overflow: hidden;
   }
 
-  .card:hover {
-    position: absolute;
+  .card:hover:not(.dragging) {
     z-index: 9999;
-    transform: scale(1.05);
-    transform-origin: center bottom;
   }
 
   .card.tapped {
     opacity: 0.7;
-    transform: rotate(90deg);
   }
 
-  .card.dragging {
-    transform: rotate(5deg);
+  .card.tapped.dragging {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .card.dragging:not(.tapped) {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   }
 

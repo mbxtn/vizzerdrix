@@ -72,39 +72,48 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
     if (!card || !targetZone) return;
 
     // Update the card directly in the player's cards
-    const updatedCard = { ...localPlayer.cards[card.id] };
-    if (!updatedCard) return;
+    const originalCard = localPlayer.cards[card.id];
+    if (!originalCard) return;
 
-    // Handle zone transitions
-    if (targetZone === 'battlefield' && card.zone !== ZoneEnum.battlefield) {
-      updatedCard.zone = ZoneEnum.battlefield;
-      // Position card where dropped on battlefield
-      const delta = event.delta;
-      updatedCard.location = {
-        x: Math.max(0, (event.activatorEvent as PointerEvent).clientX - 31.5 + delta.x),
-        y: Math.max(0, (event.activatorEvent as PointerEvent).clientY - 44 + delta.y),
-      };
-    } else if (targetZone === 'hand' && card.zone !== ZoneEnum.hand) {
+    let updatedCard: CardType = { ...originalCard };
+
+    // Untap first, then change zone and location
+    if (targetZone === 'hand' && card.zone !== ZoneEnum.hand) {
+      updatedCard.tapped = false;
       updatedCard.zone = ZoneEnum.hand;
-      updatedCard.location = { x: 0, y: 0 }; // Reset position for hand
+      updatedCard.location = { x: 0, y: 0 };
     } else if (targetZone === 'command' && card.zone !== ZoneEnum.command) {
+      updatedCard.tapped = false;
       updatedCard.zone = ZoneEnum.command;
-      updatedCard.location = { x: 0, y: 0 }; // Reset position for command
+      updatedCard.location = { x: 0, y: 0 };
     } else if (targetZone === 'library' && card.zone !== ZoneEnum.library) {
+      updatedCard.tapped = false;
       updatedCard.zone = ZoneEnum.library;
-      updatedCard.location = { x: 0, y: 0 }; // Reset position for library
+      updatedCard.location = { x: 0, y: 0 };
     } else if (targetZone === 'graveyard' && card.zone !== ZoneEnum.graveyard) {
+      updatedCard.tapped = false;
       updatedCard.zone = ZoneEnum.graveyard;
-      updatedCard.location = { x: 0, y: 0 }; // Reset position for graveyard
+      updatedCard.location = { x: 0, y: 0 };
     } else if (targetZone === 'exile' && card.zone !== ZoneEnum.exile) {
+      updatedCard.tapped = false;
       updatedCard.zone = ZoneEnum.exile;
-      updatedCard.location = { x: 0, y: 0 }; // Reset position for exile
+      updatedCard.location = { x: 0, y: 0 };
+    } else if (targetZone === 'battlefield' && card.zone !== ZoneEnum.battlefield) {
+      const delta = event.delta;
+      const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
+      const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
+      const anchorX = cardWidth / 2;
+      const anchorY = cardHeight / 2;
+      updatedCard.zone = ZoneEnum.battlefield;
+      updatedCard.location = {
+        x: Math.max(0, (event.activatorEvent as PointerEvent).clientX - anchorX + delta.x),
+        y: Math.max(0, (event.activatorEvent as PointerEvent).clientY - anchorY + delta.y),
+      };
     } else if (targetZone === 'battlefield' && card.zone === ZoneEnum.battlefield) {
-      // Moving within battlefield - update position
       const delta = event.delta;
       updatedCard.location = {
-        x: Math.max(0, updatedCard.location.x + delta.x),
-        y: Math.max(0, updatedCard.location.y + delta.y),
+        x: Math.max(0, originalCard.location.x + delta.x),
+        y: Math.max(0, originalCard.location.y + delta.y),
       };
     }
 
@@ -155,6 +164,7 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
           />
           
           <div className="bottom-zones">
+            {/* Calculate max width for hand zone based on card width and window width */}
             <Zone
               zoneName="Hand"
               zoneId="hand"
@@ -163,6 +173,12 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               displayMode="all-cards"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              style={{
+                maxWidth: `calc(100vw - 4 * (var(--card-width, 63px) + 6px) - 32px)`,
+                minWidth: 0,
+                flex: '1 1 0',
+                overflow: 'hidden',
+              }}
             />
             <Zone
               zoneName="Library"
@@ -205,7 +221,14 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
 
         <DragOverlay>
           {activeCard ? (
-            <Card card={activeCard} />
+            <Card
+              card={activeCard}
+              isDragging={true}
+              position={undefined}
+              onClick={undefined}
+              onDoubleClick={undefined}
+              style={{ zIndex: 10000, opacity: 1 }}
+            />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -274,7 +297,9 @@ const gameBoardStyles = `
   }
 
   .bottom-zones > .zone.hand {
-    flex: 1;
-    width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 50vw;
+  overflow: hidden;
   }
 `;

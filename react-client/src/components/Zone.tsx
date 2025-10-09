@@ -11,6 +11,7 @@ interface ZoneProps {
   displayMode?: 'stack' | 'top-card' | 'all-cards';
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
+    style?: React.CSSProperties;
 }
 
 export function Zone({ 
@@ -21,6 +22,7 @@ export function Zone({
   displayMode = 'stack',
   onCardClick, 
   onCardDoubleClick 
+   , style
 }: ZoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: zoneId,
@@ -95,7 +97,7 @@ export function Zone({
           <div className="zone-cards">
             {cards.length === 0
               ? (isHand
-                  ? <div className="empty-hand-placeholder" />
+                  ? null
                   : <div className="card-back"><img src="/cardback.png" alt="Card Back" style={{ width: 'var(--card-width)', height: 'var(--card-height)', objectFit: 'cover', borderRadius: '3px' }} /></div>
                 )
               : cards.map((card) => (
@@ -122,6 +124,7 @@ export function Zone({
     <div
       ref={setNodeRef}
       className={`zone ${zoneId} ${isOver ? 'drag-over' : ''}`}
+       style={style}
     >
       <div className="zone-header">
         <h4>{zoneName}</h4>
@@ -211,10 +214,31 @@ export const zoneStyles = `
   }
 
   .zone-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    justify-content: center;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  height: 100%;
+  }
+
+  /* Hand zone: horizontal scroll when overflow */
+  .zone.hand .zone-cards {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+  justify-content: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: #888 #222;
+  }
+  .zone.hand .zone-cards::-webkit-scrollbar {
+    height: 8px;
+    background: #222;
+  }
+  .zone.hand .zone-cards::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
   }
 
   .zone-card {
@@ -227,15 +251,6 @@ export const zoneStyles = `
     font-size: 11px;
   }
 
-  .empty-hand-placeholder {
-    width: var(--card-width, 63px);
-    height: var(--card-height, 88px);
-    background: #e0e0e0;
-    border: 1px solid #bbb;
-    border-radius: 6px;
-    margin: 0 auto;
-    display: block;
-  }
 
   .empty-library-placeholder {
     width: var(--card-width, 63px);
