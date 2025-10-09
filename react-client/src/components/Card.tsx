@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType } from '@vizzerdrix/shared';
+import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
 
 interface CardProps {
   card: CardType;
@@ -34,7 +35,7 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
     // If you want to avoid dynamic import, import scryfallCache at the top
     // import { scryfallCache } from '../lib/scryfallCache';
     // For now, use window.scryfallCache if available
-    const scryfallCache = (window as any).scryfallCache || undefined;
+    const scryfallCache = ScryfallCache.getInstance();
     if (card.scryfallId && scryfallCache) {
       const scryFallCard = scryfallCache.getById ? scryfallCache.getById(card.scryfallId) : scryfallCache.get(card.scryfallId);
       if (scryFallCard) {

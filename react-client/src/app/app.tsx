@@ -3,6 +3,7 @@ import { GameBoard } from '../components/GameBoard';
 import { createVdClient, VdClient } from '../lib/socketclient';
 import { ScryfallCardFactory } from '../lib/cardFactory';
 import type { Game, Player } from '@vizzerdrix/shared';
+import scryfallCache from '../lib/scryfallCache';
 
 export function App() {
   const [client, setClient] = useState<VdClient | null>(null);
@@ -17,7 +18,7 @@ export function App() {
   useEffect(() => {
     // Create VdClient connection
     const vdClient = createVdClient();
-    
+
     vdClient.socket.on('connect', () => {
       setConnected(true);
       setMessage('Connected to server!');
@@ -32,7 +33,7 @@ export function App() {
     vdClient.addOnUpdateListener('app', (game: Game) => {
       setGameState(game);
       setMessage(`Game state updated! Players: ${Object.keys(game.players || {}).length}`);
-      
+
       // Update current player if we're in a game
       const playerId = vdClient.getId();
       if (playerId && game.players[playerId]) {
@@ -52,28 +53,32 @@ export function App() {
     if (!client || !playerName.trim()) return;
 
     setMessage('Joining game...');
-    
+
     try {
       // Simple test with minimal commanders and library
       const commanders = ['Sol Ring']; // Test commander
       const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes', 'Giant Growth', 'Counterspell', 'Dark Ritual']; // Test library with more cards
-      
+
       const game = await client.joinGame(playerName, roomName, commanders, library);
       setMessage(`Successfully joined game! Room: ${game.roomName}`);
       setGameState(game);
-      
-      // Get the current player
-      const playerId = client.getId();
-      if (playerId && game.players[playerId]) {
-        const player = game.players[playerId];
-        
-        // Create the deck on the client side
-        const cardFactory = new ScryfallCardFactory(playerId);
-        player.createDeck(cardFactory);
-        
-        setCurrentPlayer(player);
-        setShowGame(true);
-      }
+
+      scryfallCache.load([...commanders, ...library], (loaded, total, currentCard) => {
+        if (loaded >= total) {
+          // Get the current player
+          const playerId = client.getId();
+          if (playerId && game.players[playerId]) {
+            const player = game.players[playerId];
+
+            // Create the deck on the client side
+            const cardFactory = new ScryfallCardFactory(playerId);
+            player.createDeck(cardFactory);
+
+            setCurrentPlayer(player);
+            setShowGame(true);
+          }
+        }
+      })
     } catch (error) {
       setMessage(`Failed to join: ${error}`);
     }
@@ -89,13 +94,13 @@ export function App() {
   if (showGame && currentPlayer) {
     return (
       <div>
-        <div style={{ 
-          position: 'fixed', 
-          top: 10, 
-          right: 10, 
-          background: 'rgba(0,0,0,0.8)', 
-          color: 'white', 
-          padding: '10px', 
+        <div style={{
+          position: 'fixed',
+          top: 10,
+          right: 10,
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '10px',
           borderRadius: '4px',
           zIndex: 1000,
           maxWidth: '300px',
@@ -104,19 +109,19 @@ export function App() {
         }}>
           <div>{currentPlayer.name} - Life: {currentPlayer.lifeTotal}</div>
           <button onClick={() => setShowGame(false)}>Back to Lobby</button>
-          
+
           <div style={{ marginTop: '10px', fontSize: '11px' }}>
             <strong>Debug - Cards by Zone:</strong>
             <pre style={{ fontSize: '10px', maxHeight: '200px', overflow: 'auto', background: 'rgba(255,255,255,0.1)', padding: '5px', marginTop: '5px' }}>
-              {gameState && Object.values(currentPlayer.cards).map(card => 
+              {gameState && Object.values(currentPlayer.cards).map(card =>
                 `${card.cardName}: Zone ${card.zone}`
               ).join('\n')}
             </pre>
           </div>
         </div>
-        <GameBoard 
-          localPlayer={currentPlayer} 
-          onPlayerUpdate={handlePlayerUpdate} 
+        <GameBoard
+          localPlayer={currentPlayer}
+          onPlayerUpdate={handlePlayerUpdate}
         />
       </div>
     );
@@ -125,9 +130,9 @@ export function App() {
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       <h1>Vizzerdrix React Client</h1>
-      
+
       <div style={{ marginBottom: '20px' }}>
-        <strong>Connection Status:</strong> 
+        <strong>Connection Status:</strong>
         <span style={{ color: connected ? 'green' : 'red' }}>
           {connected ? ' Connected' : ' Disconnected'}
         </span>
@@ -140,9 +145,9 @@ export function App() {
       <div style={{ marginBottom: '20px' }}>
         <div style={{ marginBottom: '10px' }}>
           <label>
-            Player Name: 
-            <input 
-              type="text" 
+            Player Name:
+            <input
+              type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               placeholder="Enter your name"
@@ -150,12 +155,12 @@ export function App() {
             />
           </label>
         </div>
-        
+
         <div style={{ marginBottom: '10px' }}>
           <label>
-            Room Name: 
-            <input 
-              type="text" 
+            Room Name:
+            <input
+              type="text"
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
               placeholder="Enter room name"
@@ -164,11 +169,11 @@ export function App() {
           </label>
         </div>
 
-        <button 
-          onClick={joinGame} 
+        <button
+          onClick={joinGame}
           disabled={!connected || !playerName.trim()}
-          style={{ 
-            padding: '10px 20px', 
+          style={{
+            padding: '10px 20px',
             backgroundColor: connected ? '#007bff' : '#ccc',
             color: 'white',
             border: 'none',

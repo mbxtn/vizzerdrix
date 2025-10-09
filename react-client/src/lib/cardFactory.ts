@@ -1,5 +1,5 @@
 import { Card, CardFactory, Point, Zone } from '@vizzerdrix/shared';
-import { ScryfallCache } from './scryfallCache.js';
+import { ScryfallCache } from './scryfallCache';
 
 export class ScryfallCardFactory implements CardFactory {
     playerId : string;
