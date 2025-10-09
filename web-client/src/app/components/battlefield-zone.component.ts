@@ -1,7 +1,7 @@
-import { Component, Input, Output, EventEmitter, ElementRef, ViewChild } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CdkDropList, CdkDrag, DragDropModule, CdkDragDrop, CdkDragEnd } from '@angular/cdk/drag-drop';
+import { CdkDropList, CdkDrag, DragDropModule, CdkDragDrop, CdkDragEnd, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Card, Zone, Point } from '@vizzerdrix/shared';
 import { CardComponent } from './card.component';
 
@@ -13,47 +13,23 @@ import { CardComponent } from './card.component';
     <div class="battlefield-zone" #battlefield>
       <div class="battlefield-header">
         <h3>Battlefield</h3>
-        <label class="snap-toggle">
-          <input type="checkbox" [(ngModel)]="snapToGrid" />
-          Snap to Grid
-        </label>
       </div>
       
-      <div 
-        class="battlefield-container"
-        [class.grid]="snapToGrid"
-        cdkDropList
-        [cdkDropListData]="cards"
-        [cdkDropListConnectedTo]="connectedLists"
-        (cdkDropListDropped)="onDrop($event)">
+      <div class="battlefield-container">
         
         @for (card of cards; track card.id) {
           <div 
-            class="battlefield-card"
-            [style.left.px]="getCardPosition(card).x"
-            [style.top.px]="getCardPosition(card).y"
-            cdkDrag
-            [cdkDragData]="card"
-            [cdkDragFreeDragPosition]="getCardPosition(card)"
-            (cdkDragEnded)="onCardMoved($event, card)">
+            class="battlefield-card">
             
             <app-card
               [card]="card"
               [isSelected]="isCardSelected(card.id)"
+              [dragBoundary]="'.battlefield-container'"
+              [freeDragPosition]="{x: card.location.x, y: card.location.y}"
               (cardClick)="onCardClick($event)"
-              (cardDoubleClick)="onCardDoubleClick($event)">
+              (cardDoubleClick)="onCardDoubleClick($event)"
+              (dragEnded)="onCardDragEnded($event, card)">
             </app-card>
-            
-            <div class="card-controls">
-              <button class="tap-btn" (click)="toggleTap(card)" [class.tapped]="card.tapped">
-                {{ card.tapped ? 'Untap' : 'Tap' }}
-              </button>
-              <div class="counter-controls">
-                <button (click)="addCounter(card)">+</button>
-                <span>{{ card.counters }}</span>
-                <button (click)="removeCounter(card)">-</button>
-              </div>
-            </div>
           </div>
         }
         
@@ -93,87 +69,23 @@ import { CardComponent } from './card.component';
       font-size: 14px;
     }
     
-    .snap-toggle {
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
     .battlefield-container {
       position: relative;
       width: 100%;
       flex: 1;
       min-height: 0;
-    }
-    
-    .battlefield-container.grid {
-      background-image: 
-        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
-      background-size: 75px 100px;
+      padding: 10px;
     }
     
     .battlefield-card {
-      position: absolute;
-      cursor: move;
+      width: 63px;
+      height: 88px;
+      position: relative;
+      display: inline-block;
     }
     
-    .battlefield-card:hover .card-controls {
-      opacity: 1;
-    }
-    
-    .card-controls {
-      position: absolute;
-      top: -30px;
-      left: 0;
-      background: rgba(0, 0, 0, 0.9);
-      padding: 4px;
-      border-radius: 4px;
-      opacity: 0;
-      transition: opacity 0.2s;
-      display: flex;
-      gap: 4px;
-      align-items: center;
-      z-index: 20;
-    }
-    
-    .tap-btn {
-      background: #ff9800;
-      color: white;
-      border: none;
-      padding: 2px 6px;
-      border-radius: 2px;
-      font-size: 10px;
-      cursor: pointer;
-    }
-    
-    .tap-btn.tapped {
-      background: #666;
-    }
-    
-    .counter-controls {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-    }
-    
-    .counter-controls button {
-      background: #4fc3f7;
-      color: white;
-      border: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 2px;
-      font-size: 10px;
-      cursor: pointer;
-    }
-    
-    .counter-controls span {
-      color: white;
-      font-size: 10px;
-      min-width: 12px;
-      text-align: center;
+    .battlefield-card.cdk-drag-disabled {
+      cursor: default;
     }
     
     .empty-battlefield {
@@ -195,7 +107,7 @@ import { CardComponent } from './card.component';
     }
   `]
 })
-export class BattlefieldZoneComponent {
+export class BattlefieldZoneComponent implements OnChanges {
   @Input() cards: Card[] = [];
   @Input() selectedCards: string[] = [];
   @Input() connectedLists: string[] = [];
@@ -203,20 +115,20 @@ export class BattlefieldZoneComponent {
   @Output() cardClick = new EventEmitter<Card>();
   @Output() cardDoubleClick = new EventEmitter<Card>();
   @Output() cardMoved = new EventEmitter<{card: Card, fromZone: Zone, toZone: Zone}>();
-  @Output() cardTapped = new EventEmitter<Card>();
-  @Output() counterChanged = new EventEmitter<{card: Card, change: number}>();
   
   @ViewChild('battlefield', { static: true }) battlefield!: ElementRef;
   
-  snapToGrid = false;
-  gridSize = 75;
-  
-  getCardPosition(card: Card): { x: number; y: number } {
-    if (card.location) {
-      return { x: card.location.x, y: card.location.y };
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['cards'] && this.cards) {
+      // Initialize positions for new cards that don't have them
+      this.cards.forEach(card => {
+        if (card.location.x === 0 && card.location.y === 0) {
+          const newPosition = this.getRandomPosition();
+          card.location.x = newPosition.x;
+          card.location.y = newPosition.y;
+        }
+      });
     }
-    // Return a random position for new cards
-    return this.getRandomPosition();
   }
   
   onCardClick(card: Card) {
@@ -227,54 +139,15 @@ export class BattlefieldZoneComponent {
     this.cardDoubleClick.emit(card);
   }
 
+  onCardDragEnded(event: CdkDragEnd, card: Card) {
+    // Update the card's position based on the drag end position
+    const transform = event.source.getFreeDragPosition();
+    card.location.x = transform.x;
+    card.location.y = transform.y;
+  }
+
   isCardSelected(cardId: string): boolean {
     return this.selectedCards.includes(cardId);
-  }
-
-  onDrop(event: CdkDragDrop<Card[]>) {
-    if (event.previousContainer !== event.container) {
-      // Card moved from another zone to battlefield
-      const card = event.previousContainer.data[event.previousIndex];
-      this.cardMoved.emit({
-        card: card,
-        fromZone: card.zone,
-        toZone: Zone.battlefield
-      });
-    }
-  }
-
-  onCardMoved(event: CdkDragEnd, card: Card) {
-    let newPosition = event.source.getFreeDragPosition();
-
-    if (this.snapToGrid) {
-      newPosition = {
-        x: Math.round(newPosition.x / this.gridSize) * this.gridSize,
-        y: Math.round(newPosition.y / this.gridSize) * this.gridSize
-      };
-    }
-
-    // Update card position using the Point class
-    if (!card.location) {
-      card.location = new Point(newPosition.x, newPosition.y);
-    } else {
-      card.location.x = newPosition.x;
-      card.location.y = newPosition.y;
-    }
-  }  toggleTap(card: Card) {
-    card.tapped = !card.tapped;
-    this.cardTapped.emit(card);
-  }
-  
-  addCounter(card: Card) {
-    card.counters++;
-    this.counterChanged.emit({ card, change: 1 });
-  }
-  
-  removeCounter(card: Card) {
-    if (card.counters > 0) {
-      card.counters--;
-      this.counterChanged.emit({ card, change: -1 });
-    }
   }
   
   private getRandomPosition(): { x: number; y: number } {
@@ -283,9 +156,17 @@ export class BattlefieldZoneComponent {
       return { x: 100, y: 100 };
     }
     
+    const cardWidth = 63;
+    const cardHeight = 88;
+    const padding = 20;
+    
+    // Ensure cards don't go outside the container bounds
+    const maxX = containerRect.width - cardWidth - padding;
+    const maxY = containerRect.height - cardHeight - padding;
+    
     return {
-      x: Math.random() * (containerRect.width - 100),
-      y: Math.random() * (containerRect.height - 120)
+      x: Math.max(padding, Math.random() * maxX),
+      y: Math.max(padding, Math.random() * maxY)
     };
   }
 }

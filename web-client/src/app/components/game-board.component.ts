@@ -30,9 +30,7 @@ import { SimpleZoneComponent } from './simple-zone.component';
           [connectedLists]="allZoneIds"
           (cardClick)="onCardClick($event)"
           (cardDoubleClick)="onCardDoubleClick($event)"
-          (cardMoved)="onCardMoved($event)"
-          (cardTapped)="onCardTapped($event)"
-          (counterChanged)="onCounterChanged($event)">
+          (cardMoved)="onCardMoved($event)">
         </app-battlefield-zone>
       </div>
       
@@ -41,6 +39,7 @@ import { SimpleZoneComponent } from './simple-zone.component';
         <app-simple-zone
           [zone]="Zone.library"
           zoneName="Library"
+          zoneId="library-zone"
           [cards]="getCardsInZone(Zone.library)"
           [selectedCards]="selectedCards"
           [connectedLists]="allZoneIds"
@@ -54,6 +53,7 @@ import { SimpleZoneComponent } from './simple-zone.component';
         <app-simple-zone
           [zone]="Zone.command"
           zoneName="Command"
+          zoneId="command-zone"
           [cards]="getCardsInZone(Zone.command)"
           [selectedCards]="selectedCards"
           [connectedLists]="allZoneIds"
@@ -76,6 +76,7 @@ import { SimpleZoneComponent } from './simple-zone.component';
         <app-simple-zone
           [zone]="Zone.graveyard"
           zoneName="Graveyard"
+          zoneId="graveyard-zone"
           [cards]="getCardsInZone(Zone.graveyard)"
           [selectedCards]="selectedCards"
           [connectedLists]="allZoneIds"
@@ -87,6 +88,7 @@ import { SimpleZoneComponent } from './simple-zone.component';
         <app-simple-zone
           [zone]="Zone.exile"
           zoneName="Exile"
+          zoneId="exile-zone"
           [cards]="getCardsInZone(Zone.exile)"
           [selectedCards]="selectedCards"
           [connectedLists]="allZoneIds"
@@ -160,6 +162,30 @@ import { SimpleZoneComponent } from './simple-zone.component';
       flex: 1;
       min-width: 300px;
     }
+    
+    /* Global drag and drop styles */
+    .cdk-drag-preview {
+      position: fixed !important;
+      z-index: 1000;
+      pointer-events: none;
+      transition: none !important;
+    }
+    
+    .cdk-drag-placeholder {
+      opacity: 0.4;
+    }
+    
+    .cdk-drop-list {
+      min-height: 20px;
+    }
+    
+    .cdk-drag {
+      transition: none !important;
+    }
+    
+    .cdk-drag.cdk-drag-dragging {
+      transition: none !important;
+    }
   `]
 })
 export class GameBoardComponent {
@@ -169,16 +195,14 @@ export class GameBoardComponent {
   @Output() cardClick = new EventEmitter<Card>();
   @Output() cardDoubleClick = new EventEmitter<Card>();
   @Output() cardMoved = new EventEmitter<{card: Card, fromZone: Zone, toZone: Zone}>();
-  @Output() cardTapped = new EventEmitter<Card>();
-  @Output() counterChanged = new EventEmitter<{card: Card, change: number}>();
   @Output() shuffleLibrary = new EventEmitter<void>();
   @Output() drawCard = new EventEmitter<void>();
   
   selectedCards: string[] = [];
   Zone = Zone;
   
-  // All zone IDs for drag and drop connections
-  allZoneIds = ['hand', 'battlefield', 'library', 'graveyard', 'exile', 'command'];
+  // All zone IDs for drag and drop connections - these must match the cdkDropList IDs
+  allZoneIds = ['hand-zone', 'battlefield-zone', 'library-zone', 'graveyard-zone', 'exile-zone', 'command-zone'];
   
   getCardsInZone(zone: Zone): Card[] {
     if (!this.currentPlayer) return [];
@@ -210,14 +234,6 @@ export class GameBoardComponent {
   
   onCardMoved(event: {card: Card, fromZone: Zone, toZone: Zone}) {
     this.cardMoved.emit(event);
-  }
-  
-  onCardTapped(card: Card) {
-    this.cardTapped.emit(card);
-  }
-  
-  onCounterChanged(event: {card: Card, change: number}) {
-    this.counterChanged.emit(event);
   }
   
   onShuffleLibrary() {

@@ -19,6 +19,7 @@ import { CardComponent } from './card.component';
         class="zone-container"
         [class.expanded]="isExpanded"
         cdkDropList
+        [id]="zoneId"
         [cdkDropListData]="cards"
         [cdkDropListConnectedTo]="connectedLists"
         (cdkDropListDropped)="onDrop($event)">
@@ -207,6 +208,7 @@ import { CardComponent } from './card.component';
 export class SimpleZoneComponent {
   @Input() zone!: Zone;
   @Input() zoneName!: string;
+  @Input() zoneId!: string;
   @Input() cards: Card[] = [];
   @Input() selectedCards: string[] = [];
   @Input() connectedLists: string[] = [];

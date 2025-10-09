@@ -15,6 +15,10 @@ import { Card, Zone } from '@vizzerdrix/shared';
       [style.transform]="'rotate(' + (card.tapped ? '90deg' : '0deg') + ')'"
       cdkDrag
       [cdkDragData]="card"
+      [cdkDragBoundary]="dragBoundary"
+      [cdkDragConstrainPosition]="dragConstrainPosition"
+      [cdkDragFreeDragPosition]="freeDragPosition"
+      (cdkDragEnded)="onDragEnded($event)"
       (click)="onCardClick()"
       (dblclick)="onCardDoubleClick()">
       
@@ -44,10 +48,10 @@ import { Card, Zone } from '@vizzerdrix/shared';
       transition: transform 0.2s ease;
       position: relative;
       user-select: none;
+      overflow: hidden;
     }
     
     .card:hover {
-      transform: scale(1.05) !important;
       z-index: 10;
     }
     
@@ -72,6 +76,7 @@ import { Card, Zone } from '@vizzerdrix/shared';
       flex-direction: column;
       justify-content: space-between;
       padding: 4px;
+      box-sizing: border-box;
     }
     
     .card-name {
@@ -122,12 +127,29 @@ import { Card, Zone } from '@vizzerdrix/shared';
       background: rgba(255, 255, 255, 0.1);
     }
     
+    .cdk-drag-preview {
+      box-sizing: border-box;
+      border-radius: 6px;
+      box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2),
+                  0 8px 10px 1px rgba(0, 0, 0, 0.14),
+                  0 3px 14px 2px rgba(0, 0, 0, 0.12);
+      transition: none !important;
+    }
+    
+    .cdk-drag-placeholder {
+      opacity: 0.4;
+    }
+    
     .cdk-drag-animating {
-      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+      transition: none !important;
     }
     
     .cdk-drop-list-dragging .card:not(.cdk-drag-placeholder) {
-      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+      transition: none !important;
+    }
+    
+    .card.cdk-drag-dragging {
+      transition: none !important;
     }
   `]
 })
@@ -135,9 +157,13 @@ export class CardComponent {
   @Input() card!: Card;
   @Input() isSelected = false;
   @Input() showZoneInfo = false;
+  @Input() dragConstrainPosition?: (point: any, dragRef: any) => any;
+  @Input() dragBoundary?: string;
+  @Input() freeDragPosition?: {x: number, y: number};
   
   @Output() cardClick = new EventEmitter<Card>();
   @Output() cardDoubleClick = new EventEmitter<Card>();
+  @Output() dragEnded = new EventEmitter<any>();
   
   Zone = Zone;
   
@@ -149,9 +175,13 @@ export class CardComponent {
     this.cardDoubleClick.emit(this.card);
   }
   
+  onDragEnded(event: any) {
+    this.dragEnded.emit(event);
+  }
+  
   getCardImage(): string {
-    // For now, return a placeholder. Later we can fetch actual card images
-    return 'url("data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'63\' height=\'88\' viewBox=\'0 0 63 88\'><rect width=\'63\' height=\'88\' fill=\'%23444\'/></svg>")';
+    // Hardcoded image for testing
+    return 'url("https://cards.scryfall.io/large/front/f/3/f324a384-7380-4f6e-bbba-fac1f2a01b5d.jpg?1755177878")';
   }
   
   getZoneName(): string {

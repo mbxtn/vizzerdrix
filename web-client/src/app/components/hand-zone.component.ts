@@ -18,6 +18,7 @@ import { CardComponent } from './card.component';
       <div 
         class="hand-container"
         cdkDropList
+        id="hand-zone"
         [cdkDropListData]="cards"
         [cdkDropListConnectedTo]="connectedLists"
         (cdkDropListDropped)="onDrop($event)">
