@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Game, Player, Card, Zone, Point } from '@vizzerdrix/shared';
 
 @Injectable({
@@ -107,6 +108,55 @@ export class LocalGameService {
       return [];
     }
     return player.getZone(zone);
+  }
+
+  // Observable for cards in a specific zone - automatically updates when game state changes
+  getCardsInZone$(zone: Zone): Observable<Card[]> {
+    return this.currentPlayer$.pipe(
+      map((player: Player | null) => {
+        if (!player) return [];
+        return player.getZone(zone);
+      })
+    );
+  }
+
+  // Handle CDK drop list events and convert to zone moves
+  handleCardDrop(event: any, targetZone: Zone): boolean {
+    const card = event.item.data as Card;
+    const sourceZone = card.zone;
+    
+    if (sourceZone === targetZone) {
+      // Same zone, no move needed
+      return false;
+    }
+    
+    return this.moveCard(card.id, sourceZone, targetZone);
+  }
+
+  // Get zone ID for CDK drop lists (maps Zone enum to string IDs)
+  getZoneId(zone: Zone): string {
+    const zoneMap: { [key in Zone]: string } = {
+      [Zone.library]: 'library-zone',
+      [Zone.hand]: 'hand-zone',
+      [Zone.battlefield]: 'battlefield-zone',
+      [Zone.graveyard]: 'graveyard-zone',
+      [Zone.exile]: 'exile-zone',
+      [Zone.command]: 'command-zone'
+    };
+    return zoneMap[zone];
+  }
+
+  // Get Zone enum from CDK drop list ID
+  getZoneFromId(zoneId: string): Zone | null {
+    const idMap: { [key: string]: Zone } = {
+      'library-zone': Zone.library,
+      'hand-zone': Zone.hand,
+      'battlefield-zone': Zone.battlefield,
+      'graveyard-zone': Zone.graveyard,
+      'exile-zone': Zone.exile,
+      'command-zone': Zone.command
+    };
+    return idMap[zoneId] || null;
   }
 
   // Create some sample cards for testing

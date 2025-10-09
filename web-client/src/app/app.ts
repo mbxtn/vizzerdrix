@@ -113,14 +113,4 @@ export class App implements OnInit, OnDestroy {
     console.log(`Moving ${event.card.cardName} from ${Zone[event.fromZone]} to ${Zone[event.toZone]}`);
     this.moveCard(event.card.id, event.fromZone, event.toZone);
   }
-
-  public onCardTapped(card: Card): void {
-    console.log(`${card.cardName} ${card.tapped ? 'tapped' : 'untapped'}`);
-    // Card tapping is handled by the component, we just log it
-  }
-
-  public onCounterChanged(event: {card: Card, change: number}): void {
-    console.log(`${event.card.cardName} now has ${event.card.counters} counters`);
-    // Counter changes are handled by the component, we just log it
-  }
 }

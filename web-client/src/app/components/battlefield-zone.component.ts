@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CdkDropList, CdkDrag, DragDropModule, CdkDragDrop, CdkDragEnd, moveItemInArray } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragEnd } from '@angular/cdk/drag-drop';
 import { Card, Zone, Point } from '@vizzerdrix/shared';
 import { CardComponent } from './card.component';
 
@@ -15,22 +15,21 @@ import { CardComponent } from './card.component';
         <h3>Battlefield</h3>
       </div>
       
-      <div class="battlefield-container">
+      <div class="battlefield-container"
+        (drop)="onNativeDrop($event)"
+        (dragover)="onDragOver($event)"
+        (dragenter)="onDragEnter($event)"
+        (dragleave)="onDragLeave($event)">
         
         @for (card of cards; track card.id) {
-          <div 
-            class="battlefield-card">
-            
-            <app-card
-              [card]="card"
-              [isSelected]="isCardSelected(card.id)"
-              [dragBoundary]="'.battlefield-container'"
-              [freeDragPosition]="{x: card.location.x, y: card.location.y}"
-              (cardClick)="onCardClick($event)"
-              (cardDoubleClick)="onCardDoubleClick($event)"
-              (dragEnded)="onCardDragEnded($event, card)">
-            </app-card>
-          </div>
+          <app-card
+            [card]="card"
+            [isSelected]="isCardSelected(card.id)"
+            [position]="{x: card.location.x, y: card.location.y}"
+            (cardClick)="onCardClick($event)"
+            (cardDoubleClick)="onCardDoubleClick($event)"
+            (dragEnded)="onCardDragEnded($event)">
+          </app-card>
         }
         
         @if (cards.length === 0) {
@@ -75,19 +74,15 @@ import { CardComponent } from './card.component';
       flex: 1;
       min-height: 0;
       padding: 10px;
+      overflow: hidden; /* Prevent cards from escaping battlefield */
+      transition: background-color 0.2s ease;
     }
-    
-    .battlefield-card {
-      width: 63px;
-      height: 88px;
-      position: relative;
-      display: inline-block;
+
+    .battlefield-container.drag-over {
+      background: rgba(79, 195, 247, 0.1);
+      border: 2px dashed rgba(79, 195, 247, 0.5);
     }
-    
-    .battlefield-card.cdk-drag-disabled {
-      cursor: default;
-    }
-    
+
     .empty-battlefield {
       position: absolute;
       top: 50%;
@@ -110,7 +105,6 @@ import { CardComponent } from './card.component';
 export class BattlefieldZoneComponent implements OnChanges {
   @Input() cards: Card[] = [];
   @Input() selectedCards: string[] = [];
-  @Input() connectedLists: string[] = [];
   
   @Output() cardClick = new EventEmitter<Card>();
   @Output() cardDoubleClick = new EventEmitter<Card>();
@@ -139,11 +133,76 @@ export class BattlefieldZoneComponent implements OnChanges {
     this.cardDoubleClick.emit(card);
   }
 
-  onCardDragEnded(event: CdkDragEnd, card: Card) {
-    // Update the card's position based on the drag end position
-    const transform = event.source.getFreeDragPosition();
-    card.location.x = transform.x;
-    card.location.y = transform.y;
+  onCardDragEnded(event: CdkDragEnd) {
+    // Get the card from the event data
+    const card = event.source.data as Card;
+    if (!card || card.zone !== Zone.battlefield) {
+      // Only handle position updates for cards on the battlefield
+      return;
+    }
+    
+    // Get the drop position relative to the battlefield container
+    const battlefieldRect = this.battlefield.nativeElement.getBoundingClientRect();
+    const dropPosition = event.dropPoint;
+    
+    // Calculate relative position within the battlefield
+    const relativeX = dropPosition.x - battlefieldRect.left;
+    const relativeY = dropPosition.y - battlefieldRect.top;
+    
+    // Update the card's position
+    card.location.x = Math.max(0, relativeX - 31.5); // Center the card (63px / 2)
+    card.location.y = Math.max(0, relativeY - 44);   // Center the card (88px / 2)
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault(); // Allow drop
+  }
+
+  onDragEnter(event: DragEvent) {
+    event.preventDefault();
+    // Add visual feedback
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.classList.add('drag-over');
+    }
+  }
+
+  onDragLeave(event: DragEvent) {
+    // Remove visual feedback
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.classList.remove('drag-over');
+    }
+  }
+
+  onNativeDrop(event: DragEvent) {
+    event.preventDefault();
+    
+    // Remove visual feedback
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.classList.remove('drag-over');
+    }
+
+    // Handle drop from other zones
+    const cardData = event.dataTransfer?.getData('application/json');
+    if (cardData) {
+      try {
+        const card = JSON.parse(cardData) as Card;
+        if (card.zone !== Zone.battlefield) {
+          // Calculate drop position
+          const battlefieldRect = this.battlefield.nativeElement.getBoundingClientRect();
+          const dropX = event.clientX - battlefieldRect.left - 31.5; // Center card
+          const dropY = event.clientY - battlefieldRect.top - 44;    // Center card
+          
+          // Emit move event with position
+          this.cardMoved.emit({
+            card: { ...card, location: { x: Math.max(0, dropX), y: Math.max(0, dropY) } },
+            fromZone: card.zone,
+            toZone: Zone.battlefield
+          });
+        }
+      } catch (e) {
+        console.error('Failed to parse dropped card data:', e);
+      }
+    }
   }
 
   isCardSelected(cardId: string): boolean {

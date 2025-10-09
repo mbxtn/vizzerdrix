@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@nx/react": "^21.6.4"
+  }
+}

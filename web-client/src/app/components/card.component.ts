@@ -13,11 +13,12 @@ import { Card, Zone } from '@vizzerdrix/shared';
       [class.tapped]="card.tapped"
       [class.selected]="isSelected"
       [style.transform]="'rotate(' + (card.tapped ? '90deg' : '0deg') + ')'"
+      [style.left.px]="position?.x || 0"
+      [style.top.px]="position?.y || 0"
+      [style.position]="position ? 'absolute' : 'relative'"
       cdkDrag
       [cdkDragData]="card"
-      [cdkDragBoundary]="dragBoundary"
-      [cdkDragConstrainPosition]="dragConstrainPosition"
-      [cdkDragFreeDragPosition]="freeDragPosition"
+      (cdkDragStarted)="onDragStarted($event)"
       (cdkDragEnded)="onDragEnded($event)"
       (click)="onCardClick()"
       (dblclick)="onCardDoubleClick()">
@@ -157,12 +158,11 @@ export class CardComponent {
   @Input() card!: Card;
   @Input() isSelected = false;
   @Input() showZoneInfo = false;
-  @Input() dragConstrainPosition?: (point: any, dragRef: any) => any;
-  @Input() dragBoundary?: string;
-  @Input() freeDragPosition?: {x: number, y: number};
+  @Input() position?: {x: number, y: number}; // For battlefield positioning
   
   @Output() cardClick = new EventEmitter<Card>();
   @Output() cardDoubleClick = new EventEmitter<Card>();
+  @Output() dragStarted = new EventEmitter<any>();
   @Output() dragEnded = new EventEmitter<any>();
   
   Zone = Zone;
