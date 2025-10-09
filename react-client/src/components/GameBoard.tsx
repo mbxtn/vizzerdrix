@@ -160,7 +160,7 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               zoneId="command"
               cards={commandCards}
               activeCardId={activeCard?.id}
-              displayMode="all-cards"
+              displayMode="top-card"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
             />
