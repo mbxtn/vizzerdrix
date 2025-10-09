@@ -1,0 +1,10 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@vizzerdrix/shared": ["shared/state/index.ts"],
+      "@vizzerdrix/shared/*": ["shared/state/*"]
+    }
+  }
+}

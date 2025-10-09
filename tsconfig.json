@@ -1,8 +1,15 @@
 {
   "files": [],
   "references": [
-    { "path": "./shared" },
-    { "path": "./server" },
-    { "path": "./web-client" }
-  ]
+    {
+      "path": "./shared"
+    },
+    {
+      "path": "./server"
+    },
+    {
+      "path": "./web-client"
+    }
+  ],
+  "extends": "./tsconfig.base.json"
 }
