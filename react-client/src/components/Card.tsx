@@ -26,10 +26,28 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
     },
   });
 
-  // If tapped, swap width/height and use flex row
-  // imageUrl is now properly destructured from props
+  // Scryfall image lookup logic
   const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
-  const imgSrc = imageUrl && imageUrl.length > 0 ? imageUrl : defaultImage;
+  let imgSrc = defaultImage;
+  try {
+    // Dynamically import the singleton cache (works in browser)
+    // If you want to avoid dynamic import, import scryfallCache at the top
+    // import { scryfallCache } from '../lib/scryfallCache';
+    // For now, use window.scryfallCache if available
+    const scryfallCache = (window as any).scryfallCache || undefined;
+    if (card.scryfallId && scryfallCache) {
+      const scryFallCard = scryfallCache.getById ? scryfallCache.getById(card.scryfallId) : scryfallCache.get(card.scryfallId);
+      if (scryFallCard) {
+        if (scryFallCard.image_uris && scryFallCard.image_uris.normal) {
+          imgSrc = scryFallCard.image_uris.normal;
+        } else if (scryFallCard.card_faces && scryFallCard.card_faces[0]?.image_uris?.normal) {
+          imgSrc = scryFallCard.card_faces[0].image_uris.normal;
+        }
+      }
+    }
+  } catch (e) {
+    // fallback to default image
+  }
   const isTapped = card.tapped;
   const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
   const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
