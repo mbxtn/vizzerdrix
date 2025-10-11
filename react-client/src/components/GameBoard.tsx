@@ -293,8 +293,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               card={activeCard}
               isDragging={true}
               position={undefined}
-              onClick={undefined}
-              onDoubleClick={undefined}
               style={{ zIndex: 10000, opacity: 1 }}
             />
           ) : null}
