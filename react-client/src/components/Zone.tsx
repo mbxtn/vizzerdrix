@@ -11,7 +11,8 @@ interface ZoneProps {
   displayMode?: 'stack' | 'top-card' | 'all-cards';
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
-    style?: React.CSSProperties;
+  style?: React.CSSProperties;
+  isCardSelected?: (cardId: string) => boolean;
 }
 
 export function Zone({ 
@@ -63,7 +64,7 @@ export function Zone({
             {...attributes}
           >
             {isLibrary && cards.length === 0 ? (
-              <div className="empty-library-placeholder" />
+              <div/>
             ) : (
               <div className="card-back" style={cardBackStyle}>
                 <img src="/cardback.png" alt="Card Back" style={cardBackImgStyle} />

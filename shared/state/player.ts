@@ -60,6 +60,10 @@ export class Player {
         this.gameLog = gameLog;
     }
 
+    isCardSelected(id : string) : Boolean {
+        return this.selectedCards.includes(id);
+    }
+
 
     // resets cards with new ids and in the correct zone
     createDeck(cardFactory: CardFactory) {

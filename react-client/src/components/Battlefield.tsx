@@ -1,17 +1,19 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Card } from './Card';
-import type { Card as CardType } from '@vizzerdrix/shared';
+import type { Card as CardType, Player } from '@vizzerdrix/shared';
 
 interface BattlefieldProps {
   cards: CardType[];
+  player: Player;
   activeCardId?: string;
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
   onCardMove?: (card: CardType, position: { x: number; y: number }) => void;
+  isCardSelected?: (cardId: string) => boolean;
 }
 
-export function Battlefield({ cards, activeCardId, onCardClick, onCardDoubleClick }: BattlefieldProps) {
+export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick }: BattlefieldProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'battlefield',
     data: {
@@ -30,20 +32,22 @@ export function Battlefield({ cards, activeCardId, onCardClick, onCardDoubleClic
       </div>
       
       <div className="battlefield-area">
-        {cards.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            position={{ x: card.location.x, y: card.location.y }}
-            isDragging={card.id === activeCardId}
-            onClick={() => onCardClick?.(card)}
-            onDoubleClick={() => onCardDoubleClick?.(card)}
-          />
-        ))}
+        {[...cards]
+          .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+          .map((card) => (
+            <Card
+              key={card.id}
+              card={card}
+              position={{ x: card.location.x, y: card.location.y }}
+              isDragging={card.id === activeCardId}
+              onClick={() => onCardClick?.(card)}
+              onDoubleClick={() => onCardDoubleClick?.(card)}
+              style={{ zIndex: card.zIndex || 1, border: player.isCardSelected(card.id) ? '2px solid #2196f3' : '2px solid #333' }}
+            />
+          ))}
         
         {cards.length === 0 && (
           <div className="empty-battlefield">
-            Battlefield is empty - drag cards here to play them
           </div>
         )}
       </div>

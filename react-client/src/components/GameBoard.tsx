@@ -14,19 +14,22 @@ import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
 import { Settings, settingsStyles } from './Settings';
-import type { Card as CardType, Player } from '@vizzerdrix/shared';
+import { Card as CardType, Player, Game } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 
 interface GameBoardProps {
+  game: Game;
   localPlayer: Player;
   onPlayerUpdate: (player: Player) => void;
 }
 
-export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
+export function GameBoard({game, localPlayer, onPlayerUpdate }: GameBoardProps) {
+  // Helper to check if a card is selected
+  const isCardSelected = (cardId: string) => localPlayer.selectedCards.includes(cardId);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
   const [uiConfig, setUIConfig] = useState<UIConfig>(defaultUIConfig);
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -75,61 +78,75 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
     const originalCard = localPlayer.cards[card.id];
     if (!originalCard) return;
 
-    let updatedCard: CardType = { ...originalCard };
-
     // Untap first, then change zone and location
     if (targetZone === 'hand' && card.zone !== ZoneEnum.hand) {
-      updatedCard.tapped = false;
-      updatedCard.zone = ZoneEnum.hand;
-      updatedCard.location = { x: 0, y: 0 };
+      originalCard.tapped = false;
+      originalCard.zone = ZoneEnum.hand;
+      originalCard.location = { x: 0, y: 0 };
+      delete originalCard.zIndex;
     } else if (targetZone === 'command' && card.zone !== ZoneEnum.command) {
-      updatedCard.tapped = false;
-      updatedCard.zone = ZoneEnum.command;
-      updatedCard.location = { x: 0, y: 0 };
+      originalCard.tapped = false;
+      originalCard.zone = ZoneEnum.command;
+      originalCard.location = { x: 0, y: 0 };
+      delete originalCard.zIndex;
     } else if (targetZone === 'library' && card.zone !== ZoneEnum.library) {
-      updatedCard.tapped = false;
-      updatedCard.zone = ZoneEnum.library;
-      updatedCard.location = { x: 0, y: 0 };
+      originalCard.tapped = false;
+      originalCard.zone = ZoneEnum.library;
+      originalCard.location = { x: 0, y: 0 };
+      delete originalCard.zIndex;
     } else if (targetZone === 'graveyard' && card.zone !== ZoneEnum.graveyard) {
-      updatedCard.tapped = false;
-      updatedCard.zone = ZoneEnum.graveyard;
-      updatedCard.location = { x: 0, y: 0 };
+      originalCard.tapped = false;
+      originalCard.zone = ZoneEnum.graveyard;
+      originalCard.location = { x: 0, y: 0 };
+      delete originalCard.zIndex;
     } else if (targetZone === 'exile' && card.zone !== ZoneEnum.exile) {
-      updatedCard.tapped = false;
-      updatedCard.zone = ZoneEnum.exile;
-      updatedCard.location = { x: 0, y: 0 };
-    } else if (targetZone === 'battlefield' && card.zone !== ZoneEnum.battlefield) {
+      originalCard.tapped = false;
+      originalCard.zone = ZoneEnum.exile;
+      originalCard.location = { x: 0, y: 0 };
+      delete originalCard.zIndex;
+    } else if (targetZone === 'battlefield') {
       const delta = event.delta;
-      const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
-      const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
-      const anchorX = cardWidth / 2;
-      const anchorY = cardHeight / 2;
-      updatedCard.zone = ZoneEnum.battlefield;
-      updatedCard.location = {
-        x: Math.max(0, (event.activatorEvent as PointerEvent).clientX - anchorX + delta.x),
-        y: Math.max(0, (event.activatorEvent as PointerEvent).clientY - anchorY + delta.y),
-      };
-    } else if (targetZone === 'battlefield' && card.zone === ZoneEnum.battlefield) {
-      const delta = event.delta;
-      updatedCard.location = {
-        x: Math.max(0, originalCard.location.x + delta.x),
-        y: Math.max(0, originalCard.location.y + delta.y),
-      };
+
+      console.log(`original location x:${originalCard.location.x} y:${originalCard.location.y}, new location x:${Math.max(0, originalCard.location.x + delta.x)}, y:${Math.max(0, originalCard.location.y + delta.y)}`)
+      if (originalCard.zone != ZoneEnum.battlefield) {
+        // If we did a lot of math I could probably get this correctly translated rather than a liiitle off.
+        const pointer = event.active.rect.current.translated
+        originalCard.location = {
+          x: Math.max(0, pointer!!.left),
+          y: Math.max(0, pointer!!.top),
+        }
+      } else {
+        originalCard.location = {
+          x: Math.max(0, originalCard.location.x + delta.x),
+          y: Math.max(0, originalCard.location.y + delta.y),
+        }
+      }
+
+      originalCard.zone = ZoneEnum.battlefield;
+      // Set zIndex to max + 1
+      const allBattlefieldCards = Object.values(localPlayer.cards).filter(c => c.zone === ZoneEnum.battlefield && c.id !== card.id);
+      const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
+      originalCard.zIndex = maxZ + 1;
     }
 
-    // Update the card in the player's cards dictionary
-    localPlayer.cards[card.id] = updatedCard;
     onPlayerUpdate(localPlayer);
   };
 
   const handleCardClick = (card: CardType) => {
-    console.log('Card clicked:', card.cardName);
+    // Toggle selection for the clicked card
+    const idx = localPlayer.selectedCards.indexOf(card.id);
+    if (idx === -1) {
+      localPlayer.selectedCards.push(card.id);
+    } else {
+      localPlayer.selectedCards.splice(idx, 1);
+    }
+    onPlayerUpdate(localPlayer);
   };
 
   const handleCardDoubleClick = (card: CardType) => {
     // Double-click to tap/untap
     const updatedCard = { ...localPlayer.cards[card.id] };
-    
+
     if (updatedCard) {
       updatedCard.tapped = !updatedCard.tapped;
       localPlayer.cards[card.id] = updatedCard;
@@ -140,15 +157,15 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
   return (
     <>
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
-      
-      <button 
-        className="settings-button" 
+
+      <button
+        className="settings-button"
         onClick={() => setShowSettings(true)}
         title="UI Settings"
       >
         ⚙️
       </button>
-      
+
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -158,11 +175,13 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
         <div className="game-board">
           <Battlefield
             cards={battlefieldCards}
+            player={localPlayer}
             activeCardId={activeCard?.id}
             onCardClick={handleCardClick}
             onCardDoubleClick={handleCardDoubleClick}
+            isCardSelected={isCardSelected}
           />
-          
+
           <div className="bottom-zones">
             {/* Calculate max width for hand zone based on card width and window width */}
             <Zone
@@ -173,6 +192,7 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
               displayMode="all-cards"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              isCardSelected={isCardSelected}
               style={{
                 maxWidth: `calc(100vw - 4 * (var(--card-width, 63px) + 6px) - 32px)`,
                 minWidth: 0,
@@ -232,7 +252,7 @@ export function GameBoard({ localPlayer, onPlayerUpdate }: GameBoardProps) {
           ) : null}
         </DragOverlay>
       </DndContext>
-      
+
       <Settings
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}

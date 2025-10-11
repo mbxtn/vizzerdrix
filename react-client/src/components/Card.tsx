@@ -11,6 +11,7 @@ interface CardProps {
   onDoubleClick?: () => void;
   style?: React.CSSProperties;
   imageUrl?: string;
+  isSelected?: boolean;
 }
 
 export function Card({ card, position, isDragging, onClick, onDoubleClick, style, imageUrl }: CardProps) {
@@ -31,19 +32,12 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
   const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
   let imgSrc = defaultImage;
   try {
-    // Dynamically import the singleton cache (works in browser)
-    // If you want to avoid dynamic import, import scryfallCache at the top
-    // import { scryfallCache } from '../lib/scryfallCache';
-    // For now, use window.scryfallCache if available
-    const scryfallCache = ScryfallCache.getInstance();
-    if (card.scryfallId && scryfallCache) {
-      const scryFallCard = scryfallCache.getById ? scryfallCache.getById(card.scryfallId) : scryfallCache.get(card.scryfallId);
-      if (scryFallCard) {
-        if (scryFallCard.image_uris && scryFallCard.image_uris.normal) {
-          imgSrc = scryFallCard.image_uris.normal;
-        } else if (scryFallCard.card_faces && scryFallCard.card_faces[0]?.image_uris?.normal) {
-          imgSrc = scryFallCard.card_faces[0].image_uris.normal;
-        }
+    const scryFallCard = scryfallCache.getById ? scryfallCache.getById(card.scryfallId) : scryfallCache.get(card.scryfallId);
+    if (scryFallCard) {
+      if (scryFallCard.image_uris && scryFallCard.image_uris.normal) {
+        imgSrc = scryFallCard.image_uris.normal;
+      } else if (scryFallCard.card_faces && scryFallCard.card_faces[0]?.image_uris?.normal) {
+        imgSrc = scryFallCard.card_faces[0].image_uris.normal;
       }
     }
   } catch (e) {
@@ -75,7 +69,7 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
       {...attributes}
       className={`card ${isTapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
+  onDoubleClick={card.zone === 0 ? onDoubleClick : undefined}
     >
       <div
         className="card-image"
@@ -91,15 +85,14 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
         <img
           src={imgSrc}
           alt={card.cardName}
-           style={{
-             width: `${cardWidth}px`, 
-             height: `${cardHeight}px`,
-             objectFit: 'cover',
-             borderRadius: '4px',
-             transform: isTapped ? 'rotate(90deg)' : undefined,
-           }}
+          style={{
+            width: `${cardWidth}px`,
+            height: `${cardHeight}px`,
+            objectFit: 'cover',
+            borderRadius: '4px',
+            transform: isTapped ? 'rotate(90deg)' : undefined,
+          }}
         />
-        <div className="card-name" style={{ position: 'absolute', bottom: 2, left: 2, right: 2 }}>{card.cardName}</div>
         {card.counters > 0 && (
           <div className="counters">{card.counters}</div>
         )}

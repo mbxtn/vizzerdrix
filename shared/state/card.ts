@@ -18,6 +18,7 @@ export class Card {
     tapped: boolean;
     flipped: boolean;
     counters = 0;
+    zIndex?: number;
 
     constructor(id: string, name: string, zone: Zone = Zone.library, isCommander = false, scryfallId: string = "", isTemporary = false) {
         this.cardName = name;

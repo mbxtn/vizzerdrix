@@ -120,6 +120,7 @@ export function App() {
           </div>
         </div>
         <GameBoard
+          game={gameState!!}
           localPlayer={currentPlayer}
           onPlayerUpdate={handlePlayerUpdate}
         />
