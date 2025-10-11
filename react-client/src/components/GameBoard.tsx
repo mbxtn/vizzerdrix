@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -23,7 +23,18 @@ interface GameBoardProps {
   onPlayerUpdate: (player: Player) => void;
 }
 
-export function GameBoard({game, localPlayer, onPlayerUpdate }: GameBoardProps) {
+
+export const KeyNames = {
+  Shift: 'Shift',
+  Control: 'Control',
+  Alt: 'Alt',
+  Meta: 'Meta',
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  // ...add more as needed
+} as const;
+
+export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps) {
   // Helper to check if a card is selected
   const isCardSelected = (cardId: string) => localPlayer.selectedCards.includes(cardId);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -37,6 +48,25 @@ export function GameBoard({game, localPlayer, onPlayerUpdate }: GameBoardProps) 
       },
     })
   );
+
+  // Map of what keys are pressed.
+  const isKeyDown = useRef<Map<string, boolean>>(new Map());
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      isKeyDown.current.set(e.key, true)
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      isKeyDown.current.set(e.key, false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return (() => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    })
+  });
+
 
   // Get cards by zone
   const allCards = Object.values(localPlayer.cards);
@@ -134,11 +164,22 @@ export function GameBoard({game, localPlayer, onPlayerUpdate }: GameBoardProps) 
 
   const handleCardClick = (card: CardType) => {
     // Toggle selection for the clicked card
-    const idx = localPlayer.selectedCards.indexOf(card.id);
-    if (idx === -1) {
-      localPlayer.selectedCards.push(card.id);
+    const indx = localPlayer.selectedCards.indexOf(card.id)
+    if (indx > -1) {
+      if(localPlayer.selectedCards.length > 1 && !isKeyDown.current.get(KeyNames.Shift)) {
+        localPlayer.selectedCards = [card.id]
+      } else {
+        localPlayer.selectedCards.splice(indx, 1)
+      }
+      
     } else {
-      localPlayer.selectedCards.splice(idx, 1);
+      if (isKeyDown.current.get(KeyNames.Shift)) {
+        // If we have shift pressed, add to the selected cards
+        localPlayer.selectedCards.push(card.id)
+      } else {
+        // If no hotkey is pressed set to only selected cards
+        localPlayer.selectedCards = [card.id]
+      }
     }
     onPlayerUpdate(localPlayer);
   };
@@ -146,13 +187,20 @@ export function GameBoard({game, localPlayer, onPlayerUpdate }: GameBoardProps) 
   const handleCardDoubleClick = (card: CardType) => {
     // Double-click to tap/untap
     const updatedCard = { ...localPlayer.cards[card.id] };
-
     if (updatedCard) {
       updatedCard.tapped = !updatedCard.tapped;
+      if(!localPlayer.selectedCards.includes(card.id)){
+        if(isKeyDown.current.get(KeyNames.Shift)) {
+          localPlayer.selectedCards.push(updatedCard.id);
+        } else {
+          localPlayer.selectedCards = [updatedCard.id];
+        }
+      } 
       localPlayer.cards[card.id] = updatedCard;
       onPlayerUpdate(localPlayer);
     }
   };
+  
 
   return (
     <>

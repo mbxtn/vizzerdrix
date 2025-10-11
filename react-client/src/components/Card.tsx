@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType } from '@vizzerdrix/shared';
 import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
@@ -7,14 +7,14 @@ interface CardProps {
   card: CardType;
   position?: { x: number; y: number };
   isDragging?: boolean;
-  onClick?: () => void;
-  onDoubleClick?: () => void;
+  handleSingleClick?: () => void;
+  handleDoubleClick?: () => void;
   style?: React.CSSProperties;
   imageUrl?: string;
   isSelected?: boolean;
 }
 
-export function Card({ card, position, isDragging, onClick, onDoubleClick, style, imageUrl }: CardProps) {
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, style, imageUrl }: CardProps) {
   const {
     attributes,
     listeners,
@@ -61,6 +61,25 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
     ...(typeof (arguments[0] as any)?.style === 'object' ? (arguments[0] as any).style : {}),
   };
 
+  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const handleClick = () => {
+    // Super simple double click
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current)
+      clickTimeout.current = null
+      if (handleDoubleClick)
+        handleDoubleClick()
+    } else {
+      clickTimeout.current = setTimeout(() => {
+        clickTimeout.current = null
+        if (handleSingleClick) {
+          handleSingleClick()
+        }
+      }, 200)
+    }
+
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -68,8 +87,7 @@ export function Card({ card, position, isDragging, onClick, onDoubleClick, style
       {...listeners}
       {...attributes}
       className={`card ${isTapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
-      onClick={onClick}
-  onDoubleClick={card.zone === 0 ? onDoubleClick : undefined}
+      onClick={handleClick}
     >
       <div
         className="card-image"

@@ -40,8 +40,8 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
               card={card}
               position={{ x: card.location.x, y: card.location.y }}
               isDragging={card.id === activeCardId}
-              onClick={() => onCardClick?.(card)}
-              onDoubleClick={() => onCardDoubleClick?.(card)}
+              handleSingleClick={() => onCardClick?.(card)}
+              handleDoubleClick={() => onCardDoubleClick?.(card)}
               style={{ zIndex: card.zIndex || 1, border: player.isCardSelected(card.id) ? '2px solid #2196f3' : '2px solid #333' }}
             />
           ))}
