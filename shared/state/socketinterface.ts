@@ -31,6 +31,7 @@ export interface SocketData {
 }
 
 export enum Zone { 
+    unset,
     battlefield,
     command,
     exile,

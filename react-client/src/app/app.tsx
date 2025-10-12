@@ -57,7 +57,7 @@ export function App() {
     try {
       // Simple test with minimal commanders and library
       const commanders = ['Sol Ring']; // Test commander
-      const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes', 'Giant Growth', 'Counterspell', 'Dark Ritual']; // Test library with more cards
+      const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes', 'Giant Growth', 'Counterspell', 'Dark Ritual', 'Stump Stomp']; // Test library with more cards
 
       const game = await client.joinGame(playerName, roomName, commanders, library);
       setMessage(`Successfully joined game! Room: ${game.roomName}`);

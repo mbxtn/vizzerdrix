@@ -2,10 +2,13 @@ import React from 'react';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { Card } from './Card';
 import type { Card as CardType } from '@vizzerdrix/shared';
+import { Zone as ZoneEnum } from '@vizzerdrix/shared';
+
 
 interface ZoneProps {
   zoneName: string;
   zoneId: string;
+  zoneType: ZoneEnum;
   cards: CardType[];
   activeCardId?: string;
   displayMode?: 'stack' | 'top-card' | 'all-cards';
@@ -17,7 +20,8 @@ interface ZoneProps {
 
 export function Zone({ 
   zoneName, 
-  zoneId, 
+  zoneId,
+  zoneType, 
   cards, 
   activeCardId, 
   displayMode = 'stack',
@@ -28,7 +32,7 @@ export function Zone({
   const { setNodeRef, isOver } = useDroppable({
     id: zoneId,
     data: {
-      type: zoneId,
+      type: zoneType,
       accepts: ['card'],
     },
   });
@@ -38,7 +42,7 @@ export function Zone({
       case 'stack': {
         // Always call useDraggable, even if empty
         const stackTopCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
-        const isLibrary = zoneId === 'library';
+        const isLibrary = zoneType === ZoneEnum.library;
         const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
           id: stackTopCard?.id || `${zoneId}-empty`,
           data: { card: stackTopCard },
@@ -93,14 +97,11 @@ export function Zone({
       
       case 'all-cards': {
         // Show all cards (for hand zone)
-        const isHand = zoneId === 'hand';
+        const isHand = zoneType === ZoneEnum.hand;
         return (
           <div className="zone-cards">
             {cards.length === 0
-              ? (isHand
-                  ? null
-                  : <div className="card-back"><img src="/cardback.png" alt="Card Back" style={{ width: 'var(--card-width)', height: 'var(--card-height)', objectFit: 'cover', borderRadius: '3px' }} /></div>
-                )
+              ? null
               : cards.map((card) => (
                   <div key={card.id} className="zone-card">
                     <Card

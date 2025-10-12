@@ -93,6 +93,54 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     // Optional: Add visual feedback during drag
   };
 
+  const moveCard = (targetZone: ZoneEnum, id: string, event : DragEndEvent) => {
+    const card = localPlayer.cards[id]
+    if (!card) return;
+    // Card is changing zones, do stuff
+    switch (targetZone) {
+      case ZoneEnum.hand:
+        card.tapped = false;
+        card.zone = targetZone;
+        card.location = { x: 0, y: 0 };
+        delete card.zIndex;
+        break;
+      case ZoneEnum.battlefield:
+        const delta = event.delta;
+        console.log(`original location x:${card.location.x} y:${card.location.y}, new location x:${Math.max(0, card.location.x + delta.x)}, y:${Math.max(0, card.location.y + delta.y)}`)
+        if (card.zone != ZoneEnum.battlefield) {
+          // If we did a lot of math I could probably get this correctly translated rather than a liiitle off.
+          const pointer = event.active.rect.current.translated
+          card.location = {
+            x: Math.max(0, pointer!!.left),
+            y: Math.max(0, pointer!!.top),
+          }
+        } else {
+          card.location = {
+            x: Math.max(0, card.location.x + delta.x),
+            y: Math.max(0, card.location.y + delta.y),
+          }
+        }
+        card.zone = ZoneEnum.battlefield;
+        // Set zIndex to max + 1
+        const allBattlefieldCards = Object.values(localPlayer.cards).filter(c => c.zone === ZoneEnum.battlefield && c.id !== card.id);
+        const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
+        card.zIndex = maxZ + 1;
+        break;
+      case ZoneEnum.command:
+      case ZoneEnum.exile:
+      case ZoneEnum.graveyard:
+      case ZoneEnum.library:
+        card.tapped = false;
+        card.zone = targetZone;
+        card.location = { x: 0, y: 0 };
+        delete card.zIndex;
+        break;
+      default:
+        break;
+    }
+    onPlayerUpdate(localPlayer);
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
@@ -100,78 +148,22 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     if (!over) return;
 
     const card = active.data.current?.card as CardType;
-    const targetZone = over.data.current?.type;
+    const targetZone = over.data.current?.type as ZoneEnum;
 
     if (!card || !targetZone) return;
-
-    // Update the card directly in the player's cards
-    const originalCard = localPlayer.cards[card.id];
-    if (!originalCard) return;
-
-    // Untap first, then change zone and location
-    if (targetZone === 'hand' && card.zone !== ZoneEnum.hand) {
-      originalCard.tapped = false;
-      originalCard.zone = ZoneEnum.hand;
-      originalCard.location = { x: 0, y: 0 };
-      delete originalCard.zIndex;
-    } else if (targetZone === 'command' && card.zone !== ZoneEnum.command) {
-      originalCard.tapped = false;
-      originalCard.zone = ZoneEnum.command;
-      originalCard.location = { x: 0, y: 0 };
-      delete originalCard.zIndex;
-    } else if (targetZone === 'library' && card.zone !== ZoneEnum.library) {
-      originalCard.tapped = false;
-      originalCard.zone = ZoneEnum.library;
-      originalCard.location = { x: 0, y: 0 };
-      delete originalCard.zIndex;
-    } else if (targetZone === 'graveyard' && card.zone !== ZoneEnum.graveyard) {
-      originalCard.tapped = false;
-      originalCard.zone = ZoneEnum.graveyard;
-      originalCard.location = { x: 0, y: 0 };
-      delete originalCard.zIndex;
-    } else if (targetZone === 'exile' && card.zone !== ZoneEnum.exile) {
-      originalCard.tapped = false;
-      originalCard.zone = ZoneEnum.exile;
-      originalCard.location = { x: 0, y: 0 };
-      delete originalCard.zIndex;
-    } else if (targetZone === 'battlefield') {
-      const delta = event.delta;
-
-      console.log(`original location x:${originalCard.location.x} y:${originalCard.location.y}, new location x:${Math.max(0, originalCard.location.x + delta.x)}, y:${Math.max(0, originalCard.location.y + delta.y)}`)
-      if (originalCard.zone != ZoneEnum.battlefield) {
-        // If we did a lot of math I could probably get this correctly translated rather than a liiitle off.
-        const pointer = event.active.rect.current.translated
-        originalCard.location = {
-          x: Math.max(0, pointer!!.left),
-          y: Math.max(0, pointer!!.top),
-        }
-      } else {
-        originalCard.location = {
-          x: Math.max(0, originalCard.location.x + delta.x),
-          y: Math.max(0, originalCard.location.y + delta.y),
-        }
-      }
-
-      originalCard.zone = ZoneEnum.battlefield;
-      // Set zIndex to max + 1
-      const allBattlefieldCards = Object.values(localPlayer.cards).filter(c => c.zone === ZoneEnum.battlefield && c.id !== card.id);
-      const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
-      originalCard.zIndex = maxZ + 1;
-    }
-
-    onPlayerUpdate(localPlayer);
+    moveCard(targetZone, card.id, event)
   };
 
   const handleCardClick = (card: CardType) => {
     // Toggle selection for the clicked card
     const indx = localPlayer.selectedCards.indexOf(card.id)
     if (indx > -1) {
-      if(localPlayer.selectedCards.length > 1 && !isKeyDown.current.get(KeyNames.Shift)) {
+      if (localPlayer.selectedCards.length > 1 && !isKeyDown.current.get(KeyNames.Shift)) {
         localPlayer.selectedCards = [card.id]
       } else {
         localPlayer.selectedCards.splice(indx, 1)
       }
-      
+
     } else {
       if (isKeyDown.current.get(KeyNames.Shift)) {
         // If we have shift pressed, add to the selected cards
@@ -189,18 +181,18 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     const updatedCard = { ...localPlayer.cards[card.id] };
     if (updatedCard) {
       updatedCard.tapped = !updatedCard.tapped;
-      if(!localPlayer.selectedCards.includes(card.id)){
-        if(isKeyDown.current.get(KeyNames.Shift)) {
+      if (!localPlayer.selectedCards.includes(card.id)) {
+        if (isKeyDown.current.get(KeyNames.Shift)) {
           localPlayer.selectedCards.push(updatedCard.id);
         } else {
           localPlayer.selectedCards = [updatedCard.id];
         }
-      } 
+      }
       localPlayer.cards[card.id] = updatedCard;
       onPlayerUpdate(localPlayer);
     }
   };
-  
+
 
   return (
     <>
@@ -235,6 +227,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             <Zone
               zoneName="Hand"
               zoneId="hand"
+              zoneType={ZoneEnum.hand}
               cards={handCards}
               activeCardId={activeCard?.id}
               displayMode="all-cards"
@@ -251,6 +244,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             <Zone
               zoneName="Library"
               zoneId="library"
+              zoneType={ZoneEnum.library}
               cards={libraryCards}
               activeCardId={activeCard?.id}
               displayMode="stack"
@@ -260,6 +254,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             <Zone
               zoneName="Graveyard"
               zoneId="graveyard"
+              zoneType={ZoneEnum.graveyard}
               cards={graveyardCards}
               activeCardId={activeCard?.id}
               displayMode="top-card"
@@ -269,6 +264,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             <Zone
               zoneName="Exile"
               zoneId="exile"
+              zoneType={ZoneEnum.exile}
               cards={exileCards}
               activeCardId={activeCard?.id}
               displayMode="top-card"
@@ -278,6 +274,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             <Zone
               zoneName="Command"
               zoneId="command"
+              zoneType={ZoneEnum.command}
               cards={commandCards}
               activeCardId={activeCard?.id}
               displayMode="top-card"

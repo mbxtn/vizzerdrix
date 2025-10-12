@@ -2,6 +2,8 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Card } from './Card';
 import type { Card as CardType, Player } from '@vizzerdrix/shared';
+import { Zone as ZoneEnum } from '@vizzerdrix/shared';
+
 
 interface BattlefieldProps {
   cards: CardType[];
@@ -17,7 +19,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
   const { setNodeRef, isOver } = useDroppable({
     id: 'battlefield',
     data: {
-      type: 'battlefield',
+      type: ZoneEnum.battlefield,
       accepts: ['card'],
     },
   });
