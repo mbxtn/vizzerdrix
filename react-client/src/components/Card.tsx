@@ -90,6 +90,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
   return (
     <div
       ref={setNodeRef}
+      id={`card-${card.id}`}
       style={mergedStyle}
       {...listeners}
       {...attributes}

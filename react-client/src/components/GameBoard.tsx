@@ -51,6 +51,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
   // Map of what keys are pressed.
   const isKeyDown = useRef<Map<string, boolean>>(new Map());
+  const pointerPositionRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,6 +68,16 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       window.removeEventListener('keyup', handleKeyUp)
     })
   });
+
+  useEffect(() => {
+    const handlePointerMove = (e: MouseEvent) => {
+      pointerPositionRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', handlePointerMove);
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+    };
+  }, []);
 
   const [hoveredZone, setHoveredZone] = useState<ZoneEnum | null>(null);
 
@@ -90,10 +102,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     setActiveCard(card);
   };
 
-const handleDragOver = (event: DragOverEvent) => {
-  const zone = event.over?.data.current?.type as ZoneEnum | undefined;
-  setHoveredZone(zone ?? null);
-};
+  const handleDragOver = (event: DragOverEvent) => {
+    const zone = event.over?.data.current?.type as ZoneEnum | undefined;
+    setHoveredZone(zone ?? null);
+  };
   // -1 for index indicates removal
   const getOrder = (zone: ZoneEnum) => {
     switch (zone) {
@@ -110,6 +122,25 @@ const handleDragOver = (event: DragOverEvent) => {
       default:
         return [];
     }
+  }
+
+  const getHandDropIndex = (pointerX: number, handCardIds: string[]) => {
+    // Each card in the hand should have an element with a predictable id or class, e.g. `hand-card-${cardId}`
+    for (let i = 0; i < handCardIds.length; i++) {
+      const cardId = handCardIds[i];
+      const el = document.getElementById(`card-${cardId}`);
+      if (el) {
+        console.log('found element ' + cardId)
+        const rect = el.getBoundingClientRect();
+        console.log(rect)
+        const centerX = rect.left + rect.width / 2;
+        if (pointerX < centerX) {
+          return i;
+        }
+      }
+    }
+    // If pointer is past all cards, insert at the end
+    return handCardIds.length;
   }
 
   const moveCard = (targetZone: ZoneEnum, id: string, event: DragEndEvent) => {
@@ -131,8 +162,10 @@ const handleDragOver = (event: DragOverEvent) => {
         card.zone = targetZone;
         // Determine drop index in hand
         let dropIndex = 0;
+        dropIndex = getHandDropIndex(pointerPositionRef.current.x, localPlayer.handOrder)
+        console.log(`pointerref x: ${pointerPositionRef.current.x}, pointerref y: ${pointerPositionRef.current.y}`)
         console.log(`Dropping card at ${dropIndex}`);
-        localPlayer.handOrder.splice(0, 0, id);
+        localPlayer.handOrder.splice(dropIndex, 0, id);
         card.location = { x: dropIndex, y: 0 };
         delete card.zIndex;
         break;
@@ -338,7 +371,7 @@ const handleDragOver = (event: DragOverEvent) => {
               style={{ zIndex: 10000, opacity: 1 }}
             />
           ) : null}
-        </DragOverlay>
+        </DragOverlay >
       </DndContext>
 
       <Settings
