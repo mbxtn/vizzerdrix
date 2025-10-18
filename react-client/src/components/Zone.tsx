@@ -10,6 +10,8 @@ interface ZoneProps {
   zoneId: string;
   zoneType: ZoneEnum;
   cards: CardType[];
+  order?: string[];
+  setOrder?: (updater: (prevOrder: string[]) => string[]) => void;
   activeCardId?: string;
   displayMode?: 'stack' | 'top-card' | 'all-cards';
   onCardClick?: (card: CardType) => void;
@@ -23,12 +25,17 @@ export function Zone({
   zoneId,
   zoneType, 
   cards, 
+  order: propOrder,
+  setOrder,
   activeCardId, 
   displayMode = 'stack',
   onCardClick, 
-  onCardDoubleClick 
-   , style
+  onCardDoubleClick, 
+  style
 }: ZoneProps) {
+  // Local order array for this zone
+  // Use order from props if provided, else default to cards order
+  const order = propOrder ?? cards.map(card => card.id);
   const { setNodeRef, isOver } = useDroppable({
     id: zoneId,
     data: {
@@ -40,8 +47,9 @@ export function Zone({
   const renderContent = () => {
     switch (displayMode) {
       case 'stack': {
-        // Always call useDraggable, even if empty
-        const stackTopCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
+        // Use order array to determine top card
+        const orderedCards = order.map(id => cards.find(card => card.id === id)).filter(Boolean) as CardType[];
+        const stackTopCard = orderedCards.length > 0 ? orderedCards[orderedCards.length - 1] : undefined;
         const isLibrary = zoneType === ZoneEnum.library;
         const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
           id: stackTopCard?.id || `${zoneId}-empty`,
@@ -67,7 +75,7 @@ export function Zone({
             {...listeners}
             {...attributes}
           >
-            {isLibrary && cards.length === 0 ? (
+            {isLibrary && orderedCards.length === 0 ? (
               <div/>
             ) : (
               <div className="card-back" style={cardBackStyle}>
@@ -86,8 +94,8 @@ export function Zone({
             <Card
               card={topCard}
               isDragging={topCard.id === activeCardId}
-              onClick={() => onCardClick?.(topCard)}
-              onDoubleClick={() => onCardDoubleClick?.(topCard)}
+              handleSingleClick={() => onCardClick?.(topCard)}
+              handleDoubleClick={() => onCardDoubleClick?.(topCard)}
             />
           </div>
         ) : (
@@ -96,19 +104,20 @@ export function Zone({
       }
       
       case 'all-cards': {
-        // Show all cards (for hand zone)
+        // Show all cards (for hand zone, or other zones with all-cards display)
         const isHand = zoneType === ZoneEnum.hand;
+        const orderedCards = order.map(id => cards.find(card => card.id === id)).filter(Boolean) as CardType[];
         return (
           <div className="zone-cards">
-            {cards.length === 0
+            {orderedCards.length === 0
               ? null
-              : cards.map((card) => (
+              : orderedCards.map((card) => (
                   <div key={card.id} className="zone-card">
                     <Card
                       card={card}
                       isDragging={card.id === activeCardId}
-                      onClick={() => onCardClick?.(card)}
-                      onDoubleClick={() => onCardDoubleClick?.(card)}
+                      handleSingleClick={() => onCardClick?.(card)}
+                      handleDoubleClick={() => onCardDoubleClick?.(card)}
                     />
                   </div>
                 ))

@@ -35,6 +35,14 @@ export const KeyNames = {
 } as const;
 
 export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps) {
+  // Local hand order state
+  const [handOrder, setHandOrder] = useState<string[]>(() => {
+    return Object.values(localPlayer.cards)
+      .filter(card => card.zone === ZoneEnum.hand)
+      .map(card => card.id);
+  });
+  // No automatic sync: handOrder is updated only in drag/drop and card movement logic
+
   // Helper to check if a card is selected
   const isCardSelected = (cardId: string) => localPlayer.selectedCards.includes(cardId);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -68,14 +76,14 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   });
 
 
-  // Get cards by zone
+  // Get cards by zone, sorted by location.x for non-battlefield zones
   const allCards = Object.values(localPlayer.cards);
-  const handCards = allCards.filter(card => card.zone === ZoneEnum.hand);
+  const handCards = handOrder.map(id => localPlayer.cards[id]).filter(Boolean);
   const battlefieldCards = allCards.filter(card => card.zone === ZoneEnum.battlefield);
-  const commandCards = allCards.filter(card => card.zone === ZoneEnum.command);
-  const libraryCards = allCards.filter(card => card.zone === ZoneEnum.library);
-  const graveyardCards = allCards.filter(card => card.zone === ZoneEnum.graveyard);
-  const exileCards = allCards.filter(card => card.zone === ZoneEnum.exile);
+  const commandCards = allCards.filter(card => card.zone === ZoneEnum.command).sort((a, b) => a.location.x - b.location.x);
+  const libraryCards = allCards.filter(card => card.zone === ZoneEnum.library).sort((a, b) => a.location.x - b.location.x);
+  const graveyardCards = allCards.filter(card => card.zone === ZoneEnum.graveyard).sort((a, b) => a.location.x - b.location.x);
+  const exileCards = allCards.filter(card => card.zone === ZoneEnum.exile).sort((a, b) => a.location.x - b.location.x);
 
   // Debug logging
   console.log('GameBoard - Total cards:', allCards.length);
@@ -98,13 +106,44 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     if (!card) return;
     // Card is changing zones, do stuff
     switch (targetZone) {
-      case ZoneEnum.hand:
+      case ZoneEnum.hand: {
         card.tapped = false;
         card.zone = targetZone;
-        card.location = { x: 0, y: 0 };
+        // Determine drop index in hand
+        let dropIndex = 0;
+        if (event.over && event.over.data.current && event.over.data.current.card) {
+          const overCard = event.over.data.current.card as CardType;
+          const overIndex = handOrder.findIndex(id => id === overCard.id);
+          dropIndex = overIndex >= 0 ? overIndex : handOrder.length;
+        } else {
+          // If not dropped over a card, put at end
+          dropIndex = handOrder.length;
+        }
+        // Update handOrder: remove card, insert at dropIndex
+        setHandOrder(prevOrder => {
+          const filtered = prevOrder.filter(id => id !== card.id);
+          filtered.splice(dropIndex, 0, card.id);
+          return filtered;
+        });
+        console.log(`Dropping card at ${dropIndex}`)
+        card.location = { x: dropIndex, y: 0 };
         delete card.zIndex;
         break;
-      case ZoneEnum.battlefield:
+      }
+      case ZoneEnum.command:
+      case ZoneEnum.exile:
+      case ZoneEnum.graveyard:
+      case ZoneEnum.library: {
+        card.tapped = false;
+        card.zone = targetZone;
+        // Find next available index for location.x in the target zone
+        const zoneCards = Object.values(localPlayer.cards).filter(c => c.zone === targetZone && c.id !== card.id);
+        const nextIndex = zoneCards.length > 0 ? Math.max(...zoneCards.map(c => c.location.x)) + 1 : 0;
+        card.location = { x: nextIndex, y: 0 };
+        delete card.zIndex;
+        break;
+      }
+      case ZoneEnum.battlefield: {
         const delta = event.delta;
         console.log(`original location x:${card.location.x} y:${card.location.y}, new location x:${Math.max(0, card.location.x + delta.x)}, y:${Math.max(0, card.location.y + delta.y)}`)
         if (card.zone != ZoneEnum.battlefield) {
@@ -126,15 +165,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
         card.zIndex = maxZ + 1;
         break;
-      case ZoneEnum.command:
-      case ZoneEnum.exile:
-      case ZoneEnum.graveyard:
-      case ZoneEnum.library:
-        card.tapped = false;
-        card.zone = targetZone;
-        card.location = { x: 0, y: 0 };
-        delete card.zIndex;
-        break;
+      }
       default:
         break;
     }
@@ -229,6 +260,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="hand"
               zoneType={ZoneEnum.hand}
               cards={handCards}
+              order={handOrder}
+              setOrder={setHandOrder}
               activeCardId={activeCard?.id}
               displayMode="all-cards"
               onCardClick={handleCardClick}

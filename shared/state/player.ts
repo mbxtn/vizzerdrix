@@ -16,6 +16,9 @@ export class Player {
     // Flat map of all cards by ID
     cards: { [id: string]: Card } = {};
 
+    // Array of card IDs representing the order of cards in hand
+    handOrder: string[] = [];
+
     // A single players game log, a date sorted combined log should be accessible in the Game itself
     // should be periodically updated with the contents of updates. Updates subclassing won't properly 
     // cross network boundaries without some casting system. So we'll just process them locally into gameLog.
