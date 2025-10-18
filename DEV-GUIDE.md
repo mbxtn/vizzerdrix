@@ -10,7 +10,7 @@ For development with hot reloading on separate ports:
 npx nx serve:dev server
 
 # Terminal 2: Start the web client  
-npx nx serve:dev web-client
+npx nx serve:dev react-client
 ```
 
 ### Option 2: Windows Batch Script
@@ -31,7 +31,7 @@ For production deployment on single port:
 
 ```bash
 # Build the web client
-npx nx build web-client
+npx nx build react-client
 
 # Start the production server (serves both static files and WebSocket)
 npx nx serve server
