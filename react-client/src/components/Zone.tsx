@@ -11,7 +11,6 @@ interface ZoneProps {
   zoneType: ZoneEnum;
   cards: CardType[];
   order?: string[];
-  setOrder?: (updater: (prevOrder: string[]) => string[]) => void;
   activeCardId?: string;
   displayMode?: 'stack' | 'top-card' | 'all-cards';
   onCardClick?: (card: CardType) => void;
@@ -26,7 +25,6 @@ export function Zone({
   zoneType, 
   cards, 
   order: propOrder,
-  setOrder,
   activeCardId, 
   displayMode = 'stack',
   onCardClick, 
@@ -104,12 +102,14 @@ export function Zone({
       }
       
       case 'all-cards': {
-        // Show all cards (for hand zone, or other zones with all-cards display)
-        const isHand = zoneType === ZoneEnum.hand;
-        const orderedCards = order.map(id => cards.find(card => card.id === id)).filter(Boolean) as CardType[];
+        // Show all cards
+        const orderedCards = order
+          .filter(id => cards.some(card => card.id === id))
+          .map(id => cards.find(card => card.id === id))
+          .filter(Boolean) as CardType[];
         return (
           <div className="zone-cards">
-            {orderedCards.length === 0
+            {cards.length === 0
               ? null
               : orderedCards.map((card) => (
                   <div key={card.id} className="zone-card">

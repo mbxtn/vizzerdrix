@@ -16,8 +16,17 @@ export class Player {
     // Flat map of all cards by ID
     cards: { [id: string]: Card } = {};
 
-    // Array of card IDs representing the order of cards in hand
-    handOrder: string[] = [];
+    // Order of card in zones (specifically hand, library, command, exile, and graveyard):
+    // We could probably store this in location, but that seems... perilous. Just store the card ids
+    // We can use this.cards for actual data still. This list should more be used for "order" rather tham
+    // the authoritive "where this card resides zone", e.g. if the card is in the battlefield on it's card, 
+    // but for whatever reason is still in handCards, we should still render it on the battlefield, and just ignore
+    // that card in the order (possibly even purging it.)
+    handOrder : string[] = [];
+    libraryOrder : string[] = [];
+    graveyardOrder : string[] = [];
+    exileOrder : string[] = [];
+    commandOrder : string[] = [];
 
     // A single players game log, a date sorted combined log should be accessible in the Game itself
     // should be periodically updated with the contents of updates. Updates subclassing won't properly 

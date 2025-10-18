@@ -35,14 +35,6 @@ export const KeyNames = {
 } as const;
 
 export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps) {
-  // Local hand order state
-  const [handOrder, setHandOrder] = useState<string[]>(() => {
-    return Object.values(localPlayer.cards)
-      .filter(card => card.zone === ZoneEnum.hand)
-      .map(card => card.id);
-  });
-  // No automatic sync: handOrder is updated only in drag/drop and card movement logic
-
   // Helper to check if a card is selected
   const isCardSelected = (cardId: string) => localPlayer.selectedCards.includes(cardId);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -78,7 +70,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
   // Get cards by zone, sorted by location.x for non-battlefield zones
   const allCards = Object.values(localPlayer.cards);
-  const handCards = handOrder.map(id => localPlayer.cards[id]).filter(Boolean);
+  const handCards = allCards.filter(card => card.zone === ZoneEnum.hand);
   const battlefieldCards = allCards.filter(card => card.zone === ZoneEnum.battlefield);
   const commandCards = allCards.filter(card => card.zone === ZoneEnum.command).sort((a, b) => a.location.x - b.location.x);
   const libraryCards = allCards.filter(card => card.zone === ZoneEnum.library).sort((a, b) => a.location.x - b.location.x);
@@ -101,31 +93,40 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     // Optional: Add visual feedback during drag
   };
 
+  // -1 for index indicates removal
+  const getOrder = (zone: ZoneEnum) => {
+    switch (zone) {
+      case ZoneEnum.hand:
+        return localPlayer.handOrder;
+      case ZoneEnum.command:
+        return localPlayer.commandOrder;
+      case ZoneEnum.exile:
+        return localPlayer.exileOrder;
+      case ZoneEnum.graveyard:
+        return localPlayer.graveyardOrder;
+      case ZoneEnum.library:
+        return localPlayer.library;
+      default:
+        return [];
+    }
+  }
+
   const moveCard = (targetZone: ZoneEnum, id: string, event : DragEndEvent) => {
     const card = localPlayer.cards[id]
     if (!card) return;
     // Card is changing zones, do stuff
+    const orderIndex = getOrder(card.zone).indexOf(id);
+    if( orderIndex > -1) {
+      getOrder(card.zone).splice(orderIndex, 1);
+    }
     switch (targetZone) {
       case ZoneEnum.hand: {
         card.tapped = false;
         card.zone = targetZone;
         // Determine drop index in hand
         let dropIndex = 0;
-        if (event.over && event.over.data.current && event.over.data.current.card) {
-          const overCard = event.over.data.current.card as CardType;
-          const overIndex = handOrder.findIndex(id => id === overCard.id);
-          dropIndex = overIndex >= 0 ? overIndex : handOrder.length;
-        } else {
-          // If not dropped over a card, put at end
-          dropIndex = handOrder.length;
-        }
-        // Update handOrder: remove card, insert at dropIndex
-        setHandOrder(prevOrder => {
-          const filtered = prevOrder.filter(id => id !== card.id);
-          filtered.splice(dropIndex, 0, card.id);
-          return filtered;
-        });
-        console.log(`Dropping card at ${dropIndex}`)
+        console.log(`Dropping card at ${dropIndex}`);
+        localPlayer.handOrder.splice(0, 0, id);
         card.location = { x: dropIndex, y: 0 };
         delete card.zIndex;
         break;
@@ -210,7 +211,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   const handleCardDoubleClick = (card: CardType) => {
     // Double-click to tap/untap
     const updatedCard = { ...localPlayer.cards[card.id] };
-    if (updatedCard) {
+    if (updatedCard && updatedCard.zone == ZoneEnum.battlefield) {
       updatedCard.tapped = !updatedCard.tapped;
       if (!localPlayer.selectedCards.includes(card.id)) {
         if (isKeyDown.current.get(KeyNames.Shift)) {
@@ -260,10 +261,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="hand"
               zoneType={ZoneEnum.hand}
               cards={handCards}
-              order={handOrder}
-              setOrder={setHandOrder}
               activeCardId={activeCard?.id}
               displayMode="all-cards"
+              order={localPlayer.handOrder}
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               isCardSelected={isCardSelected}
