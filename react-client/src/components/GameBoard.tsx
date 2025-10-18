@@ -67,6 +67,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     })
   });
 
+  const [hoveredZone, setHoveredZone] = useState<ZoneEnum | null>(null);
 
   // Get cards by zone, sorted by location.x for non-battlefield zones
   const allCards = Object.values(localPlayer.cards);
@@ -89,10 +90,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     setActiveCard(card);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    // Optional: Add visual feedback during drag
-  };
-
+const handleDragOver = (event: DragOverEvent) => {
+  const zone = event.over?.data.current?.type as ZoneEnum | undefined;
+  setHoveredZone(zone ?? null);
+};
   // -1 for index indicates removal
   const getOrder = (zone: ZoneEnum) => {
     switch (zone) {
@@ -111,12 +112,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
   }
 
-  const moveCard = (targetZone: ZoneEnum, id: string, event : DragEndEvent) => {
+  const moveCard = (targetZone: ZoneEnum, id: string, event: DragEndEvent) => {
     const card = localPlayer.cards[id]
     if (!card) return;
     // Card is changing zones, do stuff
     const orderIndex = getOrder(card.zone).indexOf(id);
-    if( orderIndex > -1) {
+    if (orderIndex > -1) {
       getOrder(card.zone).splice(orderIndex, 1);
     }
     switch (targetZone) {
@@ -320,7 +321,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         <DragOverlay>
           {activeCard ? (
             <Card
-              card={activeCard}
+              card={{
+                ...activeCard,
+                tapped: hoveredZone && [ZoneEnum.hand, ZoneEnum.command, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.library].includes(hoveredZone)
+                  ? false
+                  : activeCard.tapped
+              }}
               isDragging={true}
               position={undefined}
               style={{ zIndex: 10000, opacity: 1 }}
