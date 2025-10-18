@@ -33,7 +33,7 @@ export class ScryfallCache {
     private static instance: ScryfallCache;
     
     private _cacheIndex: CacheIndex = { byName: {}, byId: {} };
-    private readonly _cacheVersion: string = '2.0'; // Updated version for new schema
+    private readonly _cacheVersion: string = '3.0'; // Updated version for new schema
     private readonly _isBrowser: boolean = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 
     private constructor() {
@@ -86,7 +86,19 @@ export class ScryfallCache {
         // Use setTimeout to make cache saving non-blocking
         setTimeout(() => {
             try {
-                localStorage.setItem('scryfallCache', JSON.stringify(this._cacheIndex));
+                // Filter out cache misses ('failed' entries) from byName before saving
+                const filteredByName: { [name: string]: string } = {};
+                Object.entries(this._cacheIndex.byName).forEach(([name, scryfallId]) => {
+                    if (scryfallId !== 'failed') {
+                        filteredByName[name] = scryfallId;
+                    }
+                });
+                const filteredCacheIndex: CacheIndex = {
+                    byName: filteredByName,
+                    byId: this._cacheIndex.byId
+                };
+                console.log(`Caching ${filteredByName}`)
+                localStorage.setItem('scryfallCache', JSON.stringify(filteredCacheIndex));
                 localStorage.setItem('scryfallCacheVersion', this._cacheVersion);
             } catch (error) {
                 console.error('Error saving cache to localStorage:', error);
