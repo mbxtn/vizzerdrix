@@ -154,7 +154,7 @@ export const zoneStyles = `
     background: rgba(0, 0, 0, 0.6);
     border: 1px solid #444;
     border-radius: 4px;
-    padding: 2px;
+    padding: 0.5px;
     min-height: 60px;
     display: flex;
     flex-direction: column;
@@ -169,9 +169,9 @@ export const zoneStyles = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     border-bottom: 1px solid #555;
-    padding-bottom: 4px;
+    padding-bottom: 2px;
   }
 
   .zone-header h4 {
@@ -239,6 +239,7 @@ export const zoneStyles = `
   overflow-x: auto;
   overflow-y: visible;
   justify-content: flex-start;
+  align-items: center;
   scrollbar-width: thin;
   scrollbar-color: #888 #222;
   }

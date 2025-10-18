@@ -116,10 +116,15 @@ const handleDragOver = (event: DragOverEvent) => {
     const card = localPlayer.cards[id]
     if (!card) return;
     // Card is changing zones, do stuff
-    const orderIndex = getOrder(card.zone).indexOf(id);
-    if (orderIndex > -1) {
-      getOrder(card.zone).splice(orderIndex, 1);
+    console.log(`Card I got was ${card.zone}`);
+    var cardOrder = getOrder(card.zone);
+    if (cardOrder) {
+      const orderIndex = getOrder(card.zone).indexOf(id);
+      if (orderIndex > -1) {
+        getOrder(card.zone).splice(orderIndex, 1);
+      }
     }
+
     switch (targetZone) {
       case ZoneEnum.hand: {
         card.tapped = false;
@@ -181,6 +186,7 @@ const handleDragOver = (event: DragOverEvent) => {
     if (!over) return;
 
     const card = active.data.current?.card as CardType;
+    console.log(`Handling a drag for ${card.zone}`);
     const targetZone = over.data.current?.type as ZoneEnum;
 
     if (!card || !targetZone) return;
