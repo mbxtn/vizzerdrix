@@ -23,6 +23,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
   const [selectionBox, setSelectionBox] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 2) return; // Right click, do nothing
     e.stopPropagation();
     selectionStartRef.current = { x: e.clientX, y: e.clientY };
     setSelectionBox(null);

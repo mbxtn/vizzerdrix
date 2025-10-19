@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { ContextMenu, ContextMenuOption } from './ContextMenu';
 import {
   DndContext,
   DragOverlay,
@@ -330,6 +331,20 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   }
 
 
+  // Context menu options logic
+  let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
+  if (localPlayer.selectedCards.length > 0) {
+    contextMenuOptions = [
+      {
+        name: 'Tap all selected cards',
+        action: () => {
+          setTapped(localPlayer.selectedCards, true);
+          onPlayerUpdate(localPlayer);
+        },
+      },
+    ];
+  }
+
   return (
     <>
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
@@ -436,28 +451,14 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             />
           </div>
 
-          {/* Context Menu Skeleton */}
+          {/* Context Menu Component */}
           {contextMenu && (
-            <div
-              style={{
-                position: "absolute",
-                top: contextMenu.y,
-                left: contextMenu.x,
-                background: "#222",
-                color: "#fff",
-                borderRadius: 4,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                zIndex: 1000,
-                minWidth: 160,
-                padding: "8px 0"
-              }}
-              onClick={handleCloseContextMenu}
-              onMouseLeave={handleCloseContextMenu}
-            >
-              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 1</div>
-              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 2</div>
-              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 3</div>
-            </div>
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={handleCloseContextMenu}
+              options={contextMenuOptions}
+            />
           )}
         </div>
 
