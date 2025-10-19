@@ -107,17 +107,6 @@ export function App() {
           maxHeight: '400px',
           overflow: 'auto'
         }}>
-          <div>{currentPlayer.name} - Life: {currentPlayer.lifeTotal}</div>
-          <button onClick={() => setShowGame(false)}>Back to Lobby</button>
-
-          <div style={{ marginTop: '10px', fontSize: '11px' }}>
-            <strong>Debug - Cards by Zone:</strong>
-            <pre style={{ fontSize: '10px', maxHeight: '200px', overflow: 'auto', background: 'rgba(255,255,255,0.1)', padding: '5px', marginTop: '5px' }}>
-              {gameState && Object.values(currentPlayer.cards).map(card =>
-                `${card.cardName}: Zone ${card.zone}`
-              ).join('\n')}
-            </pre>
-          </div>
         </div>
         <GameBoard
           game={gameState!!}
