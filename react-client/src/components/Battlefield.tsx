@@ -23,6 +23,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
   const [selectionBox, setSelectionBox] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     selectionStartRef.current = { x: e.clientX, y: e.clientY };
     setSelectionBox(null);
   };
@@ -92,6 +93,9 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation()
+      }} 
     >
       <div className="battlefield-header">
         <h3>Battlefield</h3>

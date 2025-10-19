@@ -337,7 +337,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="game-board">
+        <div className="game-board" onClick={() => {
+          localPlayer.selectedCards = [];
+          onPlayerUpdate(localPlayer);
+        }}>
           <Battlefield
             cards={battlefieldCards}
             player={localPlayer}
@@ -380,6 +383,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               displayMode="stack"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              onZoneClick={handleZoneClick}
             />
             <Zone
               zoneName="Graveyard"
@@ -390,6 +394,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               displayMode="top-card"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              onZoneClick={handleZoneClick}
             />
             <Zone
               zoneName="Exile"
@@ -400,6 +405,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               displayMode="top-card"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              onZoneClick={handleZoneClick}
             />
             <Zone
               zoneName="Command"
@@ -410,6 +416,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               displayMode="top-card"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              onZoneClick={handleZoneClick}
             />
           </div>
         </div>
