@@ -143,72 +143,79 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     return handCardIds.length;
   }
 
-  const moveCard = (targetZone: ZoneEnum, id: string, event: DragEndEvent) => {
-    const card = localPlayer.cards[id]
-    if (!card) return;
-    // Card is changing zones, do stuff
-    console.log(`Card I got was ${card.zone}`);
-    var cardOrder = getOrder(card.zone);
-    if (cardOrder) {
-      const orderIndex = getOrder(card.zone).indexOf(id);
-      if (orderIndex > -1) {
-        getOrder(card.zone).splice(orderIndex, 1);
-      }
+  const moveCard = (targetZone: ZoneEnum, ids: string[], event: DragEndEvent) => {
+    if (ids.length == 0) return;
+    const baseCard = localPlayer.cards[ids[0]];
+    // Cascade positions from the dragged card
+    const baseDelta = event.delta;
+    let baseLocation;
+    if (baseCard.zone !== ZoneEnum.battlefield) {
+      const pointer = event.active.rect.current.translated;
+      baseLocation = {
+        x: Math.max(0, pointer!!.left),
+        y: Math.max(0, pointer!!.top),
+      };
+    } else {
+      baseLocation = {
+        x: Math.max(0, baseCard.location.x + baseDelta.x),
+        y: Math.max(0, baseCard.location.y + baseDelta.y),
+      };
     }
-
-    switch (targetZone) {
-      case ZoneEnum.hand: {
-        card.tapped = false;
-        card.zone = targetZone;
-        // Determine drop index in hand
-        let dropIndex = 0;
-        dropIndex = getHandDropIndex(pointerPositionRef.current.x, localPlayer.handOrder)
-        console.log(`pointerref x: ${pointerPositionRef.current.x}, pointerref y: ${pointerPositionRef.current.y}`)
-        console.log(`Dropping card at ${dropIndex}`);
-        localPlayer.handOrder.splice(dropIndex, 0, id);
-        card.location = { x: dropIndex, y: 0 };
-        delete card.zIndex;
-        break;
-      }
-      case ZoneEnum.command:
-      case ZoneEnum.exile:
-      case ZoneEnum.graveyard:
-      case ZoneEnum.library: {
-        card.tapped = false;
-        card.zone = targetZone;
-        // Find next available index for location.x in the target zone
-        const zoneCards = Object.values(localPlayer.cards).filter(c => c.zone === targetZone && c.id !== card.id);
-        const nextIndex = zoneCards.length > 0 ? Math.max(...zoneCards.map(c => c.location.x)) + 1 : 0;
-        card.location = { x: nextIndex, y: 0 };
-        delete card.zIndex;
-        break;
-      }
-      case ZoneEnum.battlefield: {
-        const delta = event.delta;
-        console.log(`original location x:${card.location.x} y:${card.location.y}, new location x:${Math.max(0, card.location.x + delta.x)}, y:${Math.max(0, card.location.y + delta.y)}`)
-        if (card.zone != ZoneEnum.battlefield) {
-          // If we did a lot of math I could probably get this correctly translated rather than a liiitle off.
-          const pointer = event.active.rect.current.translated
-          card.location = {
-            x: Math.max(0, pointer!!.left),
-            y: Math.max(0, pointer!!.top),
-          }
-        } else {
-          card.location = {
-            x: Math.max(0, card.location.x + delta.x),
-            y: Math.max(0, card.location.y + delta.y),
-          }
+    ids.forEach((id: string, index: number) => {
+      console.log("index is " + index)
+      const card = localPlayer.cards[id]
+      if (!card) return;
+      var cardOrder = getOrder(card.zone);
+      if (cardOrder) {
+        const orderIndex = getOrder(card.zone).indexOf(id);
+        if (orderIndex > -1) {
+          getOrder(card.zone).splice(orderIndex, 1);
         }
-        card.zone = ZoneEnum.battlefield;
-        // Set zIndex to max + 1
-        const allBattlefieldCards = Object.values(localPlayer.cards).filter(c => c.zone === ZoneEnum.battlefield && c.id !== card.id);
-        const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
-        card.zIndex = maxZ + 1;
-        break;
       }
-      default:
-        break;
-    }
+      // Card is changing zones, do stuff
+      switch (targetZone) {
+        case ZoneEnum.hand: {
+          card.tapped = false;
+          card.zone = targetZone;
+          // Determine drop index in hand
+          let dropIndex = 0;
+          dropIndex = getHandDropIndex(pointerPositionRef.current.x, localPlayer.handOrder)
+          localPlayer.handOrder.splice(dropIndex, 0, id);
+          card.location = { x: dropIndex, y: 0 };
+          delete card.zIndex;
+          break;
+        }
+        case ZoneEnum.command:
+        case ZoneEnum.exile:
+        case ZoneEnum.graveyard:
+        case ZoneEnum.library: {
+          card.tapped = false;
+          card.zone = targetZone;
+          // Find next available index for location.x in the target zone
+          const zoneCards = Object.values(localPlayer.cards).filter(c => c.zone === targetZone && c.id !== card.id);
+          const nextIndex = zoneCards.length > 0 ? Math.max(...zoneCards.map(c => c.location.x)) + 1 : 0;
+          card.location = { x: nextIndex, y: 0 };
+          delete card.zIndex;
+          break;
+        }
+        case ZoneEnum.battlefield: {
+          const delta = event.delta;
+          console.log(`original location x:${card.location.x} y:${card.location.y}, new location x:${Math.max(0, card.location.x + delta.x)}, y:${Math.max(0, card.location.y + delta.y)}`)
+          card.zone = ZoneEnum.battlefield;
+          card.location = {
+            x: baseLocation.x,
+            y: baseLocation.y + index * 20,
+          };
+          // Set zIndex to max + 1
+          const allBattlefieldCards = Object.values(localPlayer.cards).filter(c => c.zone === ZoneEnum.battlefield && c.id !== card.id);
+          const maxZ = allBattlefieldCards.length > 0 ? Math.max(...allBattlefieldCards.map(c => c.zIndex || 0)) : 0;
+          card.zIndex = maxZ + 1;
+          break;
+        }
+        default:
+          break;
+      }
+    });
     onPlayerUpdate(localPlayer);
   }
 
@@ -219,11 +226,18 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     if (!over) return;
 
     const card = active.data.current?.card as CardType;
-    console.log(`Handling a drag for ${card.zone}`);
     const targetZone = over.data.current?.type as ZoneEnum;
-
     if (!card || !targetZone) return;
-    moveCard(targetZone, card.id, event)
+
+    // If the dragged card is selected, move all selected cards
+    let selectedIds = localPlayer.selectedCards.includes(card.id)
+      ? localPlayer.selectedCards
+      : [card.id];
+
+    // Ensure dragged card is first in the list
+    selectedIds = [card.id, ...selectedIds.filter(id => id !== card.id)];
+    moveCard(targetZone, selectedIds, event);
+
   };
 
   const handleCardClick = (card: CardType) => {
@@ -266,7 +280,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   };
 
   const handleCardsSelected = (cards: string[]) => {
-    if(isKeyDown.current.get(KeyNames.Shift)){
+    if (isKeyDown.current.get(KeyNames.Shift)) {
       // Union of current selection and new cards, unique only
       const union = Array.from(new Set([...localPlayer.selectedCards, ...cards]));
       localPlayer.selectedCards = union;

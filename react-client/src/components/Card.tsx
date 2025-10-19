@@ -16,7 +16,7 @@ interface CardProps {
   isSelected?: boolean;
 }
 
-export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, style, imageUrl }: CardProps) {
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, style, imageUrl, isSelected }: CardProps) {
   const {
     attributes,
     listeners,
@@ -65,6 +65,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     justifyContent: 'center',
     zIndex: isDragging ? 1000 : 1,
     opacity: isDragging ? 0 : 1,
+    border: isSelected ? '2px solid #2196f3' : '2px solid #333',
     ...(typeof (arguments[0] as any)?.style === 'object' ? (arguments[0] as any).style : {}),
   };
 
