@@ -14,9 +14,10 @@ interface BattlefieldProps {
   onCardMove?: (card: CardType, position: { x: number; y: number }) => void;
   isCardSelected?: (cardId: string) => boolean;
   cardsSelected?: (selectedCardIds: string[]) => void;
+  isDragging?: boolean;
 }
 
-export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, cardsSelected }: BattlefieldProps) {
+export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, isCardSelected, cardsSelected, isDragging }: BattlefieldProps) {
   // Marquee selection state and handlers
   const selectionStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [selectionBox, setSelectionBox] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -38,6 +39,10 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    console.log("we not fucking shit up?")
+    e.stopPropagation()
+    if (!selectionStartRef.current) return;
+    console.log("we fucking shit up?")
     // Select cards inside selectionBox
     if (selectionBox && cardsSelected) {
       // Get battlefield-area bounding rect for offset
@@ -99,10 +104,11 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
               key={card.id}
               card={card}
               position={{ x: card.location.x, y: card.location.y }}
-              isDragging={card.id === activeCardId}
+              isDragging={isDragging}
               handleSingleClick={() => onCardClick?.(card)}
               handleDoubleClick={() => onCardDoubleClick?.(card)}
-              style={{ zIndex: card.zIndex || 1, border: player.isCardSelected(card.id) ? '2px solid #2196f3' : '2px solid #333' }}
+              isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
+              style={{ zIndex: card.zIndex || 1}}
             />
           ))}
         {selectionBox && (
@@ -139,10 +145,6 @@ export const battlefieldStyles = `
     border-radius: 8px;
     transition: border-color 0.2s ease;
     overflow: hidden;
-  }
-
-  .battlefield.drag-over {
-    border-color: rgba(79, 195, 247, 0.5);
   }
 
   .battlefield-header {

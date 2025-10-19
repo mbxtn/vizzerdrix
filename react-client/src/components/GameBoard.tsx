@@ -31,6 +31,7 @@ export const KeyNames = {
   Meta: 'Meta',
   ArrowUp: 'ArrowUp',
   ArrowDown: 'ArrowDown',
+  Escape: 'Escape'
   // ...add more as needed
 } as const;
 
@@ -60,6 +61,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
     const handleKeyUp = (e: KeyboardEvent) => {
       isKeyDown.current.set(e.key, false)
+      // Some basic hot key actions.
+      if (e.key == KeyNames.Escape) {
+        // Clear card selection if they press escape.
+        localPlayer.selectedCards = [];
+        onPlayerUpdate(localPlayer);
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
@@ -223,7 +230,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     onPlayerUpdate(localPlayer);
   }
   const handleZoneClick = () => {
-    if(isKeyDown.current.get(KeyNames.Shift)) return;
+    if (isKeyDown.current.get(KeyNames.Shift)) return;
     localPlayer.selectedCards = [];
     onPlayerUpdate(localPlayer)
   }
@@ -250,6 +257,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   };
 
   const handleCardClick = (card: CardType) => {
+    console.log("card clicked")
     // Toggle selection for the clicked card
     const indx = localPlayer.selectedCards.indexOf(card.id)
     if (indx > -1) {
@@ -271,24 +279,35 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     onPlayerUpdate(localPlayer);
   };
 
+  const setTapped = (ids: string[], tapped = true) => {
+    ids.forEach((id: string) => {
+      localPlayer.cards[id].tapped = tapped
+    })
+  }
+
   const handleCardDoubleClick = (card: CardType) => {
-    // Double-click to tap/untap
-    const updatedCard = { ...localPlayer.cards[card.id] };
-    if (updatedCard && updatedCard.zone == ZoneEnum.battlefield) {
-      updatedCard.tapped = !updatedCard.tapped;
+    // Double-click to tap/unt p
+    if (localPlayer.cards[card.id]) {
       if (!localPlayer.selectedCards.includes(card.id)) {
         if (isKeyDown.current.get(KeyNames.Shift)) {
-          localPlayer.selectedCards.push(updatedCard.id);
+          localPlayer.selectedCards.push(card.id);
         } else {
-          localPlayer.selectedCards = [updatedCard.id];
+          localPlayer.selectedCards = [card.id];
         }
       }
-      localPlayer.cards[card.id] = updatedCard;
+      switch (card.zone) {
+        case ZoneEnum.battlefield:
+            setTapped(localPlayer.selectedCards, !card.tapped);
+          break;
+        default:
+          break;
+      }
       onPlayerUpdate(localPlayer);
     }
   };
 
   const handleCardsSelected = (cards: string[]) => {
+    console.log("selecting " + cards.length + " cards")
     if (isKeyDown.current.get(KeyNames.Shift)) {
       // Union of current selection and new cards, unique only
       const union = Array.from(new Set([...localPlayer.selectedCards, ...cards]));
@@ -327,6 +346,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             onCardDoubleClick={handleCardDoubleClick}
             isCardSelected={isCardSelected}
             cardsSelected={handleCardsSelected}
+            isDragging={!!activeCard}
           />
 
           <div className="bottom-zones">

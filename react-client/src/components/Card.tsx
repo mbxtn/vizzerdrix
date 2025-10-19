@@ -29,7 +29,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
       type: 'card',
     },
   });
-
+  
 
   const DoubleSidedSplit = [
     `${ScryfallLayout.Transform}`,
@@ -63,14 +63,15 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     flexDirection: isTapped ? 'row' : 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: isDragging ? 1000 : 1,
-    opacity: isDragging ? 0 : 1,
-    border: isSelected ? '2px solid #2196f3' : '2px solid #333',
+    zIndex: isDragging && isSelected ? 1000 : 1,
+    opacity: isDragging && isSelected ? 0 : 1,
     ...(typeof (arguments[0] as any)?.style === 'object' ? (arguments[0] as any).style : {}),
+    border: isSelected ? '2px solid #2196f3' : '2px solid #333'
   };
 
   const clickTimeout = useRef<NodeJS.Timeout | null>(null);
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
     // Super simple double click
     if (clickTimeout.current) {
       clearTimeout(clickTimeout.current)
@@ -95,12 +96,9 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
       style={mergedStyle}
       {...listeners}
       {...attributes}
-      className={`card ${isTapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`card ${isTapped ? 'tapped' : ''} ${isDragging && isSelected ? 'dragging' : ''}`}
       onClick={handleClick}
       onMouseDown={(e: React.MouseEvent<HTMLDivElement>)=>{
-        e.stopPropagation()
-      }}
-      onMouseUp={(e: React.MouseEvent<HTMLDivElement>)=>{
         e.stopPropagation()
       }}
     >

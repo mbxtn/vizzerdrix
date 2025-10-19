@@ -34,7 +34,7 @@ export function Zone({
   onZoneClick, 
   style,
   isCardSelected,
-  isDragging = false
+  isDragging = false,
 }: ZoneProps) {
   // Local order array for this zone
   // Use order from props if provided, else default to cards order
@@ -125,7 +125,7 @@ export function Zone({
                   <div key={card.id} className="zone-card">
                     <Card
                       card={card}
-                      isDragging={card.id === activeCardId || (isDragging && typeof isCardSelected === 'function' && isCardSelected(card.id))}
+                      isDragging={(isDragging)}
                       handleSingleClick={() => onCardClick?.(card)}
                       handleDoubleClick={() => onCardDoubleClick?.(card)}
                       isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
