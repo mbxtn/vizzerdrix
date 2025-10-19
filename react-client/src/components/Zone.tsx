@@ -15,8 +15,10 @@ interface ZoneProps {
   displayMode?: 'stack' | 'top-card' | 'all-cards';
   onCardClick?: (card: CardType) => void;
   onCardDoubleClick?: (card: CardType) => void;
+  onZoneClick?: () => void;
   style?: React.CSSProperties;
   isCardSelected?: (cardId: string) => boolean;
+  isDragging?: boolean;
 }
 
 export function Zone({ 
@@ -28,9 +30,11 @@ export function Zone({
   activeCardId, 
   displayMode = 'stack',
   onCardClick, 
-  onCardDoubleClick, 
+  onCardDoubleClick,
+  onZoneClick, 
   style,
-  isCardSelected
+  isCardSelected,
+  isDragging = false
 }: ZoneProps) {
   // Local order array for this zone
   // Use order from props if provided, else default to cards order
@@ -42,6 +46,11 @@ export function Zone({
       accepts: ['card'],
     },
   });
+
+  const handleClick = (e : React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if(onZoneClick) onZoneClick();
+  }
 
   const renderContent = () => {
     switch (displayMode) {
@@ -89,7 +98,7 @@ export function Zone({
         // Show the most recent card (for graveyard/exile)
         const topCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
         return topCard ? (
-          <div className="zone-top-card">
+          <div className="zone-top-card" onClick={handleClick}>
             <Card
               card={topCard}
               isDragging={topCard.id === activeCardId}
@@ -103,20 +112,20 @@ export function Zone({
       }
       
       case 'all-cards': {
-        // Show all cards
+        // Show all cards, hide selected if dragging
         const orderedCards = order
           .filter(id => cards.some(card => card.id === id))
           .map(id => cards.find(card => card.id === id))
           .filter(Boolean) as CardType[];
         return (
-          <div className="zone-cards">
+          <div className="zone-cards" onClick={handleClick}>
             {cards.length === 0
               ? null
               : orderedCards.map((card) => (
                   <div key={card.id} className="zone-card">
                     <Card
                       card={card}
-                      isDragging={card.id === activeCardId}
+                      isDragging={card.id === activeCardId || (isDragging && typeof isCardSelected === 'function' && isCardSelected(card.id))}
                       handleSingleClick={() => onCardClick?.(card)}
                       handleDoubleClick={() => onCardDoubleClick?.(card)}
                       isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}

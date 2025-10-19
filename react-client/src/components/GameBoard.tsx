@@ -100,6 +100,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     const { active } = event;
     const card = active.data.current?.card as CardType;
     setActiveCard(card);
+    if (card && !localPlayer.selectedCards.includes(card.id)) {
+      localPlayer.selectedCards = [card.id];
+      onPlayerUpdate(localPlayer);
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -218,6 +222,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     });
     onPlayerUpdate(localPlayer);
   }
+  const handleZoneClick = () => {
+    if(isKeyDown.current.get(KeyNames.Shift)) return;
+    localPlayer.selectedCards = [];
+    onPlayerUpdate(localPlayer)
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -332,7 +341,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               order={localPlayer.handOrder}
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
+              onZoneClick={handleZoneClick}
               isCardSelected={isCardSelected}
+              isDragging={!!activeCard}
               style={{
                 maxWidth: `calc(100vw - 4 * (var(--card-width, 63px) + 6px) - 32px)`,
                 minWidth: 0,
@@ -385,19 +396,27 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
         <DragOverlay>
           {activeCard ? (
-            <Card
-              card={{
-                ...activeCard,
-                tapped: hoveredZone && [ZoneEnum.hand, ZoneEnum.command, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.library].includes(hoveredZone)
-                  ? false
-                  : activeCard.tapped
-              }}
-              isDragging={true}
-              position={undefined}
-              style={{ zIndex: 10000, opacity: 1 }}
-            />
+            // Show all selected cards, cascading from the dragged card
+            [activeCard.id, ...localPlayer.selectedCards.filter(id => id !== activeCard.id)].map((id, idx) => {
+              const card = localPlayer.cards[id];
+              if (!card) return null;
+              return (
+                <Card
+                  key={card.id}
+                  card={{
+                    ...card,
+                    tapped: hoveredZone && [ZoneEnum.hand, ZoneEnum.command, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.library].includes(hoveredZone)
+                      ? false
+                      : card.tapped
+                  }}
+                  isDragging={true}
+                  position={{ x: 0, y: idx * 20 }}
+                  style={{ zIndex: 10000 + idx, opacity: 1, pointerEvents: 'none' }}
+                />
+              );
+            })
           ) : null}
-        </DragOverlay >
+        </DragOverlay>
       </DndContext>
 
       <Settings
