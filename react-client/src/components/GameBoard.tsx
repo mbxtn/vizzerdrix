@@ -309,7 +309,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       }
       switch (card.zone) {
         case ZoneEnum.battlefield:
-            setTapped(localPlayer.selectedCards, !card.tapped);
+          setTapped(localPlayer.selectedCards, !card.tapped);
           break;
         default:
           break;
@@ -329,7 +329,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
     onPlayerUpdate(localPlayer);
   }
-
+  const setCardZone = (card: CardType, zone: ZoneEnum, location: { x: number; y: number }) => {
+    card.zone = zone;
+    card.location = location;
+    card.tapped = false;
+  };
 
   // Context menu options logic
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
@@ -339,6 +343,84 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         name: 'Tap all selected cards',
         action: () => {
           setTapped(localPlayer.selectedCards, true);
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Hand',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
+              if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
+            }
+          });
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Graveyard',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+              if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
+            }
+          });
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Exile',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+              if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
+            }
+          });
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Command',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.command, { x: 0, y: 0 });
+              if (!localPlayer.commandOrder.includes(id)) localPlayer.commandOrder.push(id);
+            }
+          });
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Top of Library',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
+              if (!localPlayer.library.includes(id)) localPlayer.library.unshift(id);
+            }
+          });
+          onPlayerUpdate(localPlayer);
+        },
+      },
+      {
+        name: 'Move to Bottom of Library',
+        action: () => {
+          localPlayer.selectedCards.forEach(id => {
+            const card = localPlayer.cards[id];
+            if (card) {
+              setCardZone(card, ZoneEnum.library, { x: localPlayer.library.length, y: 0 });
+              if (!localPlayer.library.includes(id)) localPlayer.library.push(id);
+            }
+          });
           onPlayerUpdate(localPlayer);
         },
       },
