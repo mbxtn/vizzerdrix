@@ -69,20 +69,20 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
   };
 
   const clickTimeout = useRef<NodeJS.Timeout | null>(null);
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Super simple double click
     if (clickTimeout.current) {
       clearTimeout(clickTimeout.current)
       clickTimeout.current = null
       if (handleDoubleClick)
-        handleDoubleClick()
+        handleDoubleClick();
     } else {
       clickTimeout.current = setTimeout(() => {
         clickTimeout.current = null
         if (handleSingleClick) {
-          handleSingleClick()
+          handleSingleClick();
         }
-      }, 200)
+      }, 200);
     }
 
   }
@@ -96,6 +96,12 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
       {...attributes}
       className={`card ${isTapped ? 'tapped' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
+      onMouseDown={(e: React.MouseEvent<HTMLDivElement>)=>{
+        e.stopPropagation()
+      }}
+      onMouseUp={(e: React.MouseEvent<HTMLDivElement>)=>{
+        e.stopPropagation()
+      }}
     >
       <div
         className="card-image"

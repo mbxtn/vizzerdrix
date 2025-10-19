@@ -265,6 +265,17 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
   };
 
+  const handleCardsSelected = (cards: string[]) => {
+    if(isKeyDown.current.get(KeyNames.Shift)){
+      // Union of current selection and new cards, unique only
+      const union = Array.from(new Set([...localPlayer.selectedCards, ...cards]));
+      localPlayer.selectedCards = union;
+    } else {
+      localPlayer.selectedCards = cards;
+    }
+    onPlayerUpdate(localPlayer);
+  }
+
 
   return (
     <>
@@ -292,6 +303,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             onCardClick={handleCardClick}
             onCardDoubleClick={handleCardDoubleClick}
             isCardSelected={isCardSelected}
+            cardsSelected={handleCardsSelected}
           />
 
           <div className="bottom-zones">
