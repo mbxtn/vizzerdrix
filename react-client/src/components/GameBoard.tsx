@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -36,6 +36,17 @@ export const KeyNames = {
 } as const;
 
 export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps) {
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Context menu handler
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
   // Helper to check if a card is selected
   const isCardSelected = (cardId: string) => localPlayer.selectedCards.includes(cardId);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -337,10 +348,15 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="game-board" onClick={() => {
-          localPlayer.selectedCards = [];
-          onPlayerUpdate(localPlayer);
-        }}>
+        <div
+          className="game-board"
+          onClick={() => {
+            localPlayer.selectedCards = [];
+            onPlayerUpdate(localPlayer);
+          }}
+          onContextMenu={handleContextMenu}
+          style={{ position: 'relative' }}
+        >
           <Battlefield
             cards={battlefieldCards}
             player={localPlayer}
@@ -419,6 +435,30 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               onZoneClick={handleZoneClick}
             />
           </div>
+
+          {/* Context Menu Skeleton */}
+          {contextMenu && (
+            <div
+              style={{
+                position: "absolute",
+                top: contextMenu.y,
+                left: contextMenu.x,
+                background: "#222",
+                color: "#fff",
+                borderRadius: 4,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                zIndex: 1000,
+                minWidth: 160,
+                padding: "8px 0"
+              }}
+              onClick={handleCloseContextMenu}
+              onMouseLeave={handleCloseContextMenu}
+            >
+              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 1</div>
+              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 2</div>
+              <div style={{ padding: "8px 16px", cursor: "pointer" }}>Dummy Option 3</div>
+            </div>
+          )}
         </div>
 
         <DragOverlay>
