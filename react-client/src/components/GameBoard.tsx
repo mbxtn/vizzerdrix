@@ -17,7 +17,7 @@ import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
 import { Settings, settingsStyles } from './Settings';
-import { Card as CardType, Player, Game } from '@vizzerdrix/shared';
+import { Card as CardType, Player, Game, CardFactory } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache } from '../lib/scryfallCache';
 import { GetTypeLine } from '../lib/scryfallUtils';
@@ -26,6 +26,7 @@ interface GameBoardProps {
   game: Game;
   localPlayer: Player;
   onPlayerUpdate: (player: Player) => void;
+  cardFactory: CardFactory | null;
 }
 
 
@@ -42,7 +43,7 @@ export const KeyNames = {
   // ...add more as needed
 } as const;
 
-export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps) {
+export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: GameBoardProps) {
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   // Context menu handler
@@ -613,8 +614,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     });
   }
 
+  const createCard = (name : string) => {
+    console.log("creating card");
+  }
 
-  // Case when we have multiple cards
+  // Context Menu Options,
   if (targetCards.length > 1) {
     contextMenuOptions = [
       {
@@ -932,6 +936,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         onClose={() => setShowSettings(false)}
         config={uiConfig}
         onConfigChange={setUIConfig}
+        onCardCreated={createCard}
       />
     </>
   );

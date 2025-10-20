@@ -6,6 +6,7 @@ interface SettingsProps {
   onClose: () => void;
   config: UIConfig;
   onConfigChange: (config: UIConfig) => void;
+  onCardCreated: (name: string) => void;
 }
 import { useState } from "react";
 
@@ -54,7 +55,7 @@ function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
     </label>
   );
 }
-export function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps) {
+export function Settings({ isOpen, onClose, config, onConfigChange, onCardCreated }: SettingsProps) {
   if (!isOpen) return null;
 
   const handleCardWidthChange = (width: number) => {
@@ -172,7 +173,14 @@ export function Settings({ isOpen, onClose, config, onConfigChange }: SettingsPr
             )}
             {activeTab === "game" && (
               <div>
-                {/* Add game controls here */}
+                <div className="setting-group">
+                  <button
+                    onClick={() => onCardCreated("test")}
+                    className="create-card-button"
+                  >
+                    Create a place-holder
+                  </button>
+                </div>
               </div>
             )}
             {activeTab === "status" && (
@@ -293,6 +301,16 @@ export const settingsStyles = `
 
   .reset-button {
     background: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .create-card-button {
+    background: #ff9800;
     color: white;
     border: none;
     padding: 8px 16px;
