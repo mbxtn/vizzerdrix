@@ -11,24 +11,27 @@ interface CardProps {
   handleSingleClick?: () => void;
   handleDoubleClick?: () => void;
   handleCounterClicked?: () => void;
-  style?: React.CSSProperties;
-  imageUrl?: string;
   isSelected?: boolean;
+  isLocal?: boolean;
 }
 
 
-export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked ,style, imageUrl, isSelected }: CardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-  } = useDraggable({
-    id: card.id,
-    data: {
-      card,
-      type: 'card',
-    },
-  });
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked, isSelected, isLocal }: CardProps) {
+  let attributes: Record<string, any> = {};
+  let listeners: Record<string, any> = {};
+  let setNodeRef = (_el: HTMLElement | null) => {};
+  if (isLocal) {
+    const draggable = useDraggable({
+      id: card.id,
+      data: {
+        card,
+        type: 'card',
+      },
+    });
+    attributes = draggable.attributes ?? {};
+    listeners = draggable.listeners ?? {};
+    setNodeRef = draggable.setNodeRef;
+  }
   
   // Card dimensions must be available for fallback SVG
   const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;

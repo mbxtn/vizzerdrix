@@ -19,7 +19,7 @@ interface BattlefieldProps {
   isLocalPlayer?: boolean;
 }
 
-export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, onCardCounterClick ,isCardSelected, cardsSelected, isDragging }: BattlefieldProps) {
+export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, onCardCounterClick ,isCardSelected, cardsSelected, isDragging, isLocalPlayer}: BattlefieldProps) {
   // Marquee selection state and handlers
   const selectionStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [selectionBox, setSelectionBox] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -111,7 +111,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
               handleDoubleClick={() => onCardDoubleClick?.(card)}
               handleCounterClicked={() => onCardCounterClick?.(card)}
               isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
-              style={{ zIndex: card.zIndex || 1}}
+              isLocal={isLocalPlayer}
             />
           ))}
         {selectionBox && (
