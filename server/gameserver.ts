@@ -37,6 +37,9 @@ export class EventHandler {
                 this.updateState(socket.data.roomName, player);
                 this.emitState(socket.data.roomName);
             });
+            socket.on("disconnect", () => {
+                this.playerLeft(socket.id, socket.data.roomName);
+            });
         })
     }
 
@@ -91,6 +94,16 @@ export class EventHandler {
             return;
         }
         player.isActive = false;
+        let anyActive = false; 
+        Object.values(game.players).forEach((plyr: Player) => {
+            console.log(plyr);
+            if(plyr.isActive) anyActive = true;
+        })
+        if(anyActive) return;
+        // If we made it here there are no rooms delete it
+        console.log(`deleting room: ${room}, no active players left`);
+        this.games.delete(room);
+        
     }
 
     // updates a players state
