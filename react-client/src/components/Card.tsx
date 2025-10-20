@@ -30,6 +30,9 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     },
   });
   
+  // Card dimensions must be available for fallback SVG
+  const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
+  const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
   // Scryfall image lookup logic
   const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
   let imgSrc = defaultImage;
@@ -38,13 +41,19 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     if (scryFallCard) {
       const face = GetCardFace(scryFallCard, card.flipped)
       if(face) imgSrc = face;
+    } else {
+      if(card.flipped) {
+        imgSrc = "/cardback.png";
+      } else {
+        // Fallback: SVG off-white image with card name
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${cardWidth}' height='${cardHeight}'><rect width='100%' height='100%' fill='#f8f8f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='#333' font-family='sans-serif'>${card.cardName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text></svg>`;
+        imgSrc = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+      }
     }
   } catch (e) {
     // fallback to default image
   }
   const isTapped = card.tapped;
-  const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
-  const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
   const mergedStyle: React.CSSProperties = {
     position: position ? 'absolute' : 'relative',
     left: position?.x || 0,

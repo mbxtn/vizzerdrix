@@ -923,7 +923,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       </DndContext>
 
       {/* Card Magnifier Preview */}
-      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && localPlayer.cards[currentTarget.id] && (
+      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && localPlayer.cards[currentTarget.id] && localPlayer.cards[currentTarget.id].scryfallId != '' && (
         (() => {
           const hoverCard = localPlayer.cards[currentTarget.id];
           const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
