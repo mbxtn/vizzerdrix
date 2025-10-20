@@ -689,6 +689,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               game={game}
               selectedCardIds={getTarget(contextMenu)}
               contextTarget={getPointerTarget(contextMenu)}
+              onCreatePlaceholderCard={createCard}
             />
           )}
         </div>

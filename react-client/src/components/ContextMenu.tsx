@@ -18,9 +18,31 @@ interface ContextMenuProps {
   game: Game;
   selectedCardIds: string[];
   contextTarget: { type: string, id: string } | null;
+  onCreatePlaceholderCard?: (name: string) => void;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPlayer, onPlayerUpdate, cardFactory, game, selectedCardIds, contextTarget }) => {
+export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPlayer, onPlayerUpdate, cardFactory, game, selectedCardIds, contextTarget, onCreatePlaceholderCard }) => {
+  // Dialog state for placeholder card creation
+  const [showPlaceholderDialog, setShowPlaceholderDialog] = React.useState(false);
+  const [placeholderNameInput, setPlaceholderNameInput] = React.useState("");
+
+  const handleCreatePlaceholderClick = () => {
+    setPlaceholderNameInput("");
+    setShowPlaceholderDialog(true);
+  };
+
+  const handlePlaceholderDialogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (placeholderNameInput.trim() && onCreatePlaceholderCard) {
+      onCreatePlaceholderCard(placeholderNameInput.trim());
+      setShowPlaceholderDialog(false);
+      onClose();
+    }
+  };
+
+  const handlePlaceholderDialogCancel = () => {
+    setShowPlaceholderDialog(false);
+  };
   // State for counter input dialog
   const [showCounterInput, setShowCounterInput] = React.useState(false);
   const [counterInputValue, setCounterInputValue] = React.useState<string | number>(0);
@@ -174,6 +196,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
       ];
     } else if (contextTarget.type === 'battlefield') {
       opts = [
+        { name: 'Create placeholder card', action: () => handleCreatePlaceholderClick() },
         { name: 'Move all non-land cards to hand', action: moveToHand },
         { name: 'Move all non-land cards to graveyard', action: moveToGraveyard },
         { name: 'Move all non-land cards to exile', action: moveToExile },
@@ -206,6 +229,68 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
 
   return (
     <React.Fragment>
+      {/* Placeholder card dialog */}
+      {showPlaceholderDialog && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.7)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2000
+        }}>
+          <form
+            onSubmit={handlePlaceholderDialogSubmit}
+            style={{
+              background: "#222",
+              padding: 24,
+              borderRadius: 8,
+              boxShadow: "0 2px 16px rgba(0,0,0,0.4)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              minWidth: 280
+            }}
+          >
+            <label htmlFor="placeholder-name-input" style={{ color: "#fff" }}>Card Name:</label>
+            <input
+              id="placeholder-name-input"
+              type="text"
+              value={placeholderNameInput}
+              onChange={e => setPlaceholderNameInput(e.target.value)}
+              autoFocus
+              style={{
+                padding: "8px 12px",
+                borderRadius: 4,
+                border: "1px solid #555",
+                fontSize: 16
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={handlePlaceholderDialogCancel} style={{
+                background: "#888",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                padding: "6px 16px",
+                cursor: "pointer"
+              }}>Cancel</button>
+              <button type="submit" style={{
+                background: "#ff9800",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                padding: "6px 16px",
+                cursor: "pointer"
+              }}>Create</button>
+            </div>
+          </form>
+        </div>
+      )}
       {/* Counter input dialog */}
       {showCounterInput && (
         <div style={{
@@ -317,8 +402,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
               transition: 'background 0.15s, color 0.15s',
             }}
             onClick={() => {
-              // Only close menu for actions that are not 'Set counters on Card'
-              if (opt.name === 'Set counters on Card') {
+              if (opt.name === 'Create placeholder card') {
+                opt.action();
+                // Do NOT close menu, let dialog appear
+              } else if (opt.name === 'Set counters on Card') {
                 opt.action();
               } else {
                 opt.action();
