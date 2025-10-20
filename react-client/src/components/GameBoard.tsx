@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ContextMenu, ContextMenuOption } from './ContextMenu';
+import { ContextMenu } from './ContextMenu';
 import {
   DndContext,
   DragOverlay,
@@ -11,7 +11,6 @@ import {
   DragOverEvent,
 } from '@dnd-kit/core';
 import { defaultUIConfig, generateCSSVariables, UIConfig } from '../config/ui';
-// import removed, already present above
 import { GetCardFace } from '../lib/scryfallUtils';
 import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
@@ -20,7 +19,6 @@ import { Settings, settingsStyles } from './Settings';
 import { Card as CardType, Player, Game, CardFactory } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache } from '../lib/scryfallCache';
-import { GetTypeLine } from '../lib/scryfallUtils';
 
 interface GameBoardProps {
   game: Game;
@@ -554,107 +552,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     onPlayerUpdate(localPlayer);
   }
 
-  const setCardZone = (card: CardType, zone: ZoneEnum, location: { x: number; y: number }) => {
-    card.zone = zone;
-    card.location = location;
-    card.counters = 0;
-    card.tapped = false;
-    card.flipped = false;
-  };
-
-  // Context menu options logic
-  let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
-
-  let targetCards = getTarget(contextMenu ? { x: contextMenu.x, y: contextMenu.y } : { x: 0, y: 0 });
-  const contextTarget = getPointerTarget(contextMenu ? { x: contextMenu.x, y: contextMenu.y } : { x: 0, y: 0 })
-  // List of commands
-  const moveToHand = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card) {
-        setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
-        if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
-      }
-    });
-    onPlayerUpdate(localPlayer);
-  }
-  const moveToGraveYard = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card) {
-        setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
-        if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
-      }
-    });
-    onPlayerUpdate(localPlayer);
-  }
-  const moveToExile = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card) {
-        setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
-        if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
-      }
-    });
-    onPlayerUpdate(localPlayer);
-  }
-  const moveToTopOfLibrary = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card) {
-        removeFromOrder(card);
-        setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
-        addToOrder(card);
-      }
-    });
-    onPlayerUpdate(localPlayer);
-  }
-  const moveToBottomOfLibrary = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card) {
-        removeFromOrder(card);
-        setCardZone(card, ZoneEnum.library, { x: localPlayer.library.length, y: 0 });
-        addToOrder(card, 0);
-      }
-    });
-    onPlayerUpdate(localPlayer);
-  }
-
-  const addCountersToCards = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card && card.zone === ZoneEnum.battlefield) {
-        card.counters++;
-      }
-    })
-  }
-
-  const removeCountersFromCards = () => {
-    targetCards.forEach(id => {
-      const card = localPlayer.cards[id];
-      if (card && card.zone === ZoneEnum.battlefield) {
-        card.counters--;
-      }
-    })
-  }
-
-  const createCopyOfCards = () => {
-    targetCards.forEach((id: string) => {
-      if (!cardFactory) {
-        console.log("GameBoard - Couldn't create card, no cardfactory");
-        return;
-      }
-      if(!localPlayer.cards[id]) return;
-      let newCard = cardFactory.createCardsFromIds([localPlayer.cards[id].scryfallId])[0];
-      newCard.isTemporary = true;
-      newCard.zone = ZoneEnum.battlefield;
-      newCard.location = { x: 50, y: 50 };
-      localPlayer.cards[newCard.id] = newCard;
-      onPlayerUpdate(localPlayer);
-    });
-  }
-
   const createCard = (name: string) => {
     console.log(`creating card ${name}`);
     if(!cardFactory) {
@@ -670,134 +567,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     console.log("adding card to game");
     onPlayerUpdate(localPlayer);
     
-  }
-
-  // Context Menu Options,
-  if (targetCards.length > 1) {
-    contextMenuOptions = [
-      {
-        name: 'Move to Hand',
-        action: moveToHand,
-      },
-      {
-        name: 'Move to Graveyard',
-        action: moveToGraveYard,
-      },
-      {
-        name: 'Move to Exile',
-        action: moveToExile,
-      },
-      {
-        name: 'Move to Top of Library',
-        action: moveToTopOfLibrary,
-      },
-      {
-        name: 'Move to Bottom of Library',
-        action: moveToBottomOfLibrary,
-      },
-      {
-        name: "Add counter to Cards",
-        action: addCountersToCards,
-      },
-      {
-        name: "Remove counter from Cards",
-        action: removeCountersFromCards,
-      }
-    ];
-  } else {
-    if (contextTarget) {
-      if (contextTarget.type == "battlefield") {
-        contextMenuOptions = [
-          {
-            name: "Move all non-land cards to hand",
-            action: () => {
-              battlefieldCards.forEach((card: CardType) => {
-                let cache = ScryfallCache.getInstance();
-                let data = cache.getById(card.scryfallId);
-                // If we can't get scryfall data just leave it for now...
-                if (!data) return;
-                const typeline = GetTypeLine(data, card.flipped);
-                console.log(`typeline ${typeline}`)
-                if (!typeline.includes("Land")) {
-                  setCardZone(card, ZoneEnum.hand, { x: 0, y: 0 });
-                  if (!localPlayer.handOrder.includes(card.id)) localPlayer.handOrder.push(card.id);
-                }
-              });
-            }
-          },
-          {
-            name: "Move all non-land cards to graveyard",
-            action: () => {
-              battlefieldCards.forEach((card: CardType) => {
-                let cache = ScryfallCache.getInstance();
-                let data = cache.getById(card.scryfallId);
-                // If we can't get scryfall data just leave it for now...
-                if (!data) return;
-                const typeline = GetTypeLine(data, card.flipped);
-                console.log(`${data.name} typeline ${typeline}`)
-                if (!typeline.includes("Land")) {
-                  setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
-                }
-              });
-            }
-          },
-          {
-            name: "Move all non-land cards to exile",
-            action: () => {
-              battlefieldCards.forEach((card: CardType) => {
-                let cache = ScryfallCache.getInstance();
-                let data = cache.getById(card.scryfallId);
-                // If we can't get scryfall data just leave it for now...
-                if (!data) return;
-                const typeline = GetTypeLine(data, card.flipped);
-                console.log(`typeline ${typeline}`)
-                if (!typeline.includes("Land")) {
-                  setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
-                }
-              });
-            }
-          },
-        ];
-      } else if (contextTarget.type == "zone") {
-        contextMenuOptions = [
-          {
-            name: `${contextTarget.id}`,
-            action: () => {
-
-            }
-          }
-        ]
-      } else if (contextTarget.type == "card") {
-        // Either a card is selected, or we have a card we're hovering.
-        const id: string = targetCards[0];
-        contextMenuOptions = [
-          {
-            name: "Add counter to Card",
-            action: addCountersToCards,
-          },
-          {
-            name: "Remove counter from Card",
-            action: removeCountersFromCards,
-          },
-          {
-            name: "Set counters on Card",
-            action: () => openCounterInput(id),
-          },
-          {
-            name: "Create a copy of Card",
-            action: createCopyOfCards,
-          },
-          {
-            name: 'Move to Top of Library',
-            action: moveToTopOfLibrary,
-          },
-          {
-            name: 'Move to Bottom of Library',
-            action: moveToBottomOfLibrary,
-          },
-        ];
-      }
-    }
   }
 
   return (
@@ -982,7 +751,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               x={contextMenu.x}
               y={contextMenu.y}
               onClose={handleCloseContextMenu}
-              options={contextMenuOptions}
+              localPlayer={localPlayer}
+              onPlayerUpdate={onPlayerUpdate}
+              cardFactory={cardFactory}
+              game={game}
+              selectedCardIds={getTarget(contextMenu)}
+              contextTarget={getPointerTarget(contextMenu)}
             />
           )}
         </div>

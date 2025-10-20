@@ -5,22 +5,156 @@ export interface ContextMenuOption {
   action: () => void;
 }
 
+import type { Player, Game, CardFactory, Card as CardType } from '@vizzerdrix/shared';
+import { Zone as ZoneEnum } from '@vizzerdrix/shared';
+
 interface ContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  options?: ContextMenuOption[];
+  localPlayer: Player;
+  onPlayerUpdate: (player: Player) => void;
+  cardFactory: CardFactory | null;
+  game: Game;
+  selectedCardIds: string[];
+  contextTarget: { type: string, id: string } | null;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options }) => {
+export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPlayer, onPlayerUpdate, cardFactory, game, selectedCardIds, contextTarget }) => {
   // Add hover state for menu options
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
-  const defaultOptions: ContextMenuOption[] = [
-    { name: 'Dummy Option 1', action: onClose },
-    { name: 'Dummy Option 2', action: onClose },
-    { name: 'Dummy Option 3', action: onClose },
-  ];
-  const opts = options || defaultOptions;
+
+  // Menu actions
+  const setCardZone = (card: CardType, zone: ZoneEnum, location: { x: number; y: number }) => {
+    card.zone = zone;
+    card.location = location;
+    card.counters = 0;
+    card.tapped = false;
+    card.flipped = false;
+  };
+
+  const moveToHand = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+  setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
+        if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const moveToGraveyard = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+  setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+        if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const moveToExile = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+  setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+        if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const moveToTopOfLibrary = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+  setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
+        // Add to order logic if needed
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const moveToBottomOfLibrary = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+  setCardZone(card, ZoneEnum.library, { x: localPlayer.libraryOrder.length, y: 0 });
+        // Add to order logic if needed
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const addCountersToCards = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+  if (card && card.zone === ZoneEnum.battlefield) {
+        card.counters++;
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const removeCountersFromCards = () => {
+    selectedCardIds.forEach(id => {
+      const card = localPlayer.cards[id];
+  if (card && card.zone === ZoneEnum.battlefield) {
+        card.counters--;
+      }
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+  const createCopyOfCards = () => {
+    selectedCardIds.forEach((id: string) => {
+      if (!cardFactory) return;
+      if (!localPlayer.cards[id]) return;
+      let newCard = cardFactory.createCardsFromIds([localPlayer.cards[id].scryfallId])[0];
+      newCard.isTemporary = true;
+  newCard.zone = ZoneEnum.battlefield;
+      newCard.location = { x: 50, y: 50 };
+      localPlayer.cards[newCard.id] = newCard;
+    });
+    onPlayerUpdate(localPlayer);
+    onClose();
+  };
+
+  // Option generation
+  let opts: ContextMenuOption[] = [];
+  if (selectedCardIds.length > 1) {
+    opts = [
+      { name: 'Move to Hand', action: moveToHand },
+      { name: 'Move to Graveyard', action: moveToGraveyard },
+      { name: 'Move to Exile', action: moveToExile },
+      { name: 'Move to Top of Library', action: moveToTopOfLibrary },
+      { name: 'Move to Bottom of Library', action: moveToBottomOfLibrary },
+      { name: 'Add counter to Cards', action: addCountersToCards },
+      { name: 'Remove counter from Cards', action: removeCountersFromCards },
+    ];
+  } else if (contextTarget) {
+    if (contextTarget.type === 'card') {
+      opts = [
+        { name: 'Add counter to Card', action: addCountersToCards },
+        { name: 'Remove counter from Card', action: removeCountersFromCards },
+        { name: 'Create a copy of Card', action: createCopyOfCards },
+        { name: 'Move to Top of Library', action: moveToTopOfLibrary },
+        { name: 'Move to Bottom of Library', action: moveToBottomOfLibrary },
+      ];
+    } else if (contextTarget.type === 'battlefield') {
+      opts = [
+        { name: 'Move all non-land cards to hand', action: moveToHand },
+        { name: 'Move all non-land cards to graveyard', action: moveToGraveyard },
+        { name: 'Move all non-land cards to exile', action: moveToExile },
+      ];
+    } else if (contextTarget.type === 'zone') {
+      opts = [
+        { name: `${contextTarget.id}`, action: onClose },
+      ];
+    }
+  }
 
   // Menu dimensions (should match your style)
   const MENU_WIDTH = 180; // px
