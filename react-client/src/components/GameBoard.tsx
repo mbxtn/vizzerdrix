@@ -27,7 +27,6 @@ interface GameBoardProps {
   cardFactory: CardFactory | null;
 }
 
-
 export const KeyNames = {
   Shift: 'Shift',
   Control: 'Control',
@@ -36,8 +35,11 @@ export const KeyNames = {
   ArrowUp: 'ArrowUp',
   ArrowDown: 'ArrowDown',
   Escape: 'Escape',
-  F: "f",
+  f: "f",
+  F: "F",
   Space: " ",
+  x: "x",
+  X: "X",
   // ...add more as needed
 } as const;
 
@@ -122,6 +124,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
           onPlayerUpdate(localPlayer);
           break;
         case KeyNames.F:
+        case KeyNames.f:
           // try tp flip the current hovered card or 
           let fliptargets = getTarget();
           let toFlip: boolean | null = null;
@@ -152,6 +155,21 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
             }
           })
           onPlayerUpdate(localPlayer);
+          break;
+        case KeyNames.X:
+        case KeyNames.x:
+          let copyTargets = getTarget();
+          copyTargets.forEach((target: string) => {
+            let playerCard = localPlayer.cards[target];
+            if (playerCard) {
+              if (!cardFactory) return;
+              let newCard = cardFactory.createCardsFromIds([playerCard.scryfallId])[0];
+              newCard.isTemporary = true;
+              newCard.zone = ZoneEnum.battlefield;
+              newCard.location = { x: 50, y: 50 };
+              localPlayer.cards[newCard.id] = newCard;
+            }
+          })
           break;
         default:
           console.log(e.key)
@@ -398,7 +416,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       // Card is changing zones, do stuff
       switch (targetZone) {
         case ZoneEnum.hand: {
-          if(card.isTemporary){
+          if (card.isTemporary) {
             delete localPlayer.cards[id];
             break;
           }
@@ -419,7 +437,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
         case ZoneEnum.graveyard:
         case ZoneEnum.library: {
           localPlayer.selectedCards = [];
-          if(card.isTemporary){
+          if (card.isTemporary) {
             delete localPlayer.cards[id];
             break;
           }
@@ -551,7 +569,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   const createCard = (name: string) => {
     console.log(`creating card ${name}`);
-    if(!cardFactory) {
+    if (!cardFactory) {
       console.log("GameBoard - Couldn't create card, no cardfactory");
       return;
     }
@@ -563,7 +581,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     localPlayer.cards[newCard.id] = newCard;
     console.log("adding card to game");
     onPlayerUpdate(localPlayer);
-    
+
   }
 
   return (
