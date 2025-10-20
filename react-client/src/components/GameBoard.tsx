@@ -60,15 +60,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     setShowCounterInput(true);
   };
 
-  // Handler to set counters
-  const setCardCounters = () => {
-    if (counterTargetCardId && localPlayer.cards[counterTargetCardId]) {
-      localPlayer.cards[counterTargetCardId].counters = counterInputValue;
-      onPlayerUpdate(localPlayer);
-    }
-    setShowCounterInput(false);
-    setCounterTargetCardId(null);
-  };
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   // Context menu handler
@@ -174,6 +165,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               localPlayer.cards[newCard.id] = newCard;
             }
           })
+          onPlayerUpdate(localPlayer);
           break;
         default:
           console.log(e.key)
@@ -225,7 +217,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     setActiveCard(card);
     if (card && !localPlayer.selectedCards.includes(card.id)) {
       localPlayer.selectedCards = [card.id];
-      onPlayerUpdate(localPlayer);
     }
   };
 
@@ -476,12 +467,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
   const handleZoneClick = () => {
     if (isKeyDown.current.get(KeyNames.Shift)) return;
     localPlayer.selectedCards = [];
-    onPlayerUpdate(localPlayer)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveCard(null);
 
     if (!over) return;
 
@@ -498,6 +487,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     selectedIds = [card.id, ...selectedIds.filter(id => id !== card.id)];
     moveCard(targetZone, selectedIds, event);
     onPlayerUpdate(localPlayer)
+    setActiveCard(null);
 
   };
 
@@ -588,10 +578,20 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     onPlayerUpdate(localPlayer);
 
   }
-
   // --- Player Tabs ---
   const allPlayers: Player[] = Object.values(game.players || {});
+  // --- Player selection state ---
+  const [selectedPlayerId, setSelectedPlayerId] = useState(localPlayer.id);
+  const selectedPlayer = allPlayers.find(p => p.id === selectedPlayerId) || localPlayer;
+  const isLocalPlayer = selectedPlayer.id === localPlayer.id;
 
+  // Get cards by zone for selected player, but always use localPlayer.cards if viewing self
+  const selectedAllCards = isLocalPlayer
+    ? Object.values(localPlayer.cards) as CardType[]
+    : Object.values(selectedPlayer.cards) as CardType[];
+  const selectedBattlefieldCards = selectedAllCards.filter((card: CardType) => card.zone === ZoneEnum.battlefield);
+
+  // --- Render ---
   return (
     <>
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
@@ -611,15 +611,16 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
           style={{ position: 'relative' }}
         >
           <Battlefield
-            cards={battlefieldCards}
-            player={localPlayer}
+            cards={selectedBattlefieldCards}
+            player={selectedPlayer}
             activeCardId={activeCard?.id}
-            onCardClick={handleCardClick}
-            onCardDoubleClick={handleCardDoubleClick}
-            onCardCounterClick={handleCardCounterClick}
-            isCardSelected={isCardSelected}
+            onCardClick={isLocalPlayer ? handleCardClick : undefined}
+            onCardDoubleClick={isLocalPlayer ? handleCardDoubleClick : undefined}
+            onCardCounterClick={isLocalPlayer ? handleCardCounterClick : undefined}
+            isCardSelected={isLocalPlayer ? isCardSelected : undefined}
+            isDragging={isLocalPlayer ? !!activeCard : false}
+            isLocalPlayer={isLocalPlayer}
             cardsSelected={handleCardsSelected}
-            isDragging={!!activeCard}
           />
           <div className="gameboard-header" style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '0px 4px', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -637,19 +638,20 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                       color: '#fff',
                       fontWeight: 'bold',
                       cursor: 'pointer',
-                      opacity: player.id === localPlayer.id ? 1 : 0.7,
+                      opacity: player.id === selectedPlayerId ? 1 : 0.7,
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
+                      borderBottom: player.id === selectedPlayerId ? '2px solid #ff9800' : 'none',
                     }}
-                    // onClick: will add selection logic later
+                    onClick={() => setSelectedPlayerId(player.id)}
                   >
                     {player.name}
                     <span style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 8 }}>
                       <FavoriteIcon style={{ fontSize: 16, color: '#ff1744' }} />
                       <span style={{ fontWeight: 'bold', fontSize: 14 }}>{player.lifeTotal ?? 40}</span>
                       <StyleIcon style={{ fontSize: 16, color: '#00bcd4', marginLeft: 8 }} />
-                      <span style={{ fontWeight: 'bold', fontSize: 14 }}>{Object.values(player.cards).filter(card => card.zone === ZoneEnum.hand).length}</span>
+                      <span style={{ fontWeight: 'bold', fontSize: 14 }}>{(Object.values(player.cards) as CardType[]).filter(card => card.zone === ZoneEnum.hand).length}</span>
                     </span>
                     {!player.isActive && (
                       <PowerSettingsNewIcon style={{ fontSize: 18, color: '#ff9800', marginLeft: 4 }} />

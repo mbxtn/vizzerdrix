@@ -16,6 +16,7 @@ interface BattlefieldProps {
   cardsSelected?: (selectedCardIds: string[]) => void;
   onCardCounterClick?: (card: CardType) => void;
   isDragging?: boolean;
+  isLocalPlayer?: boolean;
 }
 
 export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, onCardCounterClick ,isCardSelected, cardsSelected, isDragging }: BattlefieldProps) {
