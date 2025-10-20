@@ -2,8 +2,7 @@ import React, { useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType } from '@vizzerdrix/shared';
 import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
-import { GetCardFace, GetFaces } from '../lib/scryfallUtils';
-import { ScryfallCard, ScryfallLayout, ScryfallCardFace } from '@scryfall/api-types';
+import { GetCardFace } from '../lib/scryfallUtils';
 
 interface CardProps {
   card: CardType;
@@ -69,8 +68,9 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     if (clickTimeout.current) {
       clearTimeout(clickTimeout.current)
       clickTimeout.current = null
-      if (handleDoubleClick)
+      if (handleDoubleClick) {
         handleDoubleClick();
+      }
     } else {
       clickTimeout.current = setTimeout(() => {
         clickTimeout.current = null

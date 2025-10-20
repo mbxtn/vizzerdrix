@@ -17,7 +17,7 @@ import { Card, cardStyles } from './Card';
 import { Settings, settingsStyles } from './Settings';
 import { Card as CardType, Player, Game } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
-import {  ScryfallCache } from '../lib/scryfallCache';
+import { ScryfallCache } from '../lib/scryfallCache';
 import { GetTypeLine } from '../lib/scryfallUtils';
 
 interface GameBoardProps {
@@ -36,6 +36,7 @@ export const KeyNames = {
   ArrowDown: 'ArrowDown',
   Escape: 'Escape',
   F: "f",
+  Space: " ",
   // ...add more as needed
 } as const;
 
@@ -73,10 +74,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   // Function to get the current target(s)
   const getTarget = (): string[] => {
     // If there are cards selected, just use those
-    if(localPlayer.selectedCards.length > 0) return localPlayer.selectedCards;
-    if(currentTarget && currentTarget.type === "card") {
-      if(localPlayer.cards[currentTarget.id]) {
-        return [localPlayer.cards[currentTarget.id].id]
+    if (localPlayer.selectedCards.length > 0) return localPlayer.selectedCards;
+    let mouseTarget = getPointerTarget(pointerPositionRef.current)
+    if (mouseTarget && mouseTarget.type === "card") {
+      if (localPlayer.cards[mouseTarget.id]) {
+        return [localPlayer.cards[mouseTarget.id].id]
       }
     }
     return [];
@@ -90,7 +92,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     const handleKeyUp = (e: KeyboardEvent) => {
       isKeyDown.current.set(e.key, false)
       // Some basic hot key actions.
-      switch(e.key) {
+      switch (e.key) {
         case KeyNames.Escape:
           // Clear card selection if they press escape.
           localPlayer.selectedCards = [];
@@ -98,11 +100,33 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           break;
         case KeyNames.F:
           // try tp flip the current hovered card or 
-          let targets = getTarget();
-          targets.forEach((target: string) => {
-            if(localPlayer.cards[target]) {
-              localPlayer.cards[target].flipped = !localPlayer.cards[target].flipped;
+          let fliptargets = getTarget();
+          let toFlip : boolean | null = null;
+          fliptargets.forEach((target: string) => {
+            if (localPlayer.cards[target]) {
+              // We shouldn't flip cards that can't be flipped
+              if(localPlayer.cards[target].zone !== ZoneEnum.battlefield) {
+                let cardData = ScryfallCache.getInstance().getById(localPlayer.cards[target].scryfallId);
+                if(!cardData || !("card_faces" in cardData)) return;
+              } 
+              if(toFlip === null) {
+                toFlip = !localPlayer.cards[target].flipped;
+              }
+              localPlayer.cards[target].flipped = toFlip;
             }
+          })
+          onPlayerUpdate(localPlayer);
+          break;
+        case KeyNames.Space:
+          let taptargets = getTarget();
+          let toTap : boolean | null = null;
+          taptargets.forEach((target: string) => {
+            if (localPlayer.cards[target]) {
+              if(toTap === null) {
+                toTap = !localPlayer.cards[target].tapped
+              }
+              localPlayer.cards[target].tapped = toTap;
+            } 
           })
           onPlayerUpdate(localPlayer);
           break;
@@ -282,6 +306,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       switch (targetZone) {
         case ZoneEnum.hand: {
           card.tapped = false;
+          card.flipped = false;
           card.zone = targetZone;
           // Determine drop index in hand
           let dropIndex = 0;
@@ -296,6 +321,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         case ZoneEnum.graveyard:
         case ZoneEnum.library: {
           card.tapped = false;
+          card.flipped = false;
           card.zone = targetZone;
           // Find next available index for location.x in the target zone
           const zoneCards = Object.values(localPlayer.cards).filter(c => c.zone === targetZone && c.id !== card.id);
@@ -418,107 +444,97 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     card.zone = zone;
     card.location = location;
     card.tapped = false;
+    card.flipped = false;
   };
 
   // Context menu options logic
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
-  if (localPlayer.selectedCards.length > 1) {
+  let targetCards = getTarget();
+  // List of commands
+  const moveToHand = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+        setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
+        if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+  }
+  const moveToGraveYard = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+        setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+        if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+  }
+  const moveToExile = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+        setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+        if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+  }
+  const moveToTopOfLibrary = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+        setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
+        if (!localPlayer.library.includes(id)) localPlayer.library.unshift(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+  }
+  const moveToBottomOfLibrary = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card) {
+        setCardZone(card, ZoneEnum.library, { x: localPlayer.library.length, y: 0 });
+        if (!localPlayer.library.includes(id)) localPlayer.library.push(id);
+      }
+    });
+    onPlayerUpdate(localPlayer);
+  }
+
+
+  if (targetCards.length > 1) {
     contextMenuOptions = [
       {
-        name: 'Tap all selected cards',
-        action: () => {
-          setTapped(localPlayer.selectedCards, true);
-          onPlayerUpdate(localPlayer);
-        },
-      },
-      {
         name: 'Move to Hand',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
-              if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
+        action: moveToHand,
       },
       {
         name: 'Move to Graveyard',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
-              if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
+        action: moveToGraveYard,
       },
       {
         name: 'Move to Exile',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
-              if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
-      },
-      {
-        name: 'Move to Command',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.command, { x: 0, y: 0 });
-              if (!localPlayer.commandOrder.includes(id)) localPlayer.commandOrder.push(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
+        action: moveToExile,
       },
       {
         name: 'Move to Top of Library',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
-              if (!localPlayer.library.includes(id)) localPlayer.library.unshift(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
+        action: moveToTopOfLibrary,
       },
       {
         name: 'Move to Bottom of Library',
-        action: () => {
-          localPlayer.selectedCards.forEach(id => {
-            const card = localPlayer.cards[id];
-            if (card) {
-              setCardZone(card, ZoneEnum.library, { x: localPlayer.library.length, y: 0 });
-              if (!localPlayer.library.includes(id)) localPlayer.library.push(id);
-            }
-          });
-          onPlayerUpdate(localPlayer);
-        },
+        action: moveToBottomOfLibrary,
       },
     ];
-  } else if (localPlayer.selectedCards.length > 0 || (currentTarget && currentTarget.type === "card")) {
+  } else if (targetCards.length > 0 ) {
     // Either a card is selected, or we have a card we're hovering.
-    const id : string = localPlayer.selectedCards.length > 0 ? localPlayer.selectedCards[0] : currentTarget ? currentTarget.id : "";
+    const id: string = targetCards[0];
     contextMenuOptions = [
       {
         name: `${id}`,
-        action: () => {},
+        action: () => { },
       }
-    ]; 
+    ];
   } else {
     if (currentTarget) {
       if (currentTarget.type == "battlefield") {
