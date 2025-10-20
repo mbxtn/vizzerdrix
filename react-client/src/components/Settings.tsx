@@ -78,6 +78,28 @@ export function Settings({ isOpen, onClose, config, onConfigChange, onCardCreate
     { label: "Game Status", key: "status" },
   ];
 
+  // Dialog state for card creation
+  const [showCardDialog, setShowCardDialog] = useState(false);
+  const [cardNameInput, setCardNameInput] = useState("");
+
+  const handleCreateCardClick = () => {
+    setCardNameInput("");
+    setShowCardDialog(true);
+  };
+
+  const handleCardDialogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cardNameInput.trim()) {
+      onCardCreated(cardNameInput.trim());
+      setShowCardDialog(false);
+      onClose();
+    }
+  };
+
+  const handleCardDialogCancel = () => {
+    setShowCardDialog(false);
+  };
+
   return (
     <div className="settings-overlay">
       <div className="settings-modal">
@@ -175,12 +197,73 @@ export function Settings({ isOpen, onClose, config, onConfigChange, onCardCreate
               <div>
                 <div className="setting-group">
                   <button
-                    onClick={() => onCardCreated("test")}
+                    onClick={handleCreateCardClick}
                     className="create-card-button"
                   >
                     Create a place-holder
                   </button>
                 </div>
+                {showCardDialog && (
+                  <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(0,0,0,0.7)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2000
+                  }}>
+                    <form
+                      onSubmit={handleCardDialogSubmit}
+                      style={{
+                        background: "#222",
+                        padding: 24,
+                        borderRadius: 8,
+                        boxShadow: "0 2px 16px rgba(0,0,0,0.4)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        minWidth: 280
+                      }}
+                    >
+                      <label htmlFor="card-name-input" style={{ color: "#fff" }}>Card Name:</label>
+                      <input
+                        id="card-name-input"
+                        type="text"
+                        value={cardNameInput}
+                        onChange={e => setCardNameInput(e.target.value)}
+                        autoFocus
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 4,
+                          border: "1px solid #555",
+                          fontSize: 16
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button type="button" onClick={handleCardDialogCancel} style={{
+                          background: "#888",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 4,
+                          padding: "6px 16px",
+                          cursor: "pointer"
+                        }}>Cancel</button>
+                        <button type="submit" style={{
+                          background: "#ff9800",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 4,
+                          padding: "6px 16px",
+                          cursor: "pointer"
+                        }}>Create</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
               </div>
             )}
             {activeTab === "status" && (

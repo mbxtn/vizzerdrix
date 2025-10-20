@@ -76,10 +76,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
 
   // Function to get the current target(s)
-  const getTarget = (): string[] => {
+  const getTarget = (position = pointerPositionRef.current): string[] => {
     // If there are cards selected, just use those
     if (localPlayer.selectedCards.length > 0) return localPlayer.selectedCards;
-    let mouseTarget = getPointerTarget(pointerPositionRef.current)
+    let mouseTarget = getPointerTarget(position)
     if (mouseTarget && mouseTarget.type === "card") {
       if (localPlayer.cards[mouseTarget.id]) {
         return [localPlayer.cards[mouseTarget.id].id]
@@ -535,7 +535,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   // Context menu options logic
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
-  let targetCards = getTarget();
+
+  let targetCards = getTarget(contextMenu ? {x: contextMenu.x, y: contextMenu.y} : pointerPositionRef.current);
   // List of commands
   const moveToHand = () => {
     targetCards.forEach(id => {
