@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType } from '@vizzerdrix/shared';
 import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
-import { GetFaces } from '../lib/scryfallUtils';
+import { GetCardFace, GetFaces } from '../lib/scryfallUtils';
 import { ScryfallCard, ScryfallLayout, ScryfallCardFace } from '@scryfall/api-types';
 
 interface CardProps {
@@ -15,6 +15,7 @@ interface CardProps {
   imageUrl?: string;
   isSelected?: boolean;
 }
+
 
 export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, style, imageUrl, isSelected }: CardProps) {
   const {
@@ -30,22 +31,14 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     },
   });
   
-
-  const DoubleSidedSplit = [
-    `${ScryfallLayout.Transform}`,
-    `${ScryfallLayout.ModalDfc}`,
-    `${ScryfallLayout.DoubleFacedToken}`,
-    `${ScryfallLayout.ArtSeries}`,
-  ] as const;
-
   // Scryfall image lookup logic
   const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
   let imgSrc = defaultImage;
   try {
-    const scryFallCard = scryfallCache.getById ? scryfallCache.getById(card.scryfallId) : scryfallCache.get(card.scryfallId);
+    const scryFallCard = scryfallCache.getById(card.scryfallId);
     if (scryFallCard) {
-      const faces = GetFaces(scryFallCard)
-      if(faces.length > 0) imgSrc = faces[0]
+      const face = GetCardFace(scryFallCard, card.flipped)
+      if(face) imgSrc = face;
     }
   } catch (e) {
     // fallback to default image

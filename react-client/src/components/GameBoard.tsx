@@ -17,6 +17,8 @@ import { Card, cardStyles } from './Card';
 import { Settings, settingsStyles } from './Settings';
 import { Card as CardType, Player, Game } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
+import {  ScryfallCache } from '../lib/scryfallCache';
+import { GetTypeLine } from '../lib/scryfallUtils';
 
 interface GameBoardProps {
   game: Game;
@@ -32,7 +34,8 @@ export const KeyNames = {
   Meta: 'Meta',
   ArrowUp: 'ArrowUp',
   ArrowDown: 'ArrowDown',
-  Escape: 'Escape'
+  Escape: 'Escape',
+  F: "f",
   // ...add more as needed
 } as const;
 
@@ -42,7 +45,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   // Context menu handler
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    setContextMenu({ x: e.clientX - 5, y: e.clientY - 5 });
   }, []);
 
   const handleCloseContextMenu = useCallback(() => {
@@ -67,6 +70,19 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   const pointerPositionRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
 
 
+  // Function to get the current target(s)
+  const getTarget = (): string[] => {
+    // If there are cards selected, just use those
+    if(localPlayer.selectedCards.length > 0) return localPlayer.selectedCards;
+    if(currentTarget && currentTarget.type === "card") {
+      if(localPlayer.cards[currentTarget.id]) {
+        return [localPlayer.cards[currentTarget.id].id]
+      }
+    }
+    return [];
+  }
+
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       isKeyDown.current.set(e.key, true)
@@ -74,10 +90,28 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     const handleKeyUp = (e: KeyboardEvent) => {
       isKeyDown.current.set(e.key, false)
       // Some basic hot key actions.
+      switch(e.key) {
+        case KeyNames.Escape:
+          // Clear card selection if they press escape.
+          localPlayer.selectedCards = [];
+          onPlayerUpdate(localPlayer);
+          break;
+        case KeyNames.F:
+          // try tp flip the current hovered card or 
+          let targets = getTarget();
+          targets.forEach((target: string) => {
+            if(localPlayer.cards[target]) {
+              localPlayer.cards[target].flipped = !localPlayer.cards[target].flipped;
+            }
+          })
+          onPlayerUpdate(localPlayer);
+          break;
+        default:
+          console.log(e.key)
+          break;
+      }
       if (e.key == KeyNames.Escape) {
-        // Clear card selection if they press escape.
-        localPlayer.selectedCards = [];
-        onPlayerUpdate(localPlayer);
+
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -147,10 +181,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
   }
 
-  const getPointerTarget = (pointer: { x: number; y: number }) : {type: string, id: string} | null => {
+  const getPointerTarget = (pointer: { x: number; y: number }): { type: string, id: string } | null => {
     // Check for card under pointer
     const cardElements = document.querySelectorAll<HTMLElement>('.card');
-    let found : {type: string, id: string} | null = null;
+    let found: { type: string, id: string } | null = null;
     cardElements.forEach((cardEl: HTMLElement) => {
       const rect = cardEl.getBoundingClientRect();
       if (
@@ -159,12 +193,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         pointer.y >= rect.top &&
         pointer.y <= rect.bottom
       ) {
-        console.log("over a card");
-        found = { type: 'card', id: cardEl.id };
+        found = { type: 'card', id: cardEl.id.replace("card-", "") };
       }
     });
 
-    if(found) return found;
+    if (found) return found;
 
     // Check for zone under pointer
     const zoneElements = document.querySelectorAll<HTMLElement>('.zone');
@@ -176,20 +209,26 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         pointer.y >= rect.top &&
         pointer.y <= rect.bottom
       ) {
-        console.log("over a zone");
         found = { type: 'zone', id: zoneEl.id };
       }
     });
+
+    const battleFieldEl = document.querySelector<HTMLElement>('.battlefield');
+    if (battleFieldEl) {
+      const rect = battleFieldEl.getBoundingClientRect();
+      if (
+        pointer.x >= rect.left &&
+        pointer.x <= rect.right &&
+        pointer.y >= rect.top &&
+        pointer.y <= rect.bottom
+      ) {
+        found = { type: 'battlefield', id: "battlefield" };
+      }
+    }
     return found; // Not over any card or zone
   }
 
   const currentTarget = getPointerTarget(pointerPositionRef.current);
-  if (currentTarget) {
-    console.log(`current target is ${currentTarget}`)
-  } else {
-    console.log("Ain't over shit?")
-  }
-
 
   const getHandDropIndex = (pointerX: number, handCardIds: string[]) => {
     // Each card in the hand should have an element with a predictable id or class, e.g. `hand-card-${cardId}`
@@ -383,13 +422,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
   // Context menu options logic
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
-  if (localPlayer.selectedCards.length > 0) {
+  if (localPlayer.selectedCards.length > 1) {
     contextMenuOptions = [
-      {
-        name: `${currentTarget?.id}`,
-        action: () =>{}
-
-      },
       {
         name: 'Tap all selected cards',
         action: () => {
@@ -476,6 +510,71 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         },
       },
     ];
+  } else if (localPlayer.selectedCards.length > 0 || (currentTarget && currentTarget.type === "card")) {
+    // Either a card is selected, or we have a card we're hovering.
+    const id : string = localPlayer.selectedCards.length > 0 ? localPlayer.selectedCards[0] : currentTarget ? currentTarget.id : "";
+    contextMenuOptions = [
+      {
+        name: `${id}`,
+        action: () => {},
+      }
+    ]; 
+  } else {
+    if (currentTarget) {
+      if (currentTarget.type == "battlefield") {
+        contextMenuOptions = [
+          {
+            name: "Move all non-land cards to hand",
+            action: () => {
+              battlefieldCards.forEach((card: CardType) => {
+                let cache = ScryfallCache.getInstance();
+                let data = cache.getById(card.scryfallId);
+                // If we can't get scryfall data just leave it for now...
+                if (!data) return;
+                const typeline = GetTypeLine(data, card.flipped);
+                console.log(`typeline ${typeline}`)
+                if (!typeline.includes("Land")) {
+                  setCardZone(card, ZoneEnum.hand, { x: 0, y: 0 });
+                  if (!localPlayer.handOrder.includes(card.id)) localPlayer.handOrder.push(card.id);
+                }
+              });
+            }
+          },
+          {
+            name: "Move all non-land cards to graveyard",
+            action: () => {
+              battlefieldCards.forEach((card: CardType) => {
+                let cache = ScryfallCache.getInstance();
+                let data = cache.getById(card.scryfallId);
+                // If we can't get scryfall data just leave it for now...
+                if (!data) return;
+                const typeline = GetTypeLine(data, card.flipped);
+                console.log(`${data.name} typeline ${typeline}`)
+                if (!typeline.includes("Land")) {
+                  setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+                }
+              });
+            }
+          },
+          {
+            name: "Move all non-land cards to exile",
+            action: () => {
+              battlefieldCards.forEach((card: CardType) => {
+                let cache = ScryfallCache.getInstance();
+                let data = cache.getById(card.scryfallId);
+                // If we can't get scryfall data just leave it for now...
+                if (!data) return;
+                const typeline = GetTypeLine(data, card.flipped);
+                console.log(`typeline ${typeline}`)
+                if (!typeline.includes("Land")) {
+                  setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+                }
+              });
+            }
+          },
+        ];
+      }
+    }
   }
 
   return (

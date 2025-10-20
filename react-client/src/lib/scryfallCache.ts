@@ -31,7 +31,7 @@ export interface CacheStats {
 
 export class ScryfallCache {
     private static instance: ScryfallCache;
-    
+
     private _cacheIndex: CacheIndex = { byName: {}, byId: {} };
     private readonly _cacheVersion: string = '2.0'; // Updated version for new schema
     private readonly _isBrowser: boolean = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -58,7 +58,7 @@ export class ScryfallCache {
         try {
             const savedCache = localStorage.getItem('scryfallCache');
             const savedVersion = localStorage.getItem('scryfallCacheVersion');
-            
+
             // Check version and migrate if needed
             if (savedVersion === this._cacheVersion) {
                 // Load new format
@@ -69,7 +69,7 @@ export class ScryfallCache {
                 console.log('Cache version mismatch or new install, starting fresh');
                 this._clearLocalStorage();
             }
-            
+
             console.log(`Loaded ${Object.keys(this._cacheIndex.byId).length} cards from cache`);
         } catch (error) {
             console.error('Error loading cache from localStorage:', error);
@@ -101,7 +101,7 @@ export class ScryfallCache {
         if (!this._isBrowser) {
             return; // Skip in Node.js environment
         }
-        
+
         localStorage.removeItem('scryfallCache');
         localStorage.removeItem('scryfallCacheVersion');
     }
@@ -115,7 +115,7 @@ export class ScryfallCache {
             cacheEntries.sort((a, b) => b.cachedAt - a.cachedAt);
             const entriesToKeep = cacheEntries.slice(0, 500);
             const idsToKeep = new Set(entriesToKeep.map(entry => entry.scryfallId));
-            
+
             // Rebuild index with only entries to keep
             const newIndex: CacheIndex = { byName: {}, byId: {} };
             entriesToKeep.forEach(entry => {
@@ -124,7 +124,7 @@ export class ScryfallCache {
                     newIndex.byName[key] = entry.scryfallId;
                 });
             });
-            
+
             this._cacheIndex = newIndex;
             this._saveCache();
         }
@@ -141,7 +141,7 @@ export class ScryfallCache {
 
     private _extractSearchKeys(card: ScryfallCard.Any, additionalKeys: string[] = []): string[] {
         const searchKeys = [card.name, ...additionalKeys];
-        
+
         // Add face names for multi-faced cards
         if (this._isMultiFaced(card)) {
             card.card_faces.forEach(face => {
@@ -150,7 +150,7 @@ export class ScryfallCache {
                 }
             });
         }
-        
+
         return [...new Set(searchKeys)]; // Remove duplicates
     }
 
@@ -162,7 +162,7 @@ export class ScryfallCache {
             searchKeys: [...new Set(searchKeys)], // Remove duplicates
             cachedAt: Date.now()
         };
-        
+
         // Store in index
         this._cacheIndex.byId[scryfallData.id] = cacheEntry;
         searchKeys.forEach(key => {
@@ -211,12 +211,12 @@ export class ScryfallCache {
         return null;
     }
 
-    public async load(cardNames: string[], progressCallback: ((loaded: number, total: number, currentCard: string) => void) | null = null, isIds : boolean = false): Promise<void> {
+    public async load(cardNames: string[], progressCallback: ((loaded: number, total: number, currentCard: string) => void) | null = null, isIds: boolean = false): Promise<void> {
         // Initialize cache from localStorage if not already done
         if (Object.keys(this._cacheIndex.byId).length === 0) {
             this._initCache();
         }
-        
+
         const uniqueNames = Array.from(new Set(cardNames)).filter(name => {
             if (typeof name !== 'string') {
                 console.warn('Invalid card name/ID passed to ScryfallCache.load:', name);
@@ -224,7 +224,7 @@ export class ScryfallCache {
             }
             return true;
         });
-        
+
         // Filter out cards that are already cached
         // For IDs, check if the ID exists in byId index; for names, use the existing name lookup
         const uncachedNames = uniqueNames.filter(nameOrId => {
@@ -234,12 +234,12 @@ export class ScryfallCache {
                 return !this._isCardCached(nameOrId);
             }
         });
-        
+
         const totalCards = uncachedNames.length;
         let loadedCards = 0;
-        
+
         console.log(`Cache status: ${uniqueNames.length - uncachedNames.length} cached, ${uncachedNames.length} need loading`);
-        
+
         // If we have a progress callback and uncached cards, report initial progress
         if (progressCallback && totalCards > 0) {
             progressCallback(0, totalCards, 'Starting...');
@@ -248,26 +248,26 @@ export class ScryfallCache {
             progressCallback(uniqueNames.length, uniqueNames.length, `All ${uniqueNames.length} cards already loaded from cache`);
             return; // Exit early since no work needed
         }
-        
+
         // Load cards in small batches for better performance
         const batchSize = 3; // Load 3 cards concurrently
         const batches = [];
         for (let i = 0; i < uncachedNames.length; i += batchSize) {
             batches.push(uncachedNames.slice(i, i + batchSize));
         }
-        
+
         for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
             const batch = batches[batchIndex];
-            
+
             // Load all cards in this batch concurrently
             const batchPromises = batch.map(async (nameOrId) => {
                 // Double-check cache to avoid race conditions
                 if (isIds && this._cacheIndex.byId[nameOrId]) return nameOrId;
                 if (!isIds && this._isCardCached(nameOrId)) return nameOrId;
-                
+
                 try {
                     let data = null;
-                    
+
                     if (isIds) {
                         // Load by Scryfall ID directly - much simpler and faster
                         const resp = await fetch(`https://api.scryfall.com/cards/${nameOrId}`);
@@ -275,10 +275,10 @@ export class ScryfallCache {
                             throw new Error(`Scryfall fetch failed for ID ${nameOrId}: ${resp.status}`);
                         }
                         data = await resp.json();
-                        
+
                         // For ID-based loading, use the card name and ID as search keys
                         const searchKeys = [data.name, nameOrId];
-                        
+
                         // Add face names for multi-faced cards
                         if (this._isMultiFaced(data)) {
                             data.card_faces.forEach((face: any) => {
@@ -287,28 +287,28 @@ export class ScryfallCache {
                                 }
                             });
                         }
-                        
+
                         this._addToCache(data, searchKeys);
-                        
+
                     } else {
                         // Original name-based loading logic
                         let setRegex = /\(.*\)/g
                         const setMatch = nameOrId.match(setRegex);
                         let finalName = nameOrId;
                         let setCode = null;
-                        if(setMatch) {
-                            setCode = setMatch[0].replace(/\(|\)/g,"");
+                        if (setMatch) {
+                            setCode = setMatch[0].replace(/\(|\)/g, "");
                             finalName = nameOrId.split(setRegex)[0];
                         }
 
                         // First try exact match
                         let resp: Response;
-                        if(setCode) {
+                        if (setCode) {
                             resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(finalName)}&set=${encodeURIComponent(setCode)}`);
                         } else {
                             resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(finalName)}`);
                         }
-                        
+
                         if (!resp.ok) {
                             // If exact match fails, try fuzzy search for potential double-faced cards or adventure cards
                             const fuzzyResp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(nameOrId)}`);
@@ -316,7 +316,7 @@ export class ScryfallCache {
                                 const fuzzyData = await fuzzyResp.json();
                                 // Check if this is a multi-faced card and our search term matches one face
                                 if (this._isMultiFaced(fuzzyData)) {
-                                    const matchesFace = fuzzyData.card_faces.some((face: any) => 
+                                    const matchesFace = fuzzyData.card_faces.some((face: any) =>
                                         face.name.toLowerCase().includes(nameOrId.toLowerCase()) ||
                                         nameOrId.toLowerCase().includes(face.name.toLowerCase())
                                     );
@@ -325,30 +325,30 @@ export class ScryfallCache {
                                         finalName = fuzzyData.name; // Use the full card name
                                     }
                                 } else if (fuzzyData.name.toLowerCase().includes(nameOrId.toLowerCase()) ||
-                                          nameOrId.toLowerCase().includes(fuzzyData.name.toLowerCase())) {
+                                    nameOrId.toLowerCase().includes(fuzzyData.name.toLowerCase())) {
                                     // Also accept close matches for single-faced cards
                                     data = fuzzyData;
                                     finalName = fuzzyData.name;
                                 }
                             }
                         }
-                        
+
                         if (!data) {
                             if (!resp.ok) throw new Error(`Scryfall fetch failed for ${nameOrId}`);
                             data = await resp.json();
                         }
-                        
+
                         // Build search keys using our helper
                         const additionalKeys = [nameOrId];
                         if (finalName !== nameOrId && finalName !== data.name) {
                             additionalKeys.push(finalName);
                         }
                         const searchKeys = this._extractSearchKeys(data, additionalKeys);
-                        
+
                         // Add to cache with all search keys
                         this._addToCache(data, searchKeys);
                     }
-                    
+
                     return nameOrId;
                 } catch (err) {
                     console.error(`Scryfall error for ${isIds ? 'ID' : 'name'}:`, nameOrId, err);
@@ -362,10 +362,10 @@ export class ScryfallCache {
                     return nameOrId;
                 }
             });
-            
+
             // Wait for all cards in this batch to complete
             const completedCards = await Promise.all(batchPromises);
-            
+
             // Update progress for all completed cards in this batch
             completedCards.forEach(nameOrId => {
                 if (nameOrId) {
@@ -375,18 +375,18 @@ export class ScryfallCache {
                     }
                 }
             });
-            
+
             // Wait 25ms between batches (not between individual cards)
             if (batchIndex < batches.length - 1) {
                 await new Promise(res => setTimeout(res, 25));
             }
         }
-        
+
         // Save cache once at the end (more efficient than incremental saving)
         if (totalCards > 0) {
             this._saveCache();
         }
-        
+
         // If we had cached cards, report final progress including them
         if (progressCallback && uniqueNames.length > totalCards) {
             const cachedCount = uniqueNames.length - totalCards;
@@ -408,7 +408,7 @@ export class ScryfallCache {
         if (forceDefault) {
             return './cardback.png';
         }
-        
+
         // Check if this card has multiple faces and get the back face image from card data
         const cardData = this._getCardByKey(name);
         if (cardData && this._isDoubleSided(cardData)) {
@@ -423,7 +423,7 @@ export class ScryfallCache {
             // Fallback to API URL if image_uris not available
             return `https://api.scryfall.com/cards/${cardData.id}?format=image&face=back&version=normal`;
         }
-        
+
         // Default to our local card back image for single-faced cards
         return './cardback.png';
     }
@@ -450,7 +450,7 @@ export class ScryfallCache {
     public getCacheStats(): CacheStats {
         const entries = Object.values(this._cacheIndex.byId);
         const timestamps = entries.map(entry => entry.cachedAt).filter(ts => ts);
-        
+
         return {
             totalCards: entries.length,
             totalBackImages: 0, // No longer tracking back images separately
@@ -474,13 +474,13 @@ export class ScryfallCache {
         if (cachedCard) {
             return cachedCard.name; // Return the official full name
         }
-        
+
         // If not found, look through all cached cards for partial matches
         for (const entry of Object.values(this._cacheIndex.byId)) {
             const cardData = entry.scryfallData;
             if (cardData && this._isMultiFaced(cardData)) {
                 // Check if any face matches our search term (works for both DFCs and adventure cards)
-                const matchesFace = cardData.card_faces.some((face: any) => 
+                const matchesFace = cardData.card_faces.some((face: any) =>
                     face.name.toLowerCase() === searchName.toLowerCase() ||
                     face.name.toLowerCase().includes(searchName.toLowerCase()) ||
                     searchName.toLowerCase().includes(face.name.toLowerCase())
@@ -490,7 +490,7 @@ export class ScryfallCache {
                 }
             }
         }
-        
+
         return searchName; // Return original if no match found
     }
 
@@ -526,30 +526,30 @@ export class ScryfallCache {
         // URI format: https://api.scryfall.com/cards/{id}
         const cardId = cardUri.split('/').pop();
         if (!cardId) return null;
-        
+
         console.log(`Loading card by ID: ${cardId} (name: ${cardName || 'unknown'})`);
-        
+
         // Check if we already have this card cached by ID
         if (this._cacheIndex.byId[cardId]) {
             console.log(`Card with ID ${cardId} already cached`);
             return this._cacheIndex.byId[cardId].scryfallData;
         }
-        
+
         try {
             // Fetch the card by ID directly
             const resp = await fetch(`https://api.scryfall.com/cards/${cardId}`);
             if (!resp.ok) {
                 throw new Error(`Scryfall fetch failed for ID ${cardId}: ${resp.status}`);
             }
-            
+
             const data = await resp.json();
-            
+
             // Build search keys
             const searchKeys = [data.name];
             if (cardName && cardName !== data.name) {
                 searchKeys.push(cardName);
             }
-            
+
             // Add face names for multi-faced cards
             if (this._isMultiFaced(data)) {
                 data.card_faces.forEach((face: any) => {
@@ -558,15 +558,15 @@ export class ScryfallCache {
                     }
                 });
             }
-            
+
             // Add to cache
             this._addToCache(data, searchKeys);
-            
+
             console.log(`Successfully loaded and cached card: ${data.name} (ID: ${cardId})`);
-            
+
             // Save cache
             this._saveCache();
-            
+
             return data;
         } catch (error) {
             console.error('Error loading card by ID:', cardId, error);
@@ -587,12 +587,12 @@ export class ScryfallCache {
             if (!resp.ok) {
                 throw new Error(`Scryfall fetch failed for ID ${scryfallId}: ${resp.status}`);
             }
-            
+
             const data = await resp.json();
-            
+
             // Build search keys
             const searchKeys = [data.name];
-            
+
             // Add face names for multi-faced cards
             if (this._isMultiFaced(data)) {
                 data.card_faces.forEach((face: any) => {
@@ -601,13 +601,13 @@ export class ScryfallCache {
                     }
                 });
             }
-            
+
             // Add to cache
             this._addToCache(data, searchKeys);
-            
+
             // Save cache
             this._saveCache();
-            
+
             return data;
         } catch (error) {
             console.error('Error loading card by Scryfall ID:', scryfallId, error);
