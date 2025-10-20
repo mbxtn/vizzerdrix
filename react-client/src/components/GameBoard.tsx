@@ -431,15 +431,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   return (
     <>
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
-
-      <button
-        className="settings-button"
-        onClick={() => setShowSettings(true)}
-        title="UI Settings"
-      >
-        ⚙️
-      </button>
-
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -465,7 +456,16 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             cardsSelected={handleCardsSelected}
             isDragging={!!activeCard}
           />
-
+          <div className="gameboard-header">
+            <h3>{game.roomName}</h3>
+            <button
+              className="settings-button"
+              onClick={() => setShowSettings(true)}
+              title="UI Settings"
+            >
+              ⚙️
+            </button>
+          </div>
           <div className="bottom-zones">
             {/* Calculate max width for hand zone based on card width and window width */}
             <Zone
@@ -588,13 +588,11 @@ const gameBoardStyles = `
   }
   
   .settings-button {
-    position: fixed;
     top: 10px;
     left: 10px;
     background: rgba(0, 0, 0, 0.8);
     border: 1px solid #444;
     color: white;
-    padding: 8px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
@@ -638,5 +636,19 @@ const gameBoardStyles = `
   min-width: 0;
   max-width: 50vw;
   overflow: hidden;
+  }
+
+  .gameboard-header {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .gameboard-header h3 {
+    margin: 0;
+    font-size: 14px;
   }
 `;

@@ -41,10 +41,8 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    console.log("we not fucking shit up?")
     e.stopPropagation()
     if (!selectionStartRef.current) return;
-    console.log("we fucking shit up?")
     // Select cards inside selectionBox
     if (selectionBox && cardsSelected) {
       // Get battlefield-area bounding rect for offset
@@ -98,9 +96,6 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
         e.stopPropagation()
       }} 
     >
-      <div className="battlefield-header">
-        <h3>Battlefield</h3>
-      </div>
       <div className="battlefield-area" style={{ position: 'relative' }}>
         {[...cards]
           .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
@@ -150,20 +145,6 @@ export const battlefieldStyles = `
     border-radius: 8px;
     transition: border-color 0.2s ease;
     overflow: hidden;
-  }
-
-  .battlefield-header {
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 8px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .battlefield-header h3 {
-    margin: 0;
-    font-size: 14px;
   }
 
   .battlefield-area {

@@ -94,20 +94,6 @@ export function App() {
   if (showGame && currentPlayer) {
     return (
       <div>
-        <div style={{
-          position: 'fixed',
-          top: 10,
-          right: 10,
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '10px',
-          borderRadius: '4px',
-          zIndex: 1000,
-          maxWidth: '300px',
-          maxHeight: '400px',
-          overflow: 'auto'
-        }}>
-        </div>
         <GameBoard
           game={gameState!!}
           localPlayer={currentPlayer}
