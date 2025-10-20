@@ -37,7 +37,7 @@ export function getStackCardDimensions(mainCardWidth: number) {
 // Helper function to calculate zone height based on card height
 export function getZoneHeight(cardHeight: number): number {
   // Zone height should be card height + padding for header and content spacing
-  return cardHeight + 62; // 32px for header + 30px for padding and spacing
+  return cardHeight + 32; // 32px for header + 30px for padding and spacing
 }
 
 // CSS variable generator

@@ -522,7 +522,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               onZoneClick={handleZoneClick}
             />
             <Zone
-              zoneName="Command"
+              zoneName="Cmd"
               zoneId="command"
               zoneType={ZoneEnum.command}
               cards={commandCards}

@@ -45,8 +45,8 @@ export function Settings({ isOpen, onClose, config, onConfigChange }: SettingsPr
               onChange={(e) => handleCardWidthChange(parseInt(e.target.value))}
             />
             <div className="setting-description">
-              Card Height: {config.card.height}px (auto-calculated)<br/>
-              Zone Height: {calculatedZoneHeight}px (auto-calculated)
+              Card Height: {config.card.height}px<br/>
+              Zone Height: {calculatedZoneHeight}px
             </div>
           </div>
 
