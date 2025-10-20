@@ -19,6 +19,7 @@ interface ZoneProps {
   style?: React.CSSProperties;
   isCardSelected?: (cardId: string) => boolean;
   isDragging?: boolean;
+  isLocal: boolean;
 }
 
 export function Zone({ 
@@ -35,6 +36,7 @@ export function Zone({
   style,
   isCardSelected,
   isDragging = false,
+  isLocal = false,
 }: ZoneProps) {
   // Local order array for this zone
   // Use order from props if provided, else default to cards order
@@ -129,6 +131,7 @@ export function Zone({
                       handleSingleClick={() => onCardClick?.(card)}
                       handleDoubleClick={() => onCardDoubleClick?.(card)}
                       isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
+                      isLocal={isLocal}
                     />
                   </div>
                 ))

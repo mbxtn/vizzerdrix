@@ -689,6 +689,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                 flex: '1 1 0',
                 overflow: 'hidden',
               }}
+              isLocal={true}
             />
             <Zone
               zoneName="Library"
@@ -701,6 +702,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
+              isLocal={isLocalPlayer}
+
             />
             <Zone
               zoneName="Graveyard"
@@ -713,6 +716,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
+              isLocal={isLocalPlayer}
+
             />
             <Zone
               zoneName="Exile"
@@ -725,6 +730,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
+              isLocal={isLocalPlayer}
+
             />
             <Zone
               zoneName="Cmd"
@@ -737,6 +744,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
+              isLocal={isLocalPlayer}
+
             />
           </div>
 
@@ -783,46 +792,68 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       </DndContext>
 
       {/* Card Magnifier Preview */}
-      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && localPlayer.cards[currentTarget.id] && localPlayer.cards[currentTarget.id].scryfallId != '' && (
-        (() => {
-          const hoverCard = localPlayer.cards[currentTarget.id];
-          const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
-          const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped) : '';
-          return (
-            <div
+      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && localPlayer.cards[currentTarget.id] && localPlayer.cards[currentTarget.id].scryfallId != '' && (() => {
+        // Don't show magnifier if the hovered card is under the magnifier area
+        const hoverCard = localPlayer.cards[currentTarget.id];
+        const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
+        const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped) : '';
+        // Magnifier area
+        const magnifierTop = 16;
+        const magnifierRight = 16;
+        const magnifierWidth = uiConfig.card.magnifyWidth;
+        const magnifierHeight = Math.round(uiConfig.card.magnifyWidth / uiConfig.card.aspectRatio);
+        // Get card element position
+        const cardEl = document.getElementById(`card-${hoverCard.id}`);
+        if (cardEl) {
+          const rect = cardEl.getBoundingClientRect();
+          const windowWidth = window.innerWidth;
+          // Magnifier left/top
+          const magnifierLeft = windowWidth - magnifierRight - magnifierWidth;
+          const magnifierBottom = magnifierTop + magnifierHeight;
+          // If card overlaps magnifier area, don't show
+          if (
+            rect.right > magnifierLeft &&
+            rect.left < windowWidth - magnifierRight &&
+            rect.bottom > magnifierTop &&
+            rect.top < magnifierBottom
+          ) {
+            return null;
+          }
+        }
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: magnifierTop,
+              right: magnifierRight,
+              zIndex: 9999,
+              background: 'rgba(30,30,30,0.95)',
+              border: '2px solid #444',
+              borderRadius: 8,
+              padding: 8,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              minWidth: magnifierWidth,
+              maxWidth: magnifierWidth,
+            }}
+          >
+            <img
+              src={imgSrc}
+              alt={hoverCard.cardName}
               style={{
-                position: 'fixed',
-                top: 16,
-                right: 16,
-                zIndex: 9999,
-                background: 'rgba(30,30,30,0.95)',
-                border: '2px solid #444',
-                borderRadius: 8,
-                padding: 8,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: uiConfig.card.magnifyWidth,
-                maxWidth: uiConfig.card.magnifyWidth,
+                width: magnifierWidth,
+                height: magnifierHeight,
+                objectFit: 'contain',
+                borderRadius: 6,
+                boxShadow: '0 1px 8px rgba(0,0,0,0.4)',
+                background: '#222',
               }}
-            >
-              <img
-                src={imgSrc}
-                alt={hoverCard.cardName}
-                style={{
-                  width: uiConfig.card.magnifyWidth,
-                  height: Math.round(uiConfig.card.magnifyWidth / uiConfig.card.aspectRatio),
-                  objectFit: 'contain',
-                  borderRadius: 6,
-                  boxShadow: '0 1px 8px rgba(0,0,0,0.4)',
-                  background: '#222',
-                }}
-              />
-            </div>
-          );
-        })()
-      )}
+            />
+          </div>
+        );
+      })()}
 
       <Settings
         isOpen={showSettings}
