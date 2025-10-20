@@ -101,15 +101,15 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         case KeyNames.F:
           // try tp flip the current hovered card or 
           let fliptargets = getTarget();
-          let toFlip : boolean | null = null;
+          let toFlip: boolean | null = null;
           fliptargets.forEach((target: string) => {
             if (localPlayer.cards[target]) {
               // We shouldn't flip cards that can't be flipped
-              if(localPlayer.cards[target].zone !== ZoneEnum.battlefield) {
+              if (localPlayer.cards[target].zone !== ZoneEnum.battlefield) {
                 let cardData = ScryfallCache.getInstance().getById(localPlayer.cards[target].scryfallId);
-                if(!cardData || !("card_faces" in cardData)) return;
-              } 
-              if(toFlip === null) {
+                if (!cardData || !("card_faces" in cardData)) return;
+              }
+              if (toFlip === null) {
                 toFlip = !localPlayer.cards[target].flipped;
               }
               localPlayer.cards[target].flipped = toFlip;
@@ -119,14 +119,14 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           break;
         case KeyNames.Space:
           let taptargets = getTarget();
-          let toTap : boolean | null = null;
+          let toTap: boolean | null = null;
           taptargets.forEach((target: string) => {
             if (localPlayer.cards[target]) {
-              if(toTap === null) {
+              if (toTap === null) {
                 toTap = !localPlayer.cards[target].tapped
               }
               localPlayer.cards[target].tapped = toTap;
-            } 
+            }
           })
           onPlayerUpdate(localPlayer);
           break;
@@ -169,7 +169,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
   // Debug logging
   console.log('GameBoard - Total cards:', allCards.length);
-  console.log('GameBoard - Hand cards:', handCards.length, handCards);
+  console.log('GameBoard - Hand cards:', handCards.length, handCards, localPlayer.handOrder);
   console.log('GameBoard - Battlefield cards:', battlefieldCards.length, battlefieldCards);
   console.log('GameBoard - All cards with zones:', allCards.map(c => ({ cardName: c.cardName, zone: c.zone })));
 
@@ -187,21 +187,68 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     const zone = event.over?.data.current?.type as ZoneEnum | undefined;
     setHoveredZone(zone ?? null);
   };
-  // -1 for index indicates removal
-  const getOrder = (zone: ZoneEnum) => {
+
+  const removeFromOrder = (card: CardType) => {
+    let zone = card.zone;
+    let id = card.id;
+    let orderIndex = -1;
     switch (zone) {
       case ZoneEnum.hand:
-        return localPlayer.handOrder;
+        orderIndex = localPlayer.handOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
       case ZoneEnum.command:
-        return localPlayer.commandOrder;
+        orderIndex = localPlayer.commandOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
       case ZoneEnum.exile:
-        return localPlayer.exileOrder;
+        orderIndex = localPlayer.exileOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
       case ZoneEnum.graveyard:
-        return localPlayer.graveyardOrder;
+        orderIndex = localPlayer.graveyardOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
       case ZoneEnum.library:
-        return localPlayer.library;
+        orderIndex = localPlayer.libraryOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
       default:
-        return [];
+        break;
+    }
+  }
+
+  const addToOrder = (card: CardType, index = -1) => {
+    let zone = card.zone;
+    let id = card.id;
+    switch (zone) {
+      case ZoneEnum.hand:
+        localPlayer.handOrder.splice(index > -1 ? index : localPlayer.handOrder.length - 1, 0, id);
+        break;
+      case ZoneEnum.command:
+        localPlayer.commandOrder.splice(index > -1 ? index : localPlayer.commandOrder.length - 1, 0, id);
+        break;
+      case ZoneEnum.exile:
+        localPlayer.exileOrder.splice(index > -1 ? index : localPlayer.exileOrder.length - 1, 0, id);
+        break;
+      case ZoneEnum.graveyard:
+        localPlayer.graveyardOrder.splice(index > -1 ? index : localPlayer.graveyardOrder.length - 1, 0, id);
+        break;
+      case ZoneEnum.library:
+        localPlayer.libraryOrder.splice(index > -1 ? index : localPlayer.libraryOrder.length - 1, 0, id);
+        break;
+      default:
+        break;
     }
   }
 
@@ -251,7 +298,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
     return found; // Not over any card or zone
   }
-
+  // A little dangerous to use this, if in doubt since it doesn't update all the time.
+  // This is only updated when the page "re-renders" via react, so don't count on it being fresh, 
+  // essentially a property has to change for this to get updated. use getPointerTarget for a
+  // more fresh result (e.g. where the mouse is hovering, without clicking)
   const currentTarget = getPointerTarget(pointerPositionRef.current);
 
   const getHandDropIndex = (pointerX: number, handCardIds: string[]) => {
@@ -295,18 +345,13 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       console.log("index is " + index)
       const card = localPlayer.cards[id]
       if (!card) return;
-      var cardOrder = getOrder(card.zone);
-      if (cardOrder) {
-        const orderIndex = getOrder(card.zone).indexOf(id);
-        if (orderIndex > -1) {
-          getOrder(card.zone).splice(orderIndex, 1);
-        }
-      }
+      removeFromOrder(card)
       // Card is changing zones, do stuff
       switch (targetZone) {
         case ZoneEnum.hand: {
           card.tapped = false;
           card.flipped = false;
+          card.counters = 0;
           card.zone = targetZone;
           // Determine drop index in hand
           let dropIndex = 0;
@@ -320,6 +365,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         case ZoneEnum.exile:
         case ZoneEnum.graveyard:
         case ZoneEnum.library: {
+          localPlayer.selectedCards = [];
+          card.counters = 0;
           card.tapped = false;
           card.flipped = false;
           card.zone = targetZone;
@@ -428,9 +475,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   };
 
   const handleCardCounterClick = (card: CardType) => {
-    if(isKeyDown.current.get(KeyNames.Shift) || isKeyDown.current.get(KeyNames.Control))
+    if (isKeyDown.current.get(KeyNames.Shift) || isKeyDown.current.get(KeyNames.Control))
       card.counters--;
-    else 
+    else
       card.counters++;
     onPlayerUpdate(localPlayer);
   }
@@ -513,8 +560,17 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   const addCountersToCards = () => {
     targetCards.forEach(id => {
       const card = localPlayer.cards[id];
-      if(card && card.zone === ZoneEnum.battlefield) {
+      if (card && card.zone === ZoneEnum.battlefield) {
         card.counters++;
+      }
+    })
+  }
+
+  const removeCountersFromCards = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if (card && card.zone === ZoneEnum.battlefield) {
+        card.counters--;
       }
     })
   }
@@ -549,16 +605,26 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         name: 'Move to Bottom of Library',
         action: moveToBottomOfLibrary,
       },
-      { name: "Add counter to Cards",
+      {
+        name: "Add counter to Cards",
         action: addCountersToCards,
+      },
+      {
+        name: "Remove counter from Cards",
+        action: removeCountersFromCards,
       }
     ];
-  } else if (targetCards.length > 0 ) {
+  } else if (targetCards.length > 0) {
     // Either a card is selected, or we have a card we're hovering.
     const id: string = targetCards[0];
     contextMenuOptions = [
-      { name: "Add counter to Card",
+      {
+        name: "Add counter to Card",
         action: addCountersToCards,
+      },
+      {
+        name: "Remove counter from Card",
+        action: removeCountersFromCards,
       },
       {
         name: "Create a copy of Card",
@@ -689,6 +755,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="library"
               zoneType={ZoneEnum.library}
               cards={libraryCards}
+              order={localPlayer.libraryOrder}
               activeCardId={activeCard?.id}
               displayMode="stack"
               onCardClick={handleCardClick}
@@ -700,6 +767,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="graveyard"
               zoneType={ZoneEnum.graveyard}
               cards={graveyardCards}
+              order={localPlayer.graveyardOrder}
               activeCardId={activeCard?.id}
               displayMode="top-card"
               onCardClick={handleCardClick}
@@ -711,6 +779,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="exile"
               zoneType={ZoneEnum.exile}
               cards={exileCards}
+              order={localPlayer.exileOrder}
               activeCardId={activeCard?.id}
               displayMode="top-card"
               onCardClick={handleCardClick}
@@ -722,6 +791,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
               zoneId="command"
               zoneType={ZoneEnum.command}
               cards={commandCards}
+              order={localPlayer.commandOrder}
               activeCardId={activeCard?.id}
               displayMode="top-card"
               onCardClick={handleCardClick}

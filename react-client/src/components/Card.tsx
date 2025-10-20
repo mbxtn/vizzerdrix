@@ -117,7 +117,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
             transform: isTapped ? 'rotate(90deg)' : undefined,
           }}
         />
-        {card.counters > 0 && (
+        {card.counters !== 0 && (
           <div className="counters"
           onClick = {(e : React.MouseEvent<HTMLDivElement>) => {
             e.stopPropagation();
@@ -194,16 +194,15 @@ export const cardStyles = `
 
   .counters {
     position: absolute;
-   
-    background: #ff4444;
+    background: black;
     color: white;
     border-radius: 5%;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: bold;
   }
 `;

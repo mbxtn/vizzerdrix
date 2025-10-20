@@ -96,6 +96,7 @@ export class Player {
         library.forEach(
             (card) => {
                 this.cards[card.id] = card;
+                this.libraryOrder.push(card.id);
                 card.zone = Zone.library;
             }
         )
