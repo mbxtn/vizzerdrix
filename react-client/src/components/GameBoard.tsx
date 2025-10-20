@@ -713,6 +713,15 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             }
           },
         ];
+      } else if (currentTarget.type == "zone") {
+        contextMenuOptions = [
+          {
+            name: `${currentTarget.id}`,
+            action: () => {
+
+            }
+          }
+        ]
       }
     }
   }

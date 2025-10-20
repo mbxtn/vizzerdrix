@@ -10,8 +10,8 @@ export interface UIConfig {
 // Default UI configuration
 export const defaultUIConfig: UIConfig = {
   card: {
-    width: 63,
-    height: 88,
+    width: 132,
+    height: 184,
     aspectRatio: 63 / 88, // ~0.716 (Magic card aspect ratio)
   },
 };

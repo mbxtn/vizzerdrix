@@ -146,7 +146,8 @@ export function Zone({
     <div
       ref={setNodeRef}
       className={`zone ${zoneId} ${isOver ? 'drag-over' : ''}`}
-       style={style}
+      style={style}
+      id={`${zoneId}`}
     >
       <div className="zone-header">
         <h4>{zoneName}</h4>
