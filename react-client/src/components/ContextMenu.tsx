@@ -7,6 +7,8 @@ export interface ContextMenuOption {
 
 import type { Player, Game, CardFactory, Card as CardType } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
+import { ScryfallCache } from '../lib/scryfallCache';
+import { GetTypeLine } from '../lib/scryfallUtils';
 
 interface ContextMenuProps {
   x: number;
@@ -171,7 +173,57 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     onPlayerUpdate(localPlayer);
     onClose();
   };
-
+  const moveAllToHand = () => {
+    let battleFieldCards = Object.values(localPlayer.cards).filter((card) => {
+      return card.zone === ZoneEnum.battlefield;
+    })
+    battleFieldCards.forEach((card: CardType) => {
+      let cache = ScryfallCache.getInstance();
+      let data = cache.getById(card.scryfallId);
+      // If we can't get scryfall data just leave it for now...
+      if (!data) return;
+      const typeline = GetTypeLine(data, card.flipped);
+      console.log(`typeline ${typeline}`)
+      if (!typeline.includes("Land")) {
+        setCardZone(card, ZoneEnum.hand, { x: 0, y: 0 });
+        if (!localPlayer.handOrder.includes(card.id)) localPlayer.handOrder.push(card.id);
+      }
+    });
+  }
+  const moveAllToExile = () => {
+    let battleFieldCards = Object.values(localPlayer.cards).filter((card) => {
+      return card.zone === ZoneEnum.battlefield;
+    })
+    battleFieldCards.forEach((card: CardType) => {
+      let cache = ScryfallCache.getInstance();
+      let data = cache.getById(card.scryfallId);
+      // If we can't get scryfall data just leave it for now...
+      if (!data) return;
+      const typeline = GetTypeLine(data, card.flipped);
+      console.log(`typeline ${typeline}`)
+      if (!typeline.includes("Land")) {
+        setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+        if (!localPlayer.exileOrder.includes(card.id)) localPlayer.exileOrder.push(card.id);
+      }
+    });
+  }
+  const moveAllToGraveyard = () => {
+    let battleFieldCards = Object.values(localPlayer.cards).filter((card) => {
+      return card.zone === ZoneEnum.battlefield;
+    })
+    battleFieldCards.forEach((card: CardType) => {
+      let cache = ScryfallCache.getInstance();
+      let data = cache.getById(card.scryfallId);
+      // If we can't get scryfall data just leave it for now...
+      if (!data) return;
+      const typeline = GetTypeLine(data, card.flipped);
+      console.log(`typeline ${typeline}`)
+      if (!typeline.includes("Land")) {
+        setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+        if (!localPlayer.graveyardOrder.includes(card.id)) localPlayer.graveyardOrder.push(card.id);
+      }
+    });
+  }
   // Option generation
   let opts: ContextMenuOption[] = [];
   if (selectedCardIds.length > 1) {
@@ -197,9 +249,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     } else if (contextTarget.type === 'battlefield') {
       opts = [
         { name: 'Create placeholder card', action: () => handleCreatePlaceholderClick() },
-        { name: 'Move all non-land cards to hand', action: moveToHand },
-        { name: 'Move all non-land cards to graveyard', action: moveToGraveyard },
-        { name: 'Move all non-land cards to exile', action: moveToExile },
+        { name: 'Move all non-land cards to hand', action: moveAllToHand },
+        { name: 'Move all non-land cards to graveyard', action: moveAllToGraveyard },
+        { name: 'Move all non-land cards to exile', action: moveAllToExile },
       ];
     } else if (contextTarget.type === 'zone') {
       opts = [

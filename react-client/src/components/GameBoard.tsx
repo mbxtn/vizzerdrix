@@ -20,6 +20,9 @@ import { Card as CardType, Player, Game, CardFactory } from '@vizzerdrix/shared'
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache } from '../lib/scryfallCache';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import PowerOffIcon from '@mui/icons-material/PowerOff';
+import StyleIcon from '@mui/icons-material/Style';
 
 interface GameBoardProps {
   game: Game;
@@ -494,6 +497,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     // Ensure dragged card is first in the list
     selectedIds = [card.id, ...selectedIds.filter(id => id !== card.id)];
     moveCard(targetZone, selectedIds, event);
+    onPlayerUpdate(localPlayer)
 
   };
 
@@ -641,6 +645,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                     // onClick: will add selection logic later
                   >
                     {player.name}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 8 }}>
+                      <FavoriteIcon style={{ fontSize: 16, color: '#ff1744' }} />
+                      <span style={{ fontWeight: 'bold', fontSize: 14 }}>{player.lifeTotal ?? 40}</span>
+                      <StyleIcon style={{ fontSize: 16, color: '#00bcd4', marginLeft: 8 }} />
+                      <span style={{ fontWeight: 'bold', fontSize: 14 }}>{Object.values(player.cards).filter(card => card.zone === ZoneEnum.hand).length}</span>
+                    </span>
                     {!player.isActive && (
                       <PowerSettingsNewIcon style={{ fontSize: 18, color: '#ff9800', marginLeft: 4 }} />
                     )}

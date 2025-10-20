@@ -39,6 +39,7 @@ export class EventHandler {
             });
             socket.on("disconnect", () => {
                 this.playerLeft(socket.id, socket.data.roomName);
+                this.emitState(socket.data.roomName);
             });
         })
     }
@@ -103,6 +104,7 @@ export class EventHandler {
         // If we made it here there are no rooms delete it
         console.log(`deleting room: ${room}, no active players left`);
         this.games.delete(room);
+
         
     }
 
