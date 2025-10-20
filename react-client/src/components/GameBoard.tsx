@@ -492,24 +492,35 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
   };
 
   const handleCardClick = (card: CardType) => {
-    console.log("card clicked")
-    // Toggle selection for the clicked card
-    const indx = localPlayer.selectedCards.indexOf(card.id)
-    if (indx > -1) {
-      if (localPlayer.selectedCards.length > 1 && !isKeyDown.current.get(KeyNames.Shift)) {
-        localPlayer.selectedCards = [card.id]
-      } else {
-        localPlayer.selectedCards.splice(indx, 1)
-      }
+    switch (card.zone) {
+      case ZoneEnum.battlefield:
+      case ZoneEnum.hand:
+        // Toggle selection for the clicked card
+        const indx = localPlayer.selectedCards.indexOf(card.id)
+        if (indx > -1) {
+          if (localPlayer.selectedCards.length > 1 && !isKeyDown.current.get(KeyNames.Shift)) {
+            localPlayer.selectedCards = [card.id]
+          } else {
+            localPlayer.selectedCards.splice(indx, 1)
+          }
 
-    } else {
-      if (isKeyDown.current.get(KeyNames.Shift)) {
-        // If we have shift pressed, add to the selected cards
-        localPlayer.selectedCards.push(card.id)
-      } else {
-        // If no hotkey is pressed set to only selected cards
-        localPlayer.selectedCards = [card.id]
-      }
+        } else {
+          if (isKeyDown.current.get(KeyNames.Shift)) {
+            // If we have shift pressed, add to the selected cards
+            localPlayer.selectedCards.push(card.id)
+          } else {
+            // If no hotkey is pressed set to only selected cards
+            localPlayer.selectedCards = [card.id]
+          }
+        }
+        break;
+      case ZoneEnum.library:
+        card.zone = ZoneEnum.hand;
+        addToOrder(card);
+        break;  
+      default:
+        console.log("Clicked in a zone we don't care about for now")
+        return;
     }
     onPlayerUpdate(localPlayer);
   };
