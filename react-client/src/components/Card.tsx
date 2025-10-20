@@ -104,8 +104,13 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
         }}
       >
+        {/* Orange dogear triangle for temporary cards */}
+        {card.isTemporary && (
+          <div className="card-dogear"/>
+        )}
         <img
           src={imgSrc}
           alt={card.cardName}
@@ -146,6 +151,18 @@ export const cardStyles = `
     cursor: pointer;
     transition: transform 0.2s ease;
     user-select: none;
+  }
+
+  .card-dogear {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-top: 15px solid orange;
+    border-right: 15px solid transparent;
+    z-index: 2;
+    pointer-events: none;
   }
 
   .card:hover:not(.dragging) {

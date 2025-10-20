@@ -14,6 +14,7 @@ export function App() {
   const [gameState, setGameState] = useState<Game | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [showGame, setShowGame] = useState(false);
+  const [cardFactory, setCardFactory] = useState<CardFactory | null>(null);
 
   useEffect(() => {
     // Create VdClient connection
@@ -48,19 +49,17 @@ export function App() {
       vdClient.socket.close();
     };
   }, []);
-  var cardFactory: CardFactory | null = null;
-
   const joinGame = async () => {
     if (!client || !playerName.trim()) return;
 
     setMessage('Joining game...');
+
     try {
       // Simple test with minimal commanders and library
       const commanders = ['Sol Ring']; // Test commander
       const library = ['Lightning Bolt', 'Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes', 'Giant Growth', 'Counterspell', 'Dark Ritual', 'Stump Stomp']; // Test library with more cards
 
       const game = await client.joinGame(playerName, roomName, commanders, library);
-     
       setMessage(`Successfully joined game! Room: ${game.roomName}`);
       setGameState(game);
 
@@ -72,8 +71,9 @@ export function App() {
             const player = game.players[playerId];
 
             // Create the deck on the client side
-            cardFactory = new ScryfallCardFactory(playerId);
-            player.createDeck(cardFactory);
+            let factory = new ScryfallCardFactory(playerId);
+            setCardFactory(factory);
+            player.createDeck(factory);
 
             setCurrentPlayer(player);
             setShowGame(true);

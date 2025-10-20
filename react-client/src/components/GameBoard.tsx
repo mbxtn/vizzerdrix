@@ -172,11 +172,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
   const exileCards = allCards.filter(card => card.zone === ZoneEnum.exile).sort((a, b) => a.location.x - b.location.x);
 
   // Debug logging
-  console.log('GameBoard - Total cards:', allCards.length);
-  console.log('GameBoard - Hand cards:', handCards.length, handCards, localPlayer.handOrder);
-  console.log('GameBoard - Library cards:', libraryCards.length, libraryCards, localPlayer.libraryOrder);
-  console.log('GameBoard - Battlefield cards:', battlefieldCards.length, battlefieldCards);
-  console.log('GameBoard - All cards with zones:', allCards.map(c => ({ cardName: c.cardName, zone: c.zone })));
+  // console.log('GameBoard - Total cards:', allCards.length);
+  // console.log('GameBoard - Hand cards:', handCards.length, handCards, localPlayer.handOrder);
+  // console.log('GameBoard - Library cards:', libraryCards.length, libraryCards, localPlayer.libraryOrder);
+  // console.log('GameBoard - Battlefield cards:', battlefieldCards.length, battlefieldCards);
+  // console.log('GameBoard - All cards with zones:', allCards.map(c => ({ cardName: c.cardName, zone: c.zone })));
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -382,6 +382,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       // Card is changing zones, do stuff
       switch (targetZone) {
         case ZoneEnum.hand: {
+          if(card.isTemporary){
+            delete localPlayer.cards[id];
+            break;
+          }
           card.tapped = false;
           card.flipped = false;
           card.counters = 0;
@@ -399,6 +403,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
         case ZoneEnum.graveyard:
         case ZoneEnum.library: {
           localPlayer.selectedCards = [];
+          if(card.isTemporary){
+            delete localPlayer.cards[id];
+            break;
+          }
           card.counters = 0;
           card.tapped = false;
           card.flipped = false;
@@ -536,7 +544,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
   // Context menu options logic
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
 
-  let targetCards = getTarget(contextMenu ? {x: contextMenu.x, y: contextMenu.y} : pointerPositionRef.current);
+  let targetCards = getTarget(contextMenu ? { x: contextMenu.x, y: contextMenu.y } : { x: 0, y: 0 });
+  const contextTarget = getPointerTarget(contextMenu ? { x: contextMenu.x, y: contextMenu.y } : { x: 0, y: 0 })
   // List of commands
   const moveToHand = () => {
     targetCards.forEach(id => {
@@ -611,12 +620,35 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   const createCopyOfCards = () => {
     targetCards.forEach((id: string) => {
-
+      if (!cardFactory) {
+        console.log("GameBoard - Couldn't create card, no cardfactory");
+        return;
+      }
+      if(!localPlayer.cards[id]) return;
+      let newCard = cardFactory.createCardsFromIds([localPlayer.cards[id].scryfallId])[0];
+      newCard.isTemporary = true;
+      newCard.zone = ZoneEnum.battlefield;
+      newCard.location = { x: 50, y: 50 };
+      localPlayer.cards[newCard.id] = newCard;
+      onPlayerUpdate(localPlayer);
     });
   }
 
-  const createCard = (name : string) => {
-    console.log("creating card");
+  const createCard = (name: string) => {
+    console.log(`creating card ${name}`);
+    if(!cardFactory) {
+      console.log("GameBoard - Couldn't create card, no cardfactory");
+      return;
+    }
+    let newCard = cardFactory.createCardsFromNames([name])[0];
+
+    newCard.isTemporary = true;
+    newCard.zone = ZoneEnum.battlefield;
+    newCard.location = { x: 50, y: 50 };
+    localPlayer.cards[newCard.id] = newCard;
+    console.log("adding card to game");
+    onPlayerUpdate(localPlayer);
+    
   }
 
   // Context Menu Options,
@@ -651,34 +683,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
         action: removeCountersFromCards,
       }
     ];
-  } else if (targetCards.length > 0) {
-    // Either a card is selected, or we have a card we're hovering.
-    const id: string = targetCards[0];
-    contextMenuOptions = [
-      {
-        name: "Add counter to Card",
-        action: addCountersToCards,
-      },
-      {
-        name: "Remove counter from Card",
-        action: removeCountersFromCards,
-      },
-      {
-        name: "Create a copy of Card",
-        action: createCopyOfCards,
-      },
-      {
-        name: 'Move to Top of Library',
-        action: moveToTopOfLibrary,
-      },
-      {
-        name: 'Move to Bottom of Library',
-        action: moveToBottomOfLibrary,
-      },
-    ];
   } else {
-    if (currentTarget) {
-      if (currentTarget.type == "battlefield") {
+    if (contextTarget) {
+      if (contextTarget.type == "battlefield") {
         contextMenuOptions = [
           {
             name: "Move all non-land cards to hand",
@@ -730,15 +737,40 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
             }
           },
         ];
-      } else if (currentTarget.type == "zone") {
+      } else if (contextTarget.type == "zone") {
         contextMenuOptions = [
           {
-            name: `${currentTarget.id}`,
+            name: `${contextTarget.id}`,
             action: () => {
 
             }
           }
         ]
+      } else if (contextTarget.type == "card") {
+        // Either a card is selected, or we have a card we're hovering.
+        const id: string = targetCards[0];
+        contextMenuOptions = [
+          {
+            name: "Add counter to Card",
+            action: addCountersToCards,
+          },
+          {
+            name: "Remove counter from Card",
+            action: removeCountersFromCards,
+          },
+          {
+            name: "Create a copy of Card",
+            action: createCopyOfCards,
+          },
+          {
+            name: 'Move to Top of Library',
+            action: moveToTopOfLibrary,
+          },
+          {
+            name: 'Move to Bottom of Library',
+            action: moveToBottomOfLibrary,
+          },
+        ];
       }
     }
   }
@@ -891,9 +923,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       </DndContext>
 
       {/* Card Magnifier Preview */}
-      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && (
+      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && localPlayer.cards[currentTarget.id] && (
         (() => {
-          const hoverCard =  localPlayer.cards[currentTarget.id];
+          const hoverCard = localPlayer.cards[currentTarget.id];
           const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
           const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped) : '';
           return (

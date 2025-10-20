@@ -5,7 +5,7 @@ export class Card {
     readonly cardName: string;
     readonly scryfallId: string; // If empty that means this wasn't found on creation, don't bother trying to find it
     readonly commander: boolean;
-    readonly isTemporary: boolean; // For placeholders, copies, temporary cards, etc.
+    isTemporary: boolean; // For placeholders, copies, temporary cards, etc.
 
     // We should generate a new id rather than duplicate
     readonly id: string;
