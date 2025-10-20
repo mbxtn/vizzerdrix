@@ -4,6 +4,8 @@ export interface UIConfig {
     width: number;
     height: number;
     aspectRatio: number;
+    magnifyOnHover: boolean;
+    magnifyWidth: number;
   };
 }
 
@@ -13,6 +15,8 @@ export const defaultUIConfig: UIConfig = {
     width: 132,
     height: 184,
     aspectRatio: 63 / 88, // ~0.716 (Magic card aspect ratio)
+    magnifyOnHover: true,
+    magnifyWidth: 360,
   },
 };
 

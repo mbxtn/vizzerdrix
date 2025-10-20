@@ -11,6 +11,8 @@ import {
   DragOverEvent,
 } from '@dnd-kit/core';
 import { defaultUIConfig, generateCSSVariables, UIConfig } from '../config/ui';
+// import removed, already present above
+import { GetCardFace } from '../lib/scryfallUtils';
 import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
@@ -69,6 +71,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   // Map of what keys are pressed.
   const isKeyDown = useRef<Map<string, boolean>>(new Map());
   const pointerPositionRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const [currentTarget, setCurrentTarget] = useState<{ type: string, id: string } | null>(null);
 
 
   // Function to get the current target(s)
@@ -325,7 +328,16 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   // This is only updated when the page "re-renders" via react, so don't count on it being fresh, 
   // essentially a property has to change for this to get updated. use getPointerTarget for a
   // more fresh result (e.g. where the mouse is hovering, without clicking)
-  const currentTarget = getPointerTarget(pointerPositionRef.current);
+  useEffect(() => {
+    const handlePointerMove = (e: MouseEvent) => {
+      pointerPositionRef.current = { x: e.clientX, y: e.clientY };
+      setCurrentTarget(getPointerTarget(pointerPositionRef.current));
+    };
+    window.addEventListener('mousemove', handlePointerMove);
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+    };
+  }, []);
 
   const getHandDropIndex = (pointerX: number, handCardIds: string[]) => {
     // Each card in the hand should have an element with a predictable id or class, e.g. `hand-card-${cardId}`
@@ -872,6 +884,48 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Card Magnifier Preview */}
+      {uiConfig.card.magnifyOnHover && currentTarget && currentTarget.type == "card" && (
+        (() => {
+          const hoverCard =  localPlayer.cards[currentTarget.id];
+          const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
+          const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped) : '';
+          return (
+            <div
+              style={{
+                position: 'fixed',
+                top: 16,
+                right: 16,
+                zIndex: 9999,
+                background: 'rgba(30,30,30,0.95)',
+                border: '2px solid #444',
+                borderRadius: 8,
+                padding: 8,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                minWidth: uiConfig.card.magnifyWidth,
+                maxWidth: uiConfig.card.magnifyWidth,
+              }}
+            >
+              <img
+                src={imgSrc}
+                alt={hoverCard.cardName}
+                style={{
+                  width: uiConfig.card.magnifyWidth,
+                  height: Math.round(uiConfig.card.magnifyWidth / uiConfig.card.aspectRatio),
+                  objectFit: 'contain',
+                  borderRadius: 6,
+                  boxShadow: '0 1px 8px rgba(0,0,0,0.4)',
+                  background: '#222',
+                }}
+              />
+            </div>
+          );
+        })()
+      )}
 
       <Settings
         isOpen={showSettings}
