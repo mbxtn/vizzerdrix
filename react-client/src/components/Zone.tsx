@@ -98,7 +98,8 @@ export function Zone({
       
       case 'top-card': {
         // Show the most recent card (for graveyard/exile)
-        const topCard = cards.length > 0 ? cards[cards.length - 1] : undefined;
+        const orderedCards = order.map(id => cards.find(card => card.id === id)).filter(Boolean) as CardType[];
+        const topCard = orderedCards.length > 0 ? orderedCards[orderedCards.length - 1] : undefined;
         return topCard ? (
           <div className="zone-top-card" onClick={handleClick}>
             <Card
@@ -106,6 +107,7 @@ export function Zone({
               isDragging={topCard.id === activeCardId}
               handleSingleClick={() => onCardClick?.(topCard)}
               handleDoubleClick={() => onCardDoubleClick?.(topCard)}
+              isLocal={isLocal}
             />
           </div>
         ) : (

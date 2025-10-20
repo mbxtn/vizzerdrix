@@ -485,6 +485,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
     // Ensure dragged card is first in the list
     selectedIds = [card.id, ...selectedIds.filter(id => id !== card.id)];
+    console.log("moving a card")
     moveCard(targetZone, selectedIds, event);
     onPlayerUpdate(localPlayer)
     setActiveCard(null);
@@ -633,7 +634,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
             isLocalPlayer={isLocalPlayer}
             cardsSelected={handleCardsSelected}
           />
-          <div className="gameboard-header" style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '0px 4px', justifyContent: 'space-between' }}>
+          <div className="gameboard-header" style={{ display: 'flex', alignItems: 'center', color: 'white', padding: '0px 4px', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: 14 }}>{game.roomName || 'Game Room'}</h3>
               {/* Player Tabs */}
@@ -713,7 +714,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
-              isLocal={isLocalPlayer}
+              isLocal={selectedPlayer.id === localPlayer.id}
 
             />
             <Zone
@@ -727,8 +728,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
-              isLocal={isLocalPlayer}
-
+              isLocal={selectedPlayer.id === localPlayer.id}
             />
             <Zone
               zoneName="Exile"
@@ -741,7 +741,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
-              isLocal={isLocalPlayer}
+              isLocal={selectedPlayer.id === localPlayer.id}
 
             />
             <Zone
@@ -755,7 +755,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
-              isLocal={isLocalPlayer}
+              isLocal={selectedPlayer.id === localPlayer.id}
 
             />
           </div>
@@ -887,8 +887,8 @@ const gameBoardStyles = `
   .settings-button {
     top: 10px;
     left: 10px;
-    background: rgba(0, 0, 0, 0.8);
-    border: 1px solid #444;
+    background: rgba(35, 43, 54, 0.85);
+    border: 1px solid #4f5b66;
     color: white;
     border-radius: 4px;
     cursor: pointer;
@@ -898,15 +898,15 @@ const gameBoardStyles = `
   }
 
   .settings-button:hover {
-    background: rgba(0, 0, 0, 0.9);
-    border-color: #666;
+    background: rgba(35, 43, 54, 1);
+    border-color: #5c677d;
   }
   
   .game-board {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: #1a1a1a;
+    background: #232b36;
     color: white;
     font-family: Arial, sans-serif;
     margin: 0;
@@ -926,22 +926,27 @@ const gameBoardStyles = `
   .bottom-zones > .zone {
     width: calc(var(--card-width, 63px) + 6px);
     flex-shrink: 0;
+    background: #2e3440;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(44, 51, 63, 0.12);
   }
 
   .bottom-zones > .zone.hand {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 50vw;
-  overflow: hidden;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 50vw;
+    overflow: hidden;
+    background: #263040;
   }
 
   .gameboard-header {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(24, 26, 28, 0.92);
     color: white;
     padding: 0px 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 2px 8px rgba(44, 51, 63, 0.10);
   }
 
   .gameboard-header h3 {
