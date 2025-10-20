@@ -14,10 +14,11 @@ interface BattlefieldProps {
   onCardMove?: (card: CardType, position: { x: number; y: number }) => void;
   isCardSelected?: (cardId: string) => boolean;
   cardsSelected?: (selectedCardIds: string[]) => void;
+  onCardCounterClick?: (card: CardType) => void;
   isDragging?: boolean;
 }
 
-export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, isCardSelected, cardsSelected, isDragging }: BattlefieldProps) {
+export function Battlefield({cards, player, activeCardId, onCardClick, onCardDoubleClick, onCardCounterClick ,isCardSelected, cardsSelected, isDragging }: BattlefieldProps) {
   // Marquee selection state and handlers
   const selectionStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [selectionBox, setSelectionBox] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -107,6 +108,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
               isDragging={isDragging}
               handleSingleClick={() => onCardClick?.(card)}
               handleDoubleClick={() => onCardDoubleClick?.(card)}
+              handleCounterClicked={() => onCardCounterClick?.(card)}
               isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
               style={{ zIndex: card.zIndex || 1}}
             />

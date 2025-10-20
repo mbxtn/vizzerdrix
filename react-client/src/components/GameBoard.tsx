@@ -427,6 +427,14 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
   };
 
+  const handleCardCounterClick = (card: CardType) => {
+    if(isKeyDown.current.get(KeyNames.Shift) || isKeyDown.current.get(KeyNames.Control))
+      card.counters--;
+    else 
+      card.counters++;
+    onPlayerUpdate(localPlayer);
+  }
+
   const handleCardsSelected = (cards: string[]) => {
     console.log("selecting " + cards.length + " cards")
     if (cards.length == 0 && localPlayer.selectedCards.length == 0) return;
@@ -502,7 +510,23 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     onPlayerUpdate(localPlayer);
   }
 
+  const addCountersToCards = () => {
+    targetCards.forEach(id => {
+      const card = localPlayer.cards[id];
+      if(card && card.zone === ZoneEnum.battlefield) {
+        card.counters++;
+      }
+    })
+  }
 
+  const createCopyOfCards = () => {
+    targetCards.forEach((id: string) => {
+
+    });
+  }
+
+
+  // Case when we have multiple cards
   if (targetCards.length > 1) {
     contextMenuOptions = [
       {
@@ -525,15 +549,21 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
         name: 'Move to Bottom of Library',
         action: moveToBottomOfLibrary,
       },
+      { name: "Add counter to Cards",
+        action: addCountersToCards,
+      }
     ];
   } else if (targetCards.length > 0 ) {
     // Either a card is selected, or we have a card we're hovering.
     const id: string = targetCards[0];
     contextMenuOptions = [
+      { name: "Add counter to Card",
+        action: addCountersToCards,
+      },
       {
-        name: `${id}`,
-        action: () => { },
-      }
+        name: "Create a copy of Card",
+        action: createCopyOfCards,
+      },
     ];
   } else {
     if (currentTarget) {
@@ -617,6 +647,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
             activeCardId={activeCard?.id}
             onCardClick={handleCardClick}
             onCardDoubleClick={handleCardDoubleClick}
+            onCardCounterClick={handleCardCounterClick}
             isCardSelected={isCardSelected}
             cardsSelected={handleCardsSelected}
             isDragging={!!activeCard}

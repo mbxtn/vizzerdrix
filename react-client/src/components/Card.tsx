@@ -10,18 +10,18 @@ interface CardProps {
   isDragging?: boolean;
   handleSingleClick?: () => void;
   handleDoubleClick?: () => void;
+  handleCounterClicked?: () => void;
   style?: React.CSSProperties;
   imageUrl?: string;
   isSelected?: boolean;
 }
 
 
-export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, style, imageUrl, isSelected }: CardProps) {
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked ,style, imageUrl, isSelected }: CardProps) {
   const {
     attributes,
     listeners,
     setNodeRef,
-    transform,
   } = useDraggable({
     id: card.id,
     data: {
@@ -118,7 +118,17 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
           }}
         />
         {card.counters > 0 && (
-          <div className="counters">{card.counters}</div>
+          <div className="counters"
+          onClick = {(e : React.MouseEvent<HTMLDivElement>) => {
+            e.stopPropagation();
+            if(handleCounterClicked) handleCounterClicked();
+          }}
+          style={{
+              bottom: !isTapped ? '2px' : undefined,
+              left: '2px',
+              top: isTapped ? '2px' : undefined,
+              transform: isTapped ? 'rotate(90deg)' : undefined,
+          }}>{card.counters}</div>
         )}
       </div>
     </div>
@@ -184,11 +194,10 @@ export const cardStyles = `
 
   .counters {
     position: absolute;
-    top: 2px;
-    right: 2px;
+   
     background: #ff4444;
     color: white;
-    border-radius: 50%;
+    border-radius: 5%;
     width: 16px;
     height: 16px;
     display: flex;
