@@ -21,6 +21,34 @@ interface ContextMenuProps {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPlayer, onPlayerUpdate, cardFactory, game, selectedCardIds, contextTarget }) => {
+  // State for counter input dialog
+  const [showCounterInput, setShowCounterInput] = React.useState(false);
+  const [counterInputValue, setCounterInputValue] = React.useState<string | number>(0);
+  const [counterTargetCardId, setCounterTargetCardId] = React.useState<string | null>(null);
+
+  // Handler to open counter input dialog
+  const openCounterInput = (cardId: string) => {
+    setCounterTargetCardId(cardId);
+    setCounterInputValue(localPlayer.cards[cardId]?.counters ?? 0);
+    setShowCounterInput(true);
+  };
+
+  // Handler to set counters
+  const setCardCounters = () => {
+    let value = counterInputValue;
+    if (typeof value === 'string') {
+      if (value === '' || value === '-') value = 0;
+      else if (/^-?\d+$/.test(value)) value = Number(value);
+      else value = 0;
+    }
+    if (counterTargetCardId && localPlayer.cards[counterTargetCardId]) {
+      localPlayer.cards[counterTargetCardId].counters = value;
+      onPlayerUpdate(localPlayer);
+    }
+    setShowCounterInput(false);
+    setCounterTargetCardId(null);
+    onClose();
+  };
   // Add hover state for menu options
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
 
@@ -37,7 +65,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
-  setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
+        setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
         if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
       }
     });
@@ -48,7 +76,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
-  setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
+        setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
         if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
       }
     });
@@ -59,7 +87,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
-  setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
+        setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
         if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
       }
     });
@@ -70,7 +98,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
-  setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
+        setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
         // Add to order logic if needed
       }
     });
@@ -81,7 +109,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
-  setCardZone(card, ZoneEnum.library, { x: localPlayer.libraryOrder.length, y: 0 });
+        setCardZone(card, ZoneEnum.library, { x: localPlayer.libraryOrder.length, y: 0 });
         // Add to order logic if needed
       }
     });
@@ -91,7 +119,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
   const addCountersToCards = () => {
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
-  if (card && card.zone === ZoneEnum.battlefield) {
+      if (card && card.zone === ZoneEnum.battlefield) {
         card.counters++;
       }
     });
@@ -101,7 +129,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
   const removeCountersFromCards = () => {
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
-  if (card && card.zone === ZoneEnum.battlefield) {
+      if (card && card.zone === ZoneEnum.battlefield) {
         card.counters--;
       }
     });
@@ -114,7 +142,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
       if (!localPlayer.cards[id]) return;
       let newCard = cardFactory.createCardsFromIds([localPlayer.cards[id].scryfallId])[0];
       newCard.isTemporary = true;
-  newCard.zone = ZoneEnum.battlefield;
+      newCard.zone = ZoneEnum.battlefield;
       newCard.location = { x: 50, y: 50 };
       localPlayer.cards[newCard.id] = newCard;
     });
@@ -139,6 +167,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
       opts = [
         { name: 'Add counter to Card', action: addCountersToCards },
         { name: 'Remove counter from Card', action: removeCountersFromCards },
+        { name: 'Set counters on Card', action: () => openCounterInput(selectedCardIds[0]) },
         { name: 'Create a copy of Card', action: createCopyOfCards },
         { name: 'Move to Top of Library', action: moveToTopOfLibrary },
         { name: 'Move to Bottom of Library', action: moveToBottomOfLibrary },
@@ -177,6 +206,78 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
 
   return (
     <React.Fragment>
+      {/* Counter input dialog */}
+      {showCounterInput && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <form
+            onSubmit={e => { e.preventDefault(); setCardCounters(); }}
+            style={{
+              background: '#222',
+              padding: 24,
+              borderRadius: 8,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              minWidth: 280,
+              color: '#fff',
+            }}
+          >
+            <label htmlFor="counter-input">Set counters:</label>
+            <input
+              id="counter-input"
+              type="text"
+              value={typeof counterInputValue === 'number' ? String(counterInputValue) : counterInputValue}
+              onChange={e => {
+                const val = e.target.value;
+                // Allow empty, minus sign, or valid integer
+                if (val === '' || val === '-') {
+                  setCounterInputValue(val);
+                } else if (/^-?\d+$/.test(val)) {
+                  setCounterInputValue(Number(val));
+                }
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 4,
+                border: '1px solid #555',
+                fontSize: 16,
+                color: '#222',
+              }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowCounterInput(false)} style={{
+                background: '#888',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer'
+              }}>Cancel</button>
+              <button type="submit" style={{
+                background: '#ff9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer'
+              }}>Set</button>
+            </div>
+          </form>
+        </div>
+      )}
       {/* Overlay div to catch outside clicks */}
       <div
         style={{
@@ -215,7 +316,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
               color: hoverIdx === idx ? '#ff9800' : '#fff',
               transition: 'background 0.15s, color 0.15s',
             }}
-            onClick={() => { opt.action(); onClose(); }}
+            onClick={() => {
+              // Only close menu for actions that are not 'Set counters on Card'
+              if (opt.name === 'Set counters on Card') {
+                opt.action();
+              } else {
+                opt.action();
+                onClose();
+              }
+            }}
             onMouseEnter={() => setHoverIdx(idx)}
             onMouseLeave={() => setHoverIdx(null)}
           >

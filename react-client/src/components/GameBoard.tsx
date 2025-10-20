@@ -344,10 +344,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     }
     return found; // Not over any card or zone
   }
-  // A little dangerous to use this, if in doubt since it doesn't update all the time.
-  // This is only updated when the page "re-renders" via react, so don't count on it being fresh, 
-  // essentially a property has to change for this to get updated. use getPointerTarget for a
-  // more fresh result (e.g. where the mouse is hovering, without clicking)
+
   useEffect(() => {
     const handlePointerMove = (e: MouseEvent) => {
       pointerPositionRef.current = { x: e.clientX, y: e.clientY };
@@ -571,71 +568,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   return (
     <>
-      {/* Counter input dialog */}
-      {showCounterInput && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 2000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <form
-            onSubmit={e => { e.preventDefault(); setCardCounters(); }}
-            style={{
-              background: '#222',
-              padding: 24,
-              borderRadius: 8,
-              boxShadow: '0 2px 16px rgba(0,0,0,0.4)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              minWidth: 280,
-              color: '#fff',
-            }}
-          >
-            <label htmlFor="counter-input">Set counters:</label>
-            <input
-              id="counter-input"
-              type="number"
-              min={0}
-              value={counterInputValue}
-              onChange={e => setCounterInputValue(Number(e.target.value))}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 4,
-                border: '1px solid #555',
-                fontSize: 16,
-                color: '#222',
-              }}
-              autoFocus
-            />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setShowCounterInput(false)} style={{
-                background: '#888',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                padding: '6px 16px',
-                cursor: 'pointer'
-              }}>Cancel</button>
-              <button type="submit" style={{
-                background: '#ff9800',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                padding: '6px 16px',
-                cursor: 'pointer'
-              }}>Set</button>
-            </div>
-          </form>
-        </div>
-      )}
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
       <DndContext
         sensors={sensors}
