@@ -13,6 +13,8 @@ interface ContextMenuProps {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options }) => {
+  // Add hover state for menu options
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
   const defaultOptions: ContextMenuOption[] = [
     { name: 'Dummy Option 1', action: onClose },
     { name: 'Dummy Option 2', action: onClose },
@@ -40,7 +42,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
   }
 
   return (
-    <>
+    <React.Fragment>
       {/* Overlay div to catch outside clicks */}
       <div
         style={{
@@ -53,7 +55,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
           background: 'transparent',
         }}
         onClick={onClose}
-      />
+      ></div>
       <div
         style={{
           position: 'absolute',
@@ -72,13 +74,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
         {opts.map((opt, idx) => (
           <div
             key={idx}
-            style={{ padding: '8px 16px', cursor: 'pointer' }}
+            style={{
+              padding: '8px 16px',
+              cursor: 'pointer',
+              background: hoverIdx === idx ? '#444' : 'none',
+              color: hoverIdx === idx ? '#ff9800' : '#fff',
+              transition: 'background 0.15s, color 0.15s',
+            }}
             onClick={() => { opt.action(); onClose(); }}
+            onMouseEnter={() => setHoverIdx(idx)}
+            onMouseLeave={() => setHoverIdx(null)}
           >
             {opt.name}
           </div>
         ))}
       </div>
-    </>
+    </React.Fragment>
   );
 };
