@@ -20,6 +20,7 @@ interface ZoneProps {
   isCardSelected?: (cardId: string) => boolean;
   isDragging?: boolean;
   isLocal: boolean;
+  autoFitHand?: boolean;
 }
 
 export function Zone({ 
@@ -37,6 +38,7 @@ export function Zone({
   isCardSelected,
   isDragging = false,
   isLocal = false,
+  autoFitHand = false,
 }: ZoneProps) {
   // Local order array for this zone
   // Use order from props if provided, else default to cards order
@@ -121,15 +123,50 @@ export function Zone({
           .filter(id => cards.some(card => card.id === id))
           .map(id => cards.find(card => card.id === id))
           .filter(Boolean) as CardType[];
+
+        // Auto-fit hand logic (overlap to fit)
+        let cardSpacing = 2;
+        let cardWidth = 63;
+        if (zoneType === ZoneEnum.hand && typeof window !== 'undefined') {
+          // Try to get CSS variable for card width
+          const root = document.documentElement;
+          const cssCardWidth = root.style.getPropertyValue('--card-width');
+          cardWidth = cssCardWidth ? parseFloat(cssCardWidth) : 63;
+        }
+        // If autoFitHand is enabled, calculate spacing
+        let overlap = 0;
+        if (zoneType === ZoneEnum.hand && isLocal && window && orderedCards.length > 0) {
+          // Try to get autoFitHand from the config
+          const root = document.documentElement;
+          const autoFitHandVar = root.style.getPropertyValue('--auto-fit-hand');
+          autoFitHand = autoFitHandVar === 'true' || autoFitHand;
+          const handZone = document.querySelector('.zone.hand .zone-cards');
+          const handWidth = handZone ? handZone.clientWidth : window.innerWidth * 0.5;
+          if (autoFitHand && handWidth > 0) {
+            // Calculate overlap so all cards fit
+            const totalCardWidth = orderedCards.length * cardWidth;
+            if (totalCardWidth > handWidth) {
+              overlap = (totalCardWidth - handWidth) / (orderedCards.length - 1);
+              cardSpacing = Math.max(2, cardWidth - overlap);
+            }
+          }
+        }
         return (
           <div className="zone-cards" onClick={handleClick}>
             {cards.length === 0
               ? null
-              : orderedCards.map((card) => (
-                  <div key={card.id} className="zone-card">
+              : orderedCards.map((card, idx) => (
+                  <div
+                    key={card.id}
+                    className="zone-card"
+                    style={zoneType === ZoneEnum.hand && autoFitHand ? {
+                      marginLeft: idx === 0 ? 0 : `${cardSpacing}px`,
+                      zIndex: idx,
+                    } : {}}
+                  >
                     <Card
                       card={card}
-                      isDragging={(isDragging)}
+                      isDragging={isDragging}
                       handleSingleClick={() => onCardClick?.(card)}
                       handleDoubleClick={() => onCardDoubleClick?.(card)}
                       isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}

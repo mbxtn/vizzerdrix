@@ -794,7 +794,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                   }}
                   isDragging={true}
                   position={{ x: 0, y: idx * 20 }}
-                  style={{ zIndex: 10000 + idx, opacity: 1, pointerEvents: 'none' }}
+                  isLocal={true}
                 />
               );
             })

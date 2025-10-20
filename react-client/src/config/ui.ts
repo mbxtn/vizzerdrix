@@ -6,6 +6,7 @@ export interface UIConfig {
     aspectRatio: number;
     magnifyOnHover: boolean;
     magnifyWidth: number;
+    autoFitHand?: boolean;
   };
 }
 
@@ -17,6 +18,7 @@ export const defaultUIConfig: UIConfig = {
     aspectRatio: 63 / 88, // ~0.716 (Magic card aspect ratio)
     magnifyOnHover: true,
     magnifyWidth: 360,
+    autoFitHand: false,
   },
 };
 

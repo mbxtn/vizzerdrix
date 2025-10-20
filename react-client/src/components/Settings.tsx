@@ -160,6 +160,17 @@ export function Settings({ isOpen, onClose, config, onConfigChange, onCardCreate
                     })}
                     label="Show magnified copy of hovered card"
                   />
+                  <ToggleSwitch
+                    checked={!!config.card.autoFitHand}
+                    onChange={checked => onConfigChange({
+                      ...config,
+                      card: {
+                        ...config.card,
+                        autoFitHand: checked,
+                      },
+                    })}
+                    label="Auto-fit hand (overlap to fit)"
+                  />
                 {config.card.magnifyOnHover && (
                   <div>
                    <label htmlFor="magnify-width">Magnify Width: {config.card.magnifyWidth}px</label>
