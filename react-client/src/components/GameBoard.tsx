@@ -170,6 +170,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   // Debug logging
   console.log('GameBoard - Total cards:', allCards.length);
   console.log('GameBoard - Hand cards:', handCards.length, handCards, localPlayer.handOrder);
+  console.log('GameBoard - Library cards:', libraryCards.length, libraryCards, localPlayer.libraryOrder);
   console.log('GameBoard - Battlefield cards:', battlefieldCards.length, battlefieldCards);
   console.log('GameBoard - All cards with zones:', allCards.map(c => ({ cardName: c.cardName, zone: c.zone })));
 
@@ -189,6 +190,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   };
 
   const removeFromOrder = (card: CardType) => {
+    console.log(`removing from zone ${card.zone}`)
     let zone = card.zone;
     let id = card.id;
     let orderIndex = -1;
@@ -202,25 +204,25 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       case ZoneEnum.command:
         orderIndex = localPlayer.commandOrder.indexOf(id);
         if (orderIndex > -1) {
-          localPlayer.handOrder.splice(orderIndex, 1);
+          localPlayer.commandOrder.splice(orderIndex, 1);
         }
         break;
       case ZoneEnum.exile:
         orderIndex = localPlayer.exileOrder.indexOf(id);
         if (orderIndex > -1) {
-          localPlayer.handOrder.splice(orderIndex, 1);
+          localPlayer.exileOrder.splice(orderIndex, 1);
         }
         break;
       case ZoneEnum.graveyard:
         orderIndex = localPlayer.graveyardOrder.indexOf(id);
         if (orderIndex > -1) {
-          localPlayer.handOrder.splice(orderIndex, 1);
+          localPlayer.graveyardOrder.splice(orderIndex, 1);
         }
         break;
       case ZoneEnum.library:
         orderIndex = localPlayer.libraryOrder.indexOf(id);
         if (orderIndex > -1) {
-          localPlayer.handOrder.splice(orderIndex, 1);
+          localPlayer.libraryOrder.splice(orderIndex, 1);
         }
         break;
       default:
@@ -229,23 +231,44 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   }
 
   const addToOrder = (card: CardType, index = -1) => {
+    console.log(`adding to zone ${card.zone}`)
     let zone = card.zone;
     let id = card.id;
     switch (zone) {
       case ZoneEnum.hand:
-        localPlayer.handOrder.splice(index > -1 ? index : localPlayer.handOrder.length - 1, 0, id);
+        if (index > -1) {
+          localPlayer.handOrder.splice(index, 0, id);
+        } else {
+          localPlayer.handOrder.push(id)
+        }
         break;
       case ZoneEnum.command:
-        localPlayer.commandOrder.splice(index > -1 ? index : localPlayer.commandOrder.length - 1, 0, id);
+        if (index > -1) {
+          localPlayer.commandOrder.splice(index, 0, id);
+        } else {
+          localPlayer.commandOrder.push(id);
+        }
         break;
       case ZoneEnum.exile:
-        localPlayer.exileOrder.splice(index > -1 ? index : localPlayer.exileOrder.length - 1, 0, id);
+        if (index > -1) {
+          localPlayer.exileOrder.splice(index, 0, id);
+        } else {
+          localPlayer.exileOrder.push(id);
+        }
         break;
       case ZoneEnum.graveyard:
-        localPlayer.graveyardOrder.splice(index > -1 ? index : localPlayer.graveyardOrder.length - 1, 0, id);
+        if (index > -1) {
+          localPlayer.graveyardOrder.splice(index, 0, id);
+        } else {
+          localPlayer.graveyardOrder.push(id);
+        }
         break;
       case ZoneEnum.library:
-        localPlayer.libraryOrder.splice(index > -1 ? index : localPlayer.libraryOrder.length - 1, 0, id);
+        if (index > -1) {
+          localPlayer.libraryOrder.splice(index, 0, id);
+        } else {
+          localPlayer.libraryOrder.push(id);
+        }
         break;
       default:
         break;
@@ -310,9 +333,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       const cardId = handCardIds[i];
       const el = document.getElementById(`card-${cardId}`);
       if (el) {
-        console.log('found element ' + cardId)
         const rect = el.getBoundingClientRect();
-        console.log(rect)
         const centerX = rect.left + rect.width / 2;
         if (pointerX < centerX) {
           return i;
@@ -342,7 +363,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       };
     }
     ids.forEach((id: string, index: number) => {
-      console.log("index is " + index)
       const card = localPlayer.cards[id]
       if (!card) return;
       removeFromOrder(card)
@@ -356,8 +376,8 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           // Determine drop index in hand
           let dropIndex = 0;
           dropIndex = getHandDropIndex(pointerPositionRef.current.x, localPlayer.handOrder)
-          localPlayer.handOrder.splice(dropIndex, 0, id);
-          card.location = { x: dropIndex, y: 0 };
+          addToOrder(card, dropIndex);
+          card.location = { x: 0, y: 0 };
           delete card.zIndex;
           break;
         }
@@ -371,15 +391,13 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           card.flipped = false;
           card.zone = targetZone;
           // Find next available index for location.x in the target zone
-          const zoneCards = Object.values(localPlayer.cards).filter(c => c.zone === targetZone && c.id !== card.id);
-          const nextIndex = zoneCards.length > 0 ? Math.max(...zoneCards.map(c => c.location.x)) + 1 : 0;
-          card.location = { x: nextIndex, y: 0 };
+          addToOrder(card)
+          card.location = { x: 0, y: 0 };
           delete card.zIndex;
           break;
         }
         case ZoneEnum.battlefield: {
           const delta = event.delta;
-          console.log(`original location x:${card.location.x} y:${card.location.y}, new location x:${Math.max(0, card.location.x + delta.x)}, y:${Math.max(0, card.location.y + delta.y)}`)
           card.zone = ZoneEnum.battlefield;
           card.location = {
             x: baseLocation.x,
@@ -395,7 +413,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
           break;
       }
     });
-    onPlayerUpdate(localPlayer);
   }
   const handleZoneClick = () => {
     if (isKeyDown.current.get(KeyNames.Shift)) return;
@@ -540,8 +557,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     targetCards.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
-        if (!localPlayer.library.includes(id)) localPlayer.library.unshift(id);
+        addToOrder(card);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -550,8 +568,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     targetCards.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.library, { x: localPlayer.library.length, y: 0 });
-        if (!localPlayer.library.includes(id)) localPlayer.library.push(id);
+        addToOrder(card, 0);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -629,6 +648,14 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
       {
         name: "Create a copy of Card",
         action: createCopyOfCards,
+      },
+      {
+        name: 'Move to Top of Library',
+        action: moveToTopOfLibrary,
+      },
+      {
+        name: 'Move to Bottom of Library',
+        action: moveToBottomOfLibrary,
       },
     ];
   } else {
