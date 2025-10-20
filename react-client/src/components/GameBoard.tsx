@@ -147,6 +147,50 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
   }
 
+  const getPointerTarget = (pointer: { x: number; y: number }) : {type: string, id: string} | null => {
+    // Check for card under pointer
+    const cardElements = document.querySelectorAll<HTMLElement>('.card');
+    let found : {type: string, id: string} | null = null;
+    cardElements.forEach((cardEl: HTMLElement) => {
+      const rect = cardEl.getBoundingClientRect();
+      if (
+        pointer.x >= rect.left &&
+        pointer.x <= rect.right &&
+        pointer.y >= rect.top &&
+        pointer.y <= rect.bottom
+      ) {
+        console.log("over a card");
+        found = { type: 'card', id: cardEl.id };
+      }
+    });
+
+    if(found) return found;
+
+    // Check for zone under pointer
+    const zoneElements = document.querySelectorAll<HTMLElement>('.zone');
+    zoneElements.forEach((zoneEl: HTMLElement) => {
+      const rect = zoneEl.getBoundingClientRect();
+      if (
+        pointer.x >= rect.left &&
+        pointer.x <= rect.right &&
+        pointer.y >= rect.top &&
+        pointer.y <= rect.bottom
+      ) {
+        console.log("over a zone");
+        found = { type: 'zone', id: zoneEl.id };
+      }
+    });
+    return found; // Not over any card or zone
+  }
+
+  const currentTarget = getPointerTarget(pointerPositionRef.current);
+  if (currentTarget) {
+    console.log(`current target is ${currentTarget}`)
+  } else {
+    console.log("Ain't over shit?")
+  }
+
+
   const getHandDropIndex = (pointerX: number, handCardIds: string[]) => {
     // Each card in the hand should have an element with a predictable id or class, e.g. `hand-card-${cardId}`
     for (let i = 0; i < handCardIds.length; i++) {
@@ -320,6 +364,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
 
   const handleCardsSelected = (cards: string[]) => {
     console.log("selecting " + cards.length + " cards")
+    if (cards.length == 0 && localPlayer.selectedCards.length == 0) return;
     if (isKeyDown.current.get(KeyNames.Shift)) {
       // Union of current selection and new cards, unique only
       const union = Array.from(new Set([...localPlayer.selectedCards, ...cards]));
@@ -329,7 +374,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
     }
     onPlayerUpdate(localPlayer);
   }
-  
+
   const setCardZone = (card: CardType, zone: ZoneEnum, location: { x: number; y: number }) => {
     card.zone = zone;
     card.location = location;
@@ -340,6 +385,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   let contextMenuOptions: ContextMenuOption[] | undefined = undefined;
   if (localPlayer.selectedCards.length > 0) {
     contextMenuOptions = [
+      {
+        name: `${currentTarget?.id}`,
+        action: () =>{}
+
+      },
       {
         name: 'Tap all selected cards',
         action: () => {
