@@ -44,6 +44,27 @@ export const KeyNames = {
 } as const;
 
 export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: GameBoardProps) {
+  // State for counter input dialog
+  const [showCounterInput, setShowCounterInput] = useState(false);
+  const [counterInputValue, setCounterInputValue] = useState(0);
+  const [counterTargetCardId, setCounterTargetCardId] = useState<string | null>(null);
+
+  // Handler to open counter input dialog
+  const openCounterInput = (cardId: string) => {
+    setCounterTargetCardId(cardId);
+    setCounterInputValue(localPlayer.cards[cardId]?.counters ?? 0);
+    setShowCounterInput(true);
+  };
+
+  // Handler to set counters
+  const setCardCounters = () => {
+    if (counterTargetCardId && localPlayer.cards[counterTargetCardId]) {
+      localPlayer.cards[counterTargetCardId].counters = counterInputValue;
+      onPlayerUpdate(localPlayer);
+    }
+    setShowCounterInput(false);
+    setCounterTargetCardId(null);
+  };
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   // Context menu handler
@@ -759,6 +780,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
             action: removeCountersFromCards,
           },
           {
+            name: "Set counters on Card",
+            action: () => openCounterInput(id),
+          },
+          {
             name: "Create a copy of Card",
             action: createCopyOfCards,
           },
@@ -777,6 +802,71 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   return (
     <>
+      {/* Counter input dialog */}
+      {showCounterInput && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <form
+            onSubmit={e => { e.preventDefault(); setCardCounters(); }}
+            style={{
+              background: '#222',
+              padding: 24,
+              borderRadius: 8,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              minWidth: 280,
+              color: '#fff',
+            }}
+          >
+            <label htmlFor="counter-input">Set counters:</label>
+            <input
+              id="counter-input"
+              type="number"
+              min={0}
+              value={counterInputValue}
+              onChange={e => setCounterInputValue(Number(e.target.value))}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 4,
+                border: '1px solid #555',
+                fontSize: 16,
+                color: '#222',
+              }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowCounterInput(false)} style={{
+                background: '#888',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer'
+              }}>Cancel</button>
+              <button type="submit" style={{
+                background: '#ff9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer'
+              }}>Set</button>
+            </div>
+          </form>
+        </div>
+      )}
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
       <DndContext
         sensors={sensors}
