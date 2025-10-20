@@ -35,10 +35,12 @@ export function App() {
       setGameState(game);
       setMessage(`Game state updated! Players: ${Object.keys(game.players || {}).length}`);
 
-      // Update current player if we're in a game
+      // Update player if server state doesn't match for some reason
       const playerId = vdClient.getId();
-      if (playerId && game.players[playerId]) {
-        setCurrentPlayer(game.players[playerId]);
+      if (playerId && game.players[playerId] && currentPlayer) {
+        if(game.players[playerId] !== currentPlayer) {
+          client?.updateState(currentPlayer)
+        }
       }
     });
 

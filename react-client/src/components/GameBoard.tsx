@@ -19,6 +19,7 @@ import { Settings, settingsStyles } from './Settings';
 import { Card as CardType, Player, Game, CardFactory } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache } from '../lib/scryfallCache';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 
 interface GameBoardProps {
   game: Game;
@@ -584,6 +585,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
 
   }
 
+  // --- Player Tabs ---
+  const allPlayers: Player[] = Object.values(game.players || {});
+
   return (
     <>
       <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
@@ -613,8 +617,37 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
             cardsSelected={handleCardsSelected}
             isDragging={!!activeCard}
           />
-          <div className="gameboard-header">
-            <h3>{game.roomName}</h3>
+          <div className="gameboard-header" style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '0px 4px', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 14 }}>{game.roomName || 'Game Room'}</h3>
+              {/* Player Tabs */}
+              <div style={{ display: 'flex', gap: 4, marginLeft: 16 }}>
+                {allPlayers.map((player) => (
+                  <button
+                    key={player.id || player.name}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 4,
+                      border: 'none',
+                      background: '#333',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      opacity: player.id === localPlayer.id ? 1 : 0.7,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                    // onClick: will add selection logic later
+                  >
+                    {player.name}
+                    {!player.isActive && (
+                      <PowerSettingsNewIcon style={{ fontSize: 18, color: '#ff9800', marginLeft: 4 }} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               className="settings-button"
               onClick={() => setShowSettings(true)}
