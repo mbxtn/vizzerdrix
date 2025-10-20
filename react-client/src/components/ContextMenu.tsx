@@ -19,6 +19,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
     { name: 'Dummy Option 3', action: onClose },
   ];
   const opts = options || defaultOptions;
+
+  // Menu dimensions (should match your style)
+  const MENU_WIDTH = 180; // px
+  const MENU_HEIGHT = opts.length * 40 + 16; // px, estimate 40px per option + padding
+  const PADDING = 8; // px
+
+  // Calculate adjusted position to keep menu in viewport
+  let adjustedX = x;
+  let adjustedY = y;
+  if (typeof window !== 'undefined') {
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    if (x + MENU_WIDTH + PADDING > winW) {
+      adjustedX = x - (MENU_WIDTH + PADDING)
+    }
+    if (y + MENU_HEIGHT + PADDING > winH) {
+      adjustedY = y - (MENU_HEIGHT + PADDING);
+    }
+  }
+
   return (
     <>
       {/* Overlay div to catch outside clicks */}
@@ -37,14 +57,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
       <div
         style={{
           position: 'absolute',
-          top: y,
-          left: x,
+          top: adjustedY,
+          left: adjustedX,
           background: '#222',
           color: '#fff',
           borderRadius: 4,
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
           zIndex: 1000,
           minWidth: 160,
+          width: MENU_WIDTH,
           padding: '8px 0',
         }}
       >

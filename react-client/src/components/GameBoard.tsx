@@ -515,6 +515,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate }: GameBoardProps)
   const setCardZone = (card: CardType, zone: ZoneEnum, location: { x: number; y: number }) => {
     card.zone = zone;
     card.location = location;
+    card.counters = 0;
     card.tapped = false;
     card.flipped = false;
   };
