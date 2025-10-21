@@ -235,43 +235,43 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     let id = card.id;
     let orderIndex = -1;
     switch (zone) {
-          case ZoneEnum.hand: {
-            orderIndex = localPlayer.handOrder.indexOf(id);
-            if (orderIndex > -1) {
-              localPlayer.handOrder.splice(orderIndex, 1);
-            }
-            break;
-          }
-          case ZoneEnum.command: {
-            orderIndex = localPlayer.commandOrder.indexOf(id);
-            if (orderIndex > -1) {
-              localPlayer.commandOrder.splice(orderIndex, 1);
-            }
-            break;
-          }
-          case ZoneEnum.exile: {
-            orderIndex = localPlayer.exileOrder.indexOf(id);
-            if (orderIndex > -1) {
-              localPlayer.exileOrder.splice(orderIndex, 1);
-            }
-            break;
-          }
-          case ZoneEnum.graveyard: {
-            orderIndex = localPlayer.graveyardOrder.indexOf(id);
-            if (orderIndex > -1) {
-              localPlayer.graveyardOrder.splice(orderIndex, 1);
-            }
-            break;
-          }
-          case ZoneEnum.library: {
-            orderIndex = localPlayer.libraryOrder.indexOf(id);
-            if (orderIndex > -1) {
-              localPlayer.libraryOrder.splice(orderIndex, 1);
-            }
-            break;
-          }
-          default:
-            break;
+      case ZoneEnum.hand: {
+        orderIndex = localPlayer.handOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.command: {
+        orderIndex = localPlayer.commandOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.commandOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.exile: {
+        orderIndex = localPlayer.exileOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.exileOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.graveyard: {
+        orderIndex = localPlayer.graveyardOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.graveyardOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.library: {
+        orderIndex = localPlayer.libraryOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.libraryOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      default:
+        break;
     }
   }
 
@@ -502,7 +502,17 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     selectedIds = [card.id, ...selectedIds.filter(id => id !== card.id)];
     console.log("moving a card")
     moveCard(targetZone, selectedIds, event);
-    onPlayerUpdate(localPlayer)
+
+    onPlayerUpdate(localPlayer);
+    setZoneRemountKeys(keys => ({
+      ...keys,
+      hand: keys.hand + 1,
+      library: keys.library + 1,
+      graveyard: keys.graveyard + 1,
+      exile: keys.exile + 1,
+      command: keys.command + 1,
+    }));
+    setShowZoneSearch(false);
     setActiveCard(null);
   };
 
@@ -532,7 +542,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
       case ZoneEnum.library:
         card.zone = ZoneEnum.hand;
         addToOrder(card);
-        break;  
+        break;
       default:
         console.log("Clicked in a zone we don't care about for now")
         return;
@@ -712,37 +722,37 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               </button>
             </div>
           </div>
-        {showZoneSearch && (
-          <ZoneSearchPanel
-            zones={{
-              [ZoneEnum.library]: { zoneType: ZoneEnum.library, cards: libraryCards, isLocal: isLocalPlayer },
-              [ZoneEnum.command]: { zoneType: ZoneEnum.command, cards: commandCards, isLocal: isLocalPlayer },
-              [ZoneEnum.graveyard]: { zoneType: ZoneEnum.graveyard, cards: graveyardCards, isLocal: isLocalPlayer },
-              [ZoneEnum.exile]: { zoneType: ZoneEnum.exile, cards: exileCards, isLocal: isLocalPlayer },
-            }}
-            onDragStart={(card, meta) => {
-              setActiveCard(card);
-              if (card && !localPlayer.selectedCards.includes(card.id)) {
-                localPlayer.selectedCards = [card.id];
-              }
-              // Store drag meta for drag end
-              zoneSearchDragMetaRef.current = meta ?? null;
-            }}
-            initialZone={typeof zoneSearchTarget === 'string' ? (ZoneEnum[zoneSearchTarget as keyof typeof ZoneEnum] ?? ZoneEnum.library) : zoneSearchTarget}
-            onClose={() => {
-              // Force remount of all zones to refresh DnD drop targets
-              setZoneRemountKeys(keys => ({
-                ...keys,
-                hand: keys.hand + 1,
-                library: keys.library + 1,
-                graveyard: keys.graveyard + 1,
-                exile: keys.exile + 1,
-                command: keys.command + 1,
-              }));
-              setShowZoneSearch(false);
-            }}
-          />
-        )}
+          {showZoneSearch && (
+            <ZoneSearchPanel
+              zones={{
+                [ZoneEnum.library]: { zoneType: ZoneEnum.library, cards: libraryCards, isLocal: isLocalPlayer },
+                [ZoneEnum.command]: { zoneType: ZoneEnum.command, cards: commandCards, isLocal: isLocalPlayer },
+                [ZoneEnum.graveyard]: { zoneType: ZoneEnum.graveyard, cards: graveyardCards, isLocal: isLocalPlayer },
+                [ZoneEnum.exile]: { zoneType: ZoneEnum.exile, cards: exileCards, isLocal: isLocalPlayer },
+              }}
+              onDragStart={(card, meta) => {
+                setActiveCard(card);
+                if (card && !localPlayer.selectedCards.includes(card.id)) {
+                  localPlayer.selectedCards = [card.id];
+                }
+                // Store drag meta for drag end
+                zoneSearchDragMetaRef.current = meta ?? null;
+              }}
+              initialZone={typeof zoneSearchTarget === 'string' ? (ZoneEnum[zoneSearchTarget as keyof typeof ZoneEnum] ?? ZoneEnum.library) : zoneSearchTarget}
+              onClose={() => {
+                // Force remount of all zones to refresh DnD drop targets
+                setZoneRemountKeys(keys => ({
+                  ...keys,
+                  hand: keys.hand + 1,
+                  library: keys.library + 1,
+                  graveyard: keys.graveyard + 1,
+                  exile: keys.exile + 1,
+                  command: keys.command + 1,
+                }));
+                setShowZoneSearch(false);
+              }}
+            />
+          )}
           <div className="bottom-zones">
             {/* Calculate max width for hand zone based on card width and window width */}
             <Zone
