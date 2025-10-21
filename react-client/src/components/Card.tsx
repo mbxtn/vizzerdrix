@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import type { Card as CardType } from '@vizzerdrix/shared';
+import { Card as CardType, Zone as ZoneEnum} from '@vizzerdrix/shared';
 import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
 import { GetCardFace } from '../lib/scryfallUtils';
 
@@ -42,8 +42,8 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
   let imgSrc = defaultImage;
   try {
     const scryFallCard = scryfallCache.getById(card.scryfallId);
-    if (scryFallCard) {
-      const face = GetCardFace(scryFallCard, card.flipped)
+   if (scryFallCard) {
+      const face = GetCardFace(scryFallCard, card.flipped, card.zone)
       if(face) imgSrc = face;
     } else {
       if(card.flipped) {

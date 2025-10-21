@@ -1,4 +1,6 @@
 import { ScryfallCard, ScryfallCardFace } from '@scryfall/api-types';
+import {  Zone as ZoneEnum} from '@vizzerdrix/shared';
+
 
 // Helpful function to get the typeline of a card
 export function GetTypeLine(card: ScryfallCard.Any, isFlipped: boolean): string {
@@ -17,7 +19,10 @@ export function GetTypeLine(card: ScryfallCard.Any, isFlipped: boolean): string 
 }
 
 // Helpful function to get the card image url object
-export function GetCardFace(card: ScryfallCard.Any, isFlipped: boolean, cardBack = "/cardback.png") : string | undefined {
+export function GetCardFace(card: ScryfallCard.Any, isFlipped: boolean, zone: ZoneEnum, cardBack = "/cardback.png",) : string | undefined {
+    if(zone === ZoneEnum.library) {
+        return cardBack;
+    }
     if("image_uris" in card){
         if(isFlipped) {
             return cardBack;

@@ -787,7 +787,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               cards={libraryCards}
               order={localPlayer.libraryOrder}
               activeCardId={activeCard?.id}
-              displayMode="stack"
+              displayMode="top-card"
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
@@ -884,7 +884,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
         // Don't show magnifier if the hovered card is under the magnifier area
         const hoverCard = localPlayer.cards[currentTarget.id];
         const scryfallCard = ScryfallCache.getInstance().getById(hoverCard.scryfallId);
-        const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped) : '';
+        const imgSrc = scryfallCard ? GetCardFace(scryfallCard, hoverCard.flipped, hoverCard.zone) : '';
         // Magnifier area
         const magnifierTop = 16;
         const magnifierRight = 16;
