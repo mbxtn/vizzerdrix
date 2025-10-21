@@ -254,9 +254,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
         { name: 'Move all non-land cards to exile', action: moveAllToExile },
       ];
     } else if (contextTarget.type === 'zone') {
-      opts = [
-        { name: `${contextTarget.id}`, action: onClose },
-      ];
+      // Only show for library, command, graveyard, exile
+      if (Object.values(ZoneEnum).includes(contextTarget.id as unknown as ZoneEnum)) {
+        opts = [
+          {
+            name: `Search ${contextTarget.id.charAt(0).toUpperCase() + contextTarget.id.slice(1)}`, action: () => {
+              if (window && window.dispatchEvent) {
+                // Ensure we pass a ZoneEnum value, not a string
+                let zoneValue = Object.values(ZoneEnum).find(z => z === contextTarget.id) ?? ZoneEnum.library;
+                window.dispatchEvent(new CustomEvent('openZoneSearch', { detail: { zone: zoneValue } }));
+              }
+              onClose();
+            }
+          },
+        ];
+      } else {
+        opts = [
+          { name: `${contextTarget.id}`, action: onClose },
+        ];
+      }
     }
   }
 

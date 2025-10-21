@@ -16,6 +16,7 @@ import { Battlefield, battlefieldStyles } from './Battlefield';
 import { Zone, zoneStyles } from './Zone';
 import { Card, cardStyles } from './Card';
 import { Settings, settingsStyles } from './Settings';
+import { ZoneSearchPanel, zoneSearchPanelStyles } from './ZoneSearchPanel';
 import { Card as CardType, Player, Game, CardFactory } from '@vizzerdrix/shared';
 import { Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache } from '../lib/scryfallCache';
@@ -48,20 +49,23 @@ export const KeyNames = {
 } as const;
 
 export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: GameBoardProps) {
-  // State for counter input dialog
-  const [showCounterInput, setShowCounterInput] = useState(false);
-  const [counterInputValue, setCounterInputValue] = useState(0);
-  const [counterTargetCardId, setCounterTargetCardId] = useState<string | null>(null);
-
-  // Handler to open counter input dialog
-  const openCounterInput = (cardId: string) => {
-    setCounterTargetCardId(cardId);
-    setCounterInputValue(localPlayer.cards[cardId]?.counters ?? 0);
-    setShowCounterInput(true);
-  };
+  // Store drag meta to check origin on drag end
+  const zoneSearchDragMetaRef = useRef<{ fromZoneSearchPanel?: boolean } | null>(null);
+  const [showZoneSearch, setShowZoneSearch] = useState(false);
+  const [zoneSearchTarget, setZoneSearchTarget] = useState<ZoneEnum>(ZoneEnum.library);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Listen for openZoneSearch event from context menu
+  React.useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      setZoneSearchTarget(e.detail.zone as ZoneEnum);
+      setShowZoneSearch(true);
+    };
+    window.addEventListener('openZoneSearch', handler as EventListener);
+    return () => window.removeEventListener('openZoneSearch', handler as EventListener);
+  }, []);
   // Context menu handler
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -231,38 +235,43 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     let id = card.id;
     let orderIndex = -1;
     switch (zone) {
-      case ZoneEnum.hand:
-        orderIndex = localPlayer.handOrder.indexOf(id);
-        if (orderIndex > -1) {
-          localPlayer.handOrder.splice(orderIndex, 1);
-        }
-        break;
-      case ZoneEnum.command:
-        orderIndex = localPlayer.commandOrder.indexOf(id);
-        if (orderIndex > -1) {
-          localPlayer.commandOrder.splice(orderIndex, 1);
-        }
-        break;
-      case ZoneEnum.exile:
-        orderIndex = localPlayer.exileOrder.indexOf(id);
-        if (orderIndex > -1) {
-          localPlayer.exileOrder.splice(orderIndex, 1);
-        }
-        break;
-      case ZoneEnum.graveyard:
-        orderIndex = localPlayer.graveyardOrder.indexOf(id);
-        if (orderIndex > -1) {
-          localPlayer.graveyardOrder.splice(orderIndex, 1);
-        }
-        break;
-      case ZoneEnum.library:
-        orderIndex = localPlayer.libraryOrder.indexOf(id);
-        if (orderIndex > -1) {
-          localPlayer.libraryOrder.splice(orderIndex, 1);
-        }
-        break;
-      default:
-        break;
+          case ZoneEnum.hand: {
+            orderIndex = localPlayer.handOrder.indexOf(id);
+            if (orderIndex > -1) {
+              localPlayer.handOrder.splice(orderIndex, 1);
+            }
+            break;
+          }
+          case ZoneEnum.command: {
+            orderIndex = localPlayer.commandOrder.indexOf(id);
+            if (orderIndex > -1) {
+              localPlayer.commandOrder.splice(orderIndex, 1);
+            }
+            break;
+          }
+          case ZoneEnum.exile: {
+            orderIndex = localPlayer.exileOrder.indexOf(id);
+            if (orderIndex > -1) {
+              localPlayer.exileOrder.splice(orderIndex, 1);
+            }
+            break;
+          }
+          case ZoneEnum.graveyard: {
+            orderIndex = localPlayer.graveyardOrder.indexOf(id);
+            if (orderIndex > -1) {
+              localPlayer.graveyardOrder.splice(orderIndex, 1);
+            }
+            break;
+          }
+          case ZoneEnum.library: {
+            orderIndex = localPlayer.libraryOrder.indexOf(id);
+            if (orderIndex > -1) {
+              localPlayer.libraryOrder.splice(orderIndex, 1);
+            }
+            break;
+          }
+          default:
+            break;
     }
   }
 
@@ -472,6 +481,12 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
+    // Always close the search panel if drag originated from it
+    if (zoneSearchDragMetaRef.current?.fromZoneSearchPanel) {
+      setShowZoneSearch(false);
+    }
+    zoneSearchDragMetaRef.current = null;
+
     if (!over) return;
 
     const card = active.data.current?.card as CardType;
@@ -489,7 +504,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     moveCard(targetZone, selectedIds, event);
     onPlayerUpdate(localPlayer)
     setActiveCard(null);
-
   };
 
   const handleCardClick = (card: CardType) => {
@@ -603,10 +617,19 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
     : Object.values(selectedPlayer.cards) as CardType[];
   const selectedBattlefieldCards = selectedAllCards.filter((card: CardType) => card.zone === ZoneEnum.battlefield);
 
+  // Used to force remount of zones after drag from search panel
+  const [zoneRemountKeys, setZoneRemountKeys] = useState<{ [zoneId: string]: number }>({
+    hand: 0,
+    library: 0,
+    graveyard: 0,
+    exile: 0,
+    command: 0,
+  });
+
   // --- Render ---
   return (
     <>
-      <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles}</style>
+      <style>{generateCSSVariables(uiConfig) + cardStyles + battlefieldStyles + zoneStyles + settingsStyles + gameBoardStyles + zoneSearchPanelStyles}</style>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -672,17 +695,58 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                 ))}
               </div>
             </div>
-            <button
-              className="settings-button"
-              onClick={() => setShowSettings(true)}
-              title="UI Settings"
-            >
-              ⚙️
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="settings-button"
+                onClick={() => setShowSettings(true)}
+                title="UI Settings"
+              >
+                ⚙️
+              </button>
+              <button
+                className="settings-button"
+                onClick={() => setShowZoneSearch(s => !s)}
+                title="Search Zones"
+              >
+                🔍
+              </button>
+            </div>
           </div>
+        {showZoneSearch && (
+          <ZoneSearchPanel
+            zones={{
+              [ZoneEnum.library]: { zoneType: ZoneEnum.library, cards: libraryCards, isLocal: isLocalPlayer },
+              [ZoneEnum.command]: { zoneType: ZoneEnum.command, cards: commandCards, isLocal: isLocalPlayer },
+              [ZoneEnum.graveyard]: { zoneType: ZoneEnum.graveyard, cards: graveyardCards, isLocal: isLocalPlayer },
+              [ZoneEnum.exile]: { zoneType: ZoneEnum.exile, cards: exileCards, isLocal: isLocalPlayer },
+            }}
+            onDragStart={(card, meta) => {
+              setActiveCard(card);
+              if (card && !localPlayer.selectedCards.includes(card.id)) {
+                localPlayer.selectedCards = [card.id];
+              }
+              // Store drag meta for drag end
+              zoneSearchDragMetaRef.current = meta ?? null;
+            }}
+            initialZone={typeof zoneSearchTarget === 'string' ? (ZoneEnum[zoneSearchTarget as keyof typeof ZoneEnum] ?? ZoneEnum.library) : zoneSearchTarget}
+            onClose={() => {
+              // Force remount of all zones to refresh DnD drop targets
+              setZoneRemountKeys(keys => ({
+                ...keys,
+                hand: keys.hand + 1,
+                library: keys.library + 1,
+                graveyard: keys.graveyard + 1,
+                exile: keys.exile + 1,
+                command: keys.command + 1,
+              }));
+              setShowZoneSearch(false);
+            }}
+          />
+        )}
           <div className="bottom-zones">
             {/* Calculate max width for hand zone based on card width and window width */}
             <Zone
+              key={`hand-${zoneRemountKeys.hand}`}
               zoneName="Hand"
               zoneId="hand"
               zoneType={ZoneEnum.hand}
@@ -702,8 +766,11 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
                 overflow: 'hidden',
               }}
               isLocal={true}
+              autoFitHand={uiConfig.card.autoFitHand}
+              cardWidth={uiConfig.card.width}
             />
             <Zone
+              key={`library-${zoneRemountKeys.library}`}
               zoneName="Library"
               zoneId="library"
               zoneType={ZoneEnum.library}
@@ -715,9 +782,9 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
               isLocal={selectedPlayer.id === localPlayer.id}
-
             />
             <Zone
+              key={`graveyard-${zoneRemountKeys.graveyard}`}
               zoneName="Graveyard"
               zoneId="graveyard"
               zoneType={ZoneEnum.graveyard}
@@ -731,6 +798,7 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               isLocal={selectedPlayer.id === localPlayer.id}
             />
             <Zone
+              key={`exile-${zoneRemountKeys.exile}`}
               zoneName="Exile"
               zoneId="exile"
               zoneType={ZoneEnum.exile}
@@ -741,10 +809,10 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardClick={handleCardClick}
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
-              isLocal={selectedPlayer.id === localPlayer.id}
-
+              isLocal={true}
             />
             <Zone
+              key={`command-${zoneRemountKeys.command}`}
               zoneName="Cmd"
               zoneId="command"
               zoneType={ZoneEnum.command}
@@ -756,7 +824,6 @@ export function GameBoard({ game, localPlayer, onPlayerUpdate, cardFactory }: Ga
               onCardDoubleClick={handleCardDoubleClick}
               onZoneClick={handleZoneClick}
               isLocal={selectedPlayer.id === localPlayer.id}
-
             />
           </div>
 

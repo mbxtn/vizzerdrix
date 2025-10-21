@@ -21,24 +21,26 @@ interface ZoneProps {
   isDragging?: boolean;
   isLocal: boolean;
   autoFitHand?: boolean;
+  cardWidth?: number;
 }
 
-export function Zone({ 
-  zoneName, 
+export function Zone({
+  zoneName,
   zoneId,
-  zoneType, 
-  cards, 
+  zoneType,
+  cards,
   order: propOrder,
-  activeCardId, 
+  activeCardId,
   displayMode = 'stack',
-  onCardClick, 
+  onCardClick,
   onCardDoubleClick,
-  onZoneClick, 
+  onZoneClick,
   style,
   isCardSelected,
   isDragging = false,
   isLocal = false,
   autoFitHand = false,
+  cardWidth = 63,
 }: ZoneProps) {
   // Local order array for this zone
   // Use order from props if provided, else default to cards order
@@ -51,9 +53,9 @@ export function Zone({
     },
   });
 
-  const handleClick = (e : React.MouseEvent<HTMLDivElement>) => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    if(onZoneClick) onZoneClick();
+    if (onZoneClick) onZoneClick();
   }
 
   const renderContent = () => {
@@ -78,17 +80,17 @@ export function Zone({
           ? { width: 'var(--card-width)', height: 'var(--card-height)', objectFit: 'cover' as const, borderRadius: '3px' }
           : { width: 'var(--stack-card-width)', height: 'var(--stack-card-height)', objectFit: 'cover' as const, borderRadius: '3px' };
         return (
-          <div 
+          <div
             ref={setDragRef}
             className="card-stack"
-            style={isLibrary ? { ...stackStyle, width: 'var(--card-width)', height: 'var(--card-height)' } : { ...stackStyle } }
+            style={isLibrary ? { ...stackStyle, width: 'var(--card-width)', height: 'var(--card-height)' } : { ...stackStyle }}
             onClick={() => stackTopCard && onCardClick?.(stackTopCard)}
             onDoubleClick={() => stackTopCard && onCardDoubleClick?.(stackTopCard)}
             {...listeners}
             {...attributes}
           >
             {isLibrary && orderedCards.length === 0 ? (
-              <div/>
+              <div />
             ) : (
               <div className="card-back" style={cardBackStyle}>
                 <img src="/cardback.png" alt="Card Back" style={cardBackImgStyle} />
@@ -97,7 +99,7 @@ export function Zone({
           </div>
         );
       }
-      
+
       case 'top-card': {
         // Show the most recent card (for graveyard/exile)
         const orderedCards = order.map(id => cards.find(card => card.id === id)).filter(Boolean) as CardType[];
@@ -116,7 +118,7 @@ export function Zone({
           <div className="empty-zone">Empty</div>
         );
       }
-      
+
       case 'all-cards': {
         // Show all cards, hide selected if dragging
         const orderedCards = order
@@ -124,31 +126,17 @@ export function Zone({
           .map(id => cards.find(card => card.id === id))
           .filter(Boolean) as CardType[];
 
-        // Auto-fit hand logic (overlap to fit)
-        let cardSpacing = 2;
-        let cardWidth = 63;
-        if (zoneType === ZoneEnum.hand && typeof window !== 'undefined') {
-          // Try to get CSS variable for card width
-          const root = document.documentElement;
-          const cssCardWidth = root.style.getPropertyValue('--card-width');
-          cardWidth = cssCardWidth ? parseFloat(cssCardWidth) : 63;
-        }
         // If autoFitHand is enabled, calculate spacing
         let overlap = 0;
-        if (zoneType === ZoneEnum.hand && isLocal && window && orderedCards.length > 0) {
-          // Try to get autoFitHand from the config
-          const root = document.documentElement;
-          const autoFitHandVar = root.style.getPropertyValue('--auto-fit-hand');
-          autoFitHand = autoFitHandVar === 'true' || autoFitHand;
+        // Try to get autoFitHand from the config
+        console.log(`hand width? ${autoFitHand}`)
+        if (zoneType === ZoneEnum.hand && isLocal && window && orderedCards.length > 0 && autoFitHand) {
           const handZone = document.querySelector('.zone.hand .zone-cards');
           const handWidth = handZone ? handZone.clientWidth : window.innerWidth * 0.5;
-          if (autoFitHand && handWidth > 0) {
-            // Calculate overlap so all cards fit
-            const totalCardWidth = orderedCards.length * cardWidth;
-            if (totalCardWidth > handWidth) {
-              overlap = (totalCardWidth - handWidth) / (orderedCards.length - 1);
-              cardSpacing = Math.max(2, cardWidth - overlap);
-            }
+          let totalCardsWidth = (cardWidth + 6) * orderedCards.length;
+          console.log(`hand width ${handWidth}, card width ${cardWidth}`)
+          if(totalCardsWidth > handWidth) {
+             overlap = Math.ceil((totalCardsWidth - handWidth) / (orderedCards.length - 1));
           }
         }
         return (
@@ -156,29 +144,29 @@ export function Zone({
             {cards.length === 0
               ? null
               : orderedCards.map((card, idx) => (
-                  <div
-                    key={card.id}
-                    className="zone-card"
-                    style={zoneType === ZoneEnum.hand && autoFitHand ? {
-                      marginLeft: idx === 0 ? 0 : `${cardSpacing}px`,
-                      zIndex: idx,
-                    } : {}}
-                  >
-                    <Card
-                      card={card}
-                      isDragging={isDragging}
-                      handleSingleClick={() => onCardClick?.(card)}
-                      handleDoubleClick={() => onCardDoubleClick?.(card)}
-                      isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
-                      isLocal={isLocal}
-                    />
-                  </div>
-                ))
+                <div
+                  key={card.id}
+                  className="zone-card"
+                  style={zoneType === ZoneEnum.hand && autoFitHand ? {
+                    marginLeft: idx === 0 ? 0 : `${-overlap}px`,
+                    zIndex: idx,
+                  } : {}}
+                >
+                  <Card
+                    card={card}
+                    isDragging={isDragging}
+                    handleSingleClick={() => onCardClick?.(card)}
+                    handleDoubleClick={() => onCardDoubleClick?.(card)}
+                    isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
+                    isLocal={isLocal}
+                  />
+                </div>
+              ))
             }
           </div>
         );
       }
-      
+
       default:
         return null;
     }
@@ -195,7 +183,7 @@ export function Zone({
         <h4>{zoneName}</h4>
         <span className="card-count">{cards.length}</span>
       </div>
-      
+
       <div className="zone-content">
         {renderContent()}
       </div>
@@ -304,7 +292,6 @@ export const zoneStyles = `
   .zone.hand .zone-cards::-webkit-scrollbar-thumb {
     background: #888;
     border-radius: 4px;
-  }
   }
 
   .zone-card {

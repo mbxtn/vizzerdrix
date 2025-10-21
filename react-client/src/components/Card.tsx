@@ -13,10 +13,11 @@ interface CardProps {
   handleCounterClicked?: () => void;
   isSelected?: boolean;
   isLocal?: boolean;
+  idPrefix?: string;
 }
 
 
-export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked, isSelected, isLocal }: CardProps) {
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked, isSelected, isLocal, idPrefix = ""}: CardProps) {
   let attributes: Record<string, any> = {};
   let listeners: Record<string, any> = {};
   let setNodeRef = (_el: HTMLElement | null) => {};
@@ -97,7 +98,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
   return (
     <div
       ref={setNodeRef}
-      id={`card-${card.id}`}
+      id={`${idPrefix}card-${card.id}`}
       style={mergedStyle}
       {...listeners}
       {...attributes}
