@@ -112,6 +112,7 @@ export function Zone({
               handleSingleClick={() => onCardClick?.(topCard)}
               handleDoubleClick={() => onCardDoubleClick?.(topCard)}
               isLocal={isLocal}
+              hidden={zoneType === ZoneEnum.library}
             />
           </div>
         ) : (

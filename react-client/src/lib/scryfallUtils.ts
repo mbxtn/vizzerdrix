@@ -20,9 +20,6 @@ export function GetTypeLine(card: ScryfallCard.Any, isFlipped: boolean): string 
 
 // Helpful function to get the card image url object
 export function GetCardFace(card: ScryfallCard.Any, isFlipped: boolean, zone: ZoneEnum, cardBack = "/cardback.png",) : string | undefined {
-    if(zone === ZoneEnum.library) {
-        return cardBack;
-    }
     if("image_uris" in card){
         if(isFlipped) {
             return cardBack;

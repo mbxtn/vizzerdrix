@@ -237,7 +237,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
       { name: 'Remove counter from Cards', action: removeCountersFromCards },
     ];
   } else if (contextTarget) {
-    if (contextTarget.type === 'card') {
+    if (contextTarget.type === 'card' && localPlayer.cards[contextTarget.id] &&  [ZoneEnum.battlefield, ZoneEnum.hand].includes(localPlayer.cards[contextTarget.id].zone) ) {
+      console.log(`context menu for card in ${ZoneEnum[localPlayer.cards[contextTarget.id].zone]}`)
       opts = [
         { name: 'Add counter to Card', action: addCountersToCards },
         { name: 'Remove counter from Card', action: removeCountersFromCards },
@@ -253,15 +254,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
         { name: 'Move all non-land cards to graveyard', action: moveAllToGraveyard },
         { name: 'Move all non-land cards to exile', action: moveAllToExile },
       ];
-    } else if (contextTarget.type === 'zone') {
+    } else if (contextTarget.type === 'zone' || localPlayer.cards[contextTarget.id] &&  [ZoneEnum.library, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.command].includes(localPlayer.cards[contextTarget.id].zone)) {
+      let target = localPlayer.cards[contextTarget.id] ? ZoneEnum[localPlayer.cards[contextTarget.id].zone] : contextTarget.id;
       // Only show for library, command, graveyard, exile
-      if (Object.values(ZoneEnum).includes(contextTarget.id as unknown as ZoneEnum)) {
+      if (Object.values(ZoneEnum).includes(target as unknown as ZoneEnum)) {
         opts = [
           {
-            name: `Search ${contextTarget.id.charAt(0).toUpperCase() + contextTarget.id.slice(1)}`, action: () => {
+            name: `Search ${target.charAt(0).toUpperCase() + target.slice(1)}`, action: () => {
               if (window && window.dispatchEvent) {
                 // Ensure we pass a ZoneEnum value, not a string
-                let zoneValue = Object.values(ZoneEnum).find(z => z === contextTarget.id) ?? ZoneEnum.library;
+                let zoneValue = Object.values(ZoneEnum).find(z => z === target) ?? ZoneEnum.library;
                 window.dispatchEvent(new CustomEvent('openZoneSearch', { detail: { zone: zoneValue } }));
               }
               onClose();

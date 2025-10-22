@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Card as CardType, Zone as ZoneEnum} from '@vizzerdrix/shared';
+import { Card as CardType, Zone as ZoneEnum } from '@vizzerdrix/shared';
 import { ScryfallCache, scryfallCache } from '../lib/scryfallCache';
 import { GetCardFace } from '../lib/scryfallUtils';
 
@@ -14,13 +14,14 @@ interface CardProps {
   isSelected?: boolean;
   isLocal?: boolean;
   idPrefix?: string;
+  hidden: boolean;
 }
 
 
-export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked, isSelected, isLocal, idPrefix = ""}: CardProps) {
+export function Card({ card, position, isDragging, handleSingleClick, handleDoubleClick, handleCounterClicked, isSelected, isLocal, idPrefix = "", hidden = false }: CardProps) {
   let attributes: Record<string, any> = {};
   let listeners: Record<string, any> = {};
-  let setNodeRef = (_el: HTMLElement | null) => {};
+  let setNodeRef = (_el: HTMLElement | null) => { };
   if (isLocal) {
     const draggable = useDraggable({
       id: card.id,
@@ -33,30 +34,36 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
     listeners = draggable.listeners ?? {};
     setNodeRef = draggable.setNodeRef;
   }
-  
+
   // Card dimensions must be available for fallback SVG
   const cardWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) || 63;
   const cardHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 88;
-  // Scryfall image lookup logic
-  const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
-  let imgSrc = defaultImage;
-  try {
-    const scryFallCard = scryfallCache.getById(card.scryfallId);
-   if (scryFallCard) {
-      const face = GetCardFace(scryFallCard, card.flipped, card.zone)
-      if(face) imgSrc = face;
-    } else {
-      if(card.flipped) {
-        imgSrc = "/cardback.png";
+
+  const getFace = (): string => {
+    const defaultImage = "https://cards.scryfall.io/large/front/b/2/b2d9d5ca-7e15-437a-bdfc-5972b42148fe.jpg?1759144812";
+    let imgSrc = defaultImage;
+    if (hidden) return "/cardback.png"
+    try {
+      const scryFallCard = scryfallCache.getById(card.scryfallId);
+      if (scryFallCard) {
+        const face = GetCardFace(scryFallCard, card.flipped, card.zone)
+        if (face) imgSrc = face;
       } else {
-        // Fallback: SVG off-white image with card name
-        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${cardWidth}' height='${cardHeight}'><rect width='100%' height='100%' fill='#f8f8f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='#333' font-family='sans-serif'>${card.cardName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text></svg>`;
-        imgSrc = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+        if (card.flipped) {
+          imgSrc = "/cardback.png";
+        } else {
+          // Fallback: SVG off-white image with card name
+          const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${cardWidth}' height='${cardHeight}'><rect width='100%' height='100%' fill='#f8f8f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='#333' font-family='sans-serif'>${card.cardName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text></svg>`;
+          imgSrc = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+        }
       }
+    } catch (e) {
+      // fallback to default image
     }
-  } catch (e) {
-    // fallback to default image
+    return imgSrc
   }
+  // Scryfall image lookup logic
+  let imgSrc = getFace()
   const isTapped = card.tapped;
   const mergedStyle: React.CSSProperties = {
     position: position ? 'absolute' : 'relative',
@@ -104,7 +111,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
       {...attributes}
       className={`card ${isTapped ? 'tapped' : ''} ${isDragging && isSelected ? 'dragging' : ''}`}
       onClick={handleClick}
-      onMouseDown={(e: React.MouseEvent<HTMLDivElement>)=>{
+      onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation()
       }}
     >
@@ -122,7 +129,7 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
       >
         {/* Orange dogear triangle for temporary cards */}
         {card.isTemporary && (
-          <div className="card-dogear"/>
+          <div className="card-dogear" />
         )}
         <img
           src={imgSrc}
@@ -137,16 +144,16 @@ export function Card({ card, position, isDragging, handleSingleClick, handleDoub
         />
         {card.counters !== 0 && (
           <div className="counters"
-          onClick = {(e : React.MouseEvent<HTMLDivElement>) => {
-            e.stopPropagation();
-            if(handleCounterClicked) handleCounterClicked();
-          }}
-          style={{
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+              e.stopPropagation();
+              if (handleCounterClicked) handleCounterClicked();
+            }}
+            style={{
               bottom: !isTapped ? '2px' : undefined,
               left: '2px',
               top: isTapped ? '2px' : undefined,
               transform: isTapped ? 'rotate(90deg)' : undefined,
-          }}>{card.counters}</div>
+            }}>{card.counters}</div>
         )}
       </div>
     </div>
