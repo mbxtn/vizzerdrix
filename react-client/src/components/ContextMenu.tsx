@@ -85,12 +85,105 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     card.flipped = false;
   };
 
+  const removeFromOrder = (card: CardType) => {
+    console.log(`removing from zone ${card.zone}`)
+    let zone = card.zone;
+    let id = card.id;
+    let orderIndex = -1;
+    switch (zone) {
+      case ZoneEnum.hand: {
+        orderIndex = localPlayer.handOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.handOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.command: {
+        orderIndex = localPlayer.commandOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.commandOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.exile: {
+        orderIndex = localPlayer.exileOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.exileOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.graveyard: {
+        orderIndex = localPlayer.graveyardOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.graveyardOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      case ZoneEnum.library: {
+        orderIndex = localPlayer.libraryOrder.indexOf(id);
+        if (orderIndex > -1) {
+          localPlayer.libraryOrder.splice(orderIndex, 1);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  const addToOrder = (card: CardType, index = -1) => {
+    console.log(`adding to zone ${card.zone}`)
+    let zone = card.zone;
+    let id = card.id;
+    switch (zone) {
+      case ZoneEnum.hand:
+        if (index > -1) {
+          localPlayer.handOrder.splice(index, 0, id);
+        } else {
+          localPlayer.handOrder.push(id)
+        }
+        break;
+      case ZoneEnum.command:
+        if (index > -1) {
+          localPlayer.commandOrder.splice(index, 0, id);
+        } else {
+          localPlayer.commandOrder.push(id);
+        }
+        break;
+      case ZoneEnum.exile:
+        if (index > -1) {
+          localPlayer.exileOrder.splice(index, 0, id);
+        } else {
+          localPlayer.exileOrder.push(id);
+        }
+        break;
+      case ZoneEnum.graveyard:
+        if (index > -1) {
+          localPlayer.graveyardOrder.splice(index, 0, id);
+        } else {
+          localPlayer.graveyardOrder.push(id);
+        }
+        break;
+      case ZoneEnum.library:
+        if (index > -1) {
+          localPlayer.libraryOrder.splice(index, 0, id);
+        } else {
+          localPlayer.libraryOrder.push(id);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+
   const moveToHand = () => {
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.hand, { x: localPlayer.handOrder.length, y: 0 });
-        if (!localPlayer.handOrder.includes(id)) localPlayer.handOrder.push(id);
+        addToOrder(card);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -100,8 +193,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.graveyard, { x: 0, y: 0 });
-        if (!localPlayer.graveyardOrder.includes(id)) localPlayer.graveyardOrder.push(id);
+        addToOrder(card);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -111,8 +205,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.exile, { x: 0, y: 0 });
-        if (!localPlayer.exileOrder.includes(id)) localPlayer.exileOrder.push(id);
+        addToOrder(card);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -122,8 +217,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.library, { x: 0, y: 0 });
-        // Add to order logic if needed
+        addToOrder(card);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -133,8 +229,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
     selectedCardIds.forEach(id => {
       const card = localPlayer.cards[id];
       if (card) {
+        removeFromOrder(card);
         setCardZone(card, ZoneEnum.library, { x: localPlayer.libraryOrder.length, y: 0 });
-        // Add to order logic if needed
+        addToOrder(card, 0);
       }
     });
     onPlayerUpdate(localPlayer);
@@ -237,7 +334,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
       { name: 'Remove counter from Cards', action: removeCountersFromCards },
     ];
   } else if (contextTarget) {
-    if (contextTarget.type === 'card' && localPlayer.cards[contextTarget.id] &&  [ZoneEnum.battlefield, ZoneEnum.hand].includes(localPlayer.cards[contextTarget.id].zone) ) {
+    if (contextTarget.type === 'card' && localPlayer.cards[contextTarget.id] && [ZoneEnum.battlefield, ZoneEnum.hand].includes(localPlayer.cards[contextTarget.id].zone)) {
       console.log(`context menu for card in ${ZoneEnum[localPlayer.cards[contextTarget.id].zone]}`)
       opts = [
         { name: 'Add counter to Card', action: addCountersToCards },
@@ -254,7 +351,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, localPl
         { name: 'Move all non-land cards to graveyard', action: moveAllToGraveyard },
         { name: 'Move all non-land cards to exile', action: moveAllToExile },
       ];
-    } else if (contextTarget.type === 'zone' || localPlayer.cards[contextTarget.id] &&  [ZoneEnum.library, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.command].includes(localPlayer.cards[contextTarget.id].zone)) {
+    } else if (contextTarget.type === 'zone' || localPlayer.cards[contextTarget.id] && [ZoneEnum.library, ZoneEnum.exile, ZoneEnum.graveyard, ZoneEnum.command].includes(localPlayer.cards[contextTarget.id].zone)) {
       let target = localPlayer.cards[contextTarget.id] ? ZoneEnum[localPlayer.cards[contextTarget.id].zone] : contextTarget.id;
       // Only show for library, command, graveyard, exile
       if (Object.values(ZoneEnum).includes(target as unknown as ZoneEnum)) {

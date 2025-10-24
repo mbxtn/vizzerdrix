@@ -5,7 +5,6 @@ import { Card } from './Card';
 
 interface ZoneSearchPanelProps {
   zones: Record<string, { zoneType: ZoneEnum; cards: CardType[]; isLocal: boolean }>;
-  onDragStart?: (card: CardType, meta?: { fromZoneSearchPanel?: boolean }) => void;
   initialZone?: ZoneEnum;
   onClose?: () => void;
 }
@@ -18,7 +17,7 @@ const zoneOptions = [
 ];
 
 export function ZoneSearchPanel(props: ZoneSearchPanelProps) {
-  const { zones, onDragStart, initialZone, onClose } = props;
+  const { zones, initialZone, onClose } = props;
   const [selectedZone, setSelectedZone] = useState<ZoneEnum>(initialZone ?? ZoneEnum.library);
 
   // Update selectedZone when initialZone changes or when panel is mounted
@@ -60,7 +59,7 @@ export function ZoneSearchPanel(props: ZoneSearchPanelProps) {
           <div className="empty-zone">No cards found.</div>
         ) : (
           filteredCards.map(card => (
-              <Card card={card} isLocal={zones[selectedZone].isLocal} idPrefix='search-' />
+              <Card card={card} isLocal={zones[selectedZone].isLocal} idPrefix='search-' hidden={false}/>
           ))
         )}
       </div>

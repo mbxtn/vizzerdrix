@@ -112,6 +112,7 @@ export function Battlefield({cards, player, activeCardId, onCardClick, onCardDou
               handleCounterClicked={() => onCardCounterClick?.(card)}
               isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
               isLocal={isLocalPlayer}
+              hidden={false}
             />
           ))}
         {selectionBox && (

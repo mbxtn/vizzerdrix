@@ -160,6 +160,7 @@ export function Zone({
                     handleDoubleClick={() => onCardDoubleClick?.(card)}
                     isSelected={typeof isCardSelected === 'function' ? isCardSelected(card.id) : false}
                     isLocal={isLocal}
+                    hidden={false}
                   />
                 </div>
               ))
